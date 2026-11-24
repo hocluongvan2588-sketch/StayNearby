@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Local runtime & embedded DB data
+.data/
+public/uploads/
+.env
+.env.local
+.env.*.local
+
+# Logs & test outputs
+npm-debug.log*
+coverage/
+playwright-report/
+test-results/
+
+# OS files
+.DS_Store
