@@ -36,10 +36,33 @@ export const CANCELLATION_POLICIES: Record<
 };
 
 export function getAppConfig() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() || '';
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || '';
-  const databaseUrl = process.env.DATABASE_URL?.trim() || '';
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    process.env.SUPABASE_URL?.trim() ||
+    '';
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+    process.env.SUPABASE_ANON_KEY?.trim() ||
+    '';
+  const supabaseServiceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.SUPABASE_SECRET_KEY?.trim() ||
+    '';
+  const databaseUrl =
+    process.env.DATABASE_URL?.trim() ||
+    process.env.POSTGRES_URL?.trim() ||
+    process.env.POSTGRES_URL_NON_POOLING?.trim() ||
+    process.env.POSTGRES_PRISMA_URL?.trim() ||
+    '';
+
+  const isVercel = process.env.VERCEL === '1';
+  const rawPgliteDir = process.env.PGLITE_DATA_DIR?.trim() || '';
+  const pgliteDataDir =
+    rawPgliteDir && !(isVercel && rawPgliteDir.startsWith('.data'))
+      ? rawPgliteDir
+      : isVercel
+        ? '/tmp/staynearby-pglite'
+        : '.data/staynearby-pglite';
 
   const timeoutHours = Number.parseInt(
     process.env.BOOKING_RESPONSE_TIMEOUT_HOURS || '24',
@@ -50,7 +73,7 @@ export function getAppConfig() {
     brandName: process.env.NEXT_PUBLIC_BRAND_NAME?.trim() || 'WorkingHome',
     demoMode: (process.env.NEXT_PUBLIC_DEMO_MODE ?? 'true') !== 'false',
     databaseUrl,
-    pgliteDataDir: process.env.PGLITE_DATA_DIR?.trim() || '.data/staynearby-pglite',
+    pgliteDataDir,
     supabase: {
       url: supabaseUrl,
       anonKey: supabaseAnonKey,

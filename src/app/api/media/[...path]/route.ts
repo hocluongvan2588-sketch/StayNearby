@@ -58,13 +58,13 @@ export async function GET(
       }
     }
 
-    if (!fs.existsSync(filePath)) {
+    if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) {
       throw new AppError('NOT_FOUND', 'Image binary not found.');
     }
 
     const ext = storagePath.split('.').pop()?.toLowerCase() ?? 'jpg';
     const contentType = record.mime_type || EXT_TO_MIME[ext] || 'image/jpeg';
-    const data = fs.readFileSync(filePath);
+    const data = fs.readFileSync(/*turbopackIgnore: true*/ filePath);
 
     return new NextResponse(new Uint8Array(data), {
       status: 200,

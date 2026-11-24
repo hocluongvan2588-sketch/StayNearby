@@ -1,6 +1,6 @@
 import { hashPassword } from '@/lib/auth/password';
 import { addDaysIso, getTodayIsoInTimezone } from '@/lib/format';
-import { withTransaction } from './index';
+import { markDbInitialized, runWithDbBootstrap, withTransaction } from './index';
 import { computeQuoteHash } from '@/modules/pricing';
 import { CANCELLATION_POLICIES } from '@/lib/config';
 
@@ -89,6 +89,7 @@ export const DEMO_ACCOUNTS = {
 } as const;
 
 export async function runSeed(): Promise<void> {
+  return runWithDbBootstrap(async () => {
   const todayVn = getTodayIsoInTimezone('Asia/Ho_Chi_Minh');
 
   const guestHash = hashPassword(DEMO_ACCOUNTS.guest.password);
@@ -1755,5 +1756,7 @@ export async function runSeed(): Promise<void> {
         );
       }
     }
+  });
+  markDbInitialized();
   });
 }
