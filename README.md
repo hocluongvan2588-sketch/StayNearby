@@ -43,7 +43,7 @@ cp .env.example .env.local
 ```
 
 - **Local Development (default):** Leave `DATABASE_URL` and `NEXT_PUBLIC_SUPABASE_URL` empty to run against local embedded PostgreSQL (`PGlite` at `.data/staynearby-pglite`) with signed HTTP-only cookie authentication and labeled demo data (`NEXT_PUBLIC_DEMO_MODE=true`).
-- **Supabase / External PostgreSQL:** Set `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and a strong `AUTH_SECRET`.
+- **Supabase / Vercel / External PostgreSQL:** Set `DATABASE_URL` (or connect Vercel's Supabase integration which sets `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` automatically), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and a strong `AUTH_SECRET`. On first boot, the server automatically ensures schema migrations (`0001`–`0006`) are applied and seeds demo data when `NEXT_PUBLIC_DEMO_MODE=true` and `areas` is empty. Create a public Supabase Storage bucket named `listing-photos` for host photo uploads.
 
 ## Database Migrations & Seed
 

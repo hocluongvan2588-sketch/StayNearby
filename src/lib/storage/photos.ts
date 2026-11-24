@@ -95,6 +95,9 @@ export function verifyImageBufferSignature(buffer: Buffer, mimeType: string): bo
 }
 
 export function getLocalUploadsRoot(): string {
+  if (process.env.VERCEL === '1' || process.cwd() === '/var/task') {
+    return '/tmp/staynearby-uploads';
+  }
   return path.resolve(/*turbopackIgnore: true*/ process.cwd(), '.data', 'uploads');
 }
 
@@ -142,8 +145,10 @@ export async function persistListingPhotoBinary(params: {
   }
 
   const targetPath = resolveSafeUploadPath(params.storagePath);
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  fs.writeFileSync(targetPath, params.buffer);
+  fs.mkdirSync(/*turbopackIgnore: true*/ path.dirname(targetPath), {
+    recursive: true,
+  });
+  fs.writeFileSync(/*turbopackIgnore: true*/ targetPath, params.buffer);
 
   return {
     publicUrl: `/api/media/${params.storagePath}`,
@@ -168,8 +173,8 @@ export async function removePersistedPhotoBinary(storagePath: string): Promise<v
 
   try {
     const targetPath = resolveSafeUploadPath(storagePath);
-    if (fs.existsSync(targetPath)) {
-      fs.unlinkSync(targetPath);
+    if (fs.existsSync(/*turbopackIgnore: true*/ targetPath)) {
+      fs.unlinkSync(/*turbopackIgnore: true*/ targetPath);
     }
   } catch {
     // Ignore non-local paths

@@ -100,29 +100,34 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   const cookieStore = await cookies();
 
   if (config.supabase.isConfigured) {
-    try {
-      const supabase = createServerClient(
-        config.supabase.url,
-        config.supabase.anonKey,
-        {
-          cookies: {
-            getAll() {
-              return cookieStore.getAll();
+    const hasSupabaseCookie = cookieStore
+      .getAll()
+      .some((c) => c.name.startsWith('sb-'));
+    if (hasSupabaseCookie) {
+      try {
+        const supabase = createServerClient(
+          config.supabase.url,
+          config.supabase.anonKey,
+          {
+            cookies: {
+              getAll() {
+                return cookieStore.getAll();
+              },
+              setAll() {
+                // Read-only inside Server Components
+              },
             },
-            setAll() {
-              // Read-only inside Server Components
-            },
-          },
+          }
+        );
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user?.id) {
+          return await loadSessionUserById(user.id);
         }
-      );
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user?.id) {
-        return await loadSessionUserById(user.id);
+      } catch {
+        return null;
       }
-    } catch {
-      return null;
     }
   }
 
