@@ -1,14 +1,11 @@
-import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
-import { handleApiError } from '@/lib/http';
-
-export const dynamic = 'force-dynamic';
+import { errJson, okJson } from '@/lib/http';
 
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    return NextResponse.json({ ok: true, user });
+    return okJson({ user });
   } catch (err) {
-    return handleApiError(err);
+    return errJson(err);
   }
 }

@@ -1,0 +1,496 @@
+import crypto from 'node:crypto';
+import type { SessionUser } from '@/lib/auth/session';
+import {
+  addDaysIso,
+  enumerateStayNights,
+  getTodayIsoVietnam,
+  isValidIsoDate,
+  isValidUuid,
+} from '@/lib/dates';
+import { dbQuery, dbTransaction, toNum } from '@/lib/db';
+import { AppError } from '@/lib/errors';
+import { calculateCancellationOutcome, calculateStayQuote } from '@/lib/pricing';
+
+export interface CreateBookingInput {
+  stayId: string;
+  roomId: string;
+  packageId: string;
+  checkIn: string;
+  nights: number;
+  guestsCount: number;
+  applyVatFree?: boolean;
+  useRewardCredit?: boolean;
+  guestNote?: string;
+}
+
+export async function createStayBooking(user: SessionUser, input: CreateBookingInput) {
+  if (!isValidUuid(input.stayId) || !isValidUuid(input.roomId) || !isValidUuid(input.packageId)) {
+    throw new AppError('VALIDATION_ERROR', 'Invalid stay, room, or package identifier.');
+  }
+  if (!isValidIsoDate(input.checkIn)) {
+    throw new AppError('VALIDATION_ERROR', 'Check-in date must be YYYY-MM-DD.');
+  }
+  const todayVn = getTodayIsoVietnam();
+  if (input.checkIn < todayVn) {
+    throw new AppError('VALIDATION_ERROR', 'Check-in date cannot be in the past.');
+  }
+  if (!Number.isInteger(input.nights) || input.nights < 7 || input.nights > 180) {
+    throw new AppError('VALIDATION_ERROR', 'Minimum stay on VietNomad is 7 nights.');
+  }
+
+  const checkOut = addDaysIso(input.checkIn, input.nights);
+  const nightDates = enumerateStayNights(input.checkIn, checkOut);
+
+  return dbTransaction(async (tx) => {
+    const rowRes = await tx.query<{
+      stay_id: string;
+      host_id: string;
+      status: string;
+      business_model: 'booking_flow' | 'stay_direct';
+      direct_booking_url: string | null;
+      cancellation_policy: 'flexible' | 'moderate' | 'strict';
+      room_id: string;
+      max_guests: number;
+      units_total: number;
+      pkg_id: string;
+      is_listed: boolean;
+      valid_from: string | Date;
+      valid_to: string | Date;
+      wholesale_7_vnd: string | number;
+      wholesale_14_vnd: string | number;
+      wholesale_21_vnd: string | number;
+      wholesale_30_vnd: string | number;
+      compare_30_vnd: string | number | null;
+      extra_night_vnd: string | number;
+    }>(
+      `SELECT s.id AS stay_id, s.host_id, s.status, s.business_model, s.direct_booking_url,
+              s.cancellation_policy,
+              r.id AS room_id, r.max_guests, r.units_total,
+              p.id AS pkg_id, p.is_listed, p.valid_from, p.valid_to,
+              p.wholesale_7_vnd, p.wholesale_14_vnd, p.wholesale_21_vnd, p.wholesale_30_vnd,
+              p.compare_30_vnd, p.extra_night_vnd
+       FROM stays s
+       JOIN stay_rooms r ON r.id = $2 AND r.stay_id = s.id
+       JOIN stay_packages p ON p.id = $3 AND p.room_id = r.id AND p.stay_id = s.id
+       WHERE s.id = $1`,
+      [input.stayId, input.roomId, input.packageId]
+    );
+
+    const meta = rowRes.rows[0];
+    if (!meta) {
+      throw new AppError('NOT_FOUND', 'Stay, room, or package not found.');
+    }
+    if (meta.status !== 'live' || !meta.is_listed) {
+      throw new AppError('UNAVAILABLE', 'This stay package is currently unlisted.');
+    }
+    if (input.guestsCount < 1 || input.guestsCount > toNum(meta.max_guests)) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        `Room accommodates up to ${meta.max_guests} guests.`
+      );
+    }
+
+    const validFrom =
+      meta.valid_from instanceof Date
+        ? meta.valid_from.toISOString().slice(0, 10)
+        : String(meta.valid_from).slice(0, 10);
+    const validTo =
+      meta.valid_to instanceof Date
+        ? meta.valid_to.toISOString().slice(0, 10)
+        : String(meta.valid_to).slice(0, 10);
+
+    if (input.checkIn < validFrom || input.checkIn > validTo) {
+      throw new AppError(
+        'UNAVAILABLE',
+        `Package is only open for check-ins from ${validFrom} to ${validTo}.`
+      );
+    }
+
+    const userRes = await tx.query<{
+      membership_tier: 'free' | 'premium';
+      reward_credit_vnd: string | number;
+      vat_tax_id: string | null;
+    }>(
+      'SELECT membership_tier, reward_credit_vnd, vat_tax_id FROM users WHERE id = $1 FOR UPDATE',
+      [user.id]
+    );
+    const freshUser = userRes.rows[0];
+    if (!freshUser) {
+      throw new AppError('UNAUTHORIZED', 'Account not found.');
+    }
+
+    const quote = calculateStayQuote({
+      pkg: {
+        wholesale7Vnd: toNum(meta.wholesale_7_vnd),
+        wholesale14Vnd: toNum(meta.wholesale_14_vnd),
+        wholesale21Vnd: toNum(meta.wholesale_21_vnd),
+        wholesale30Vnd: toNum(meta.wholesale_30_vnd),
+        compare30Vnd: meta.compare_30_vnd ? toNum(meta.compare_30_vnd) : null,
+        extraNightVnd: toNum(meta.extra_night_vnd),
+      },
+      nights: input.nights,
+      businessModel: meta.business_model,
+      isPremiumMember: freshUser.membership_tier === 'premium',
+      applyVatFree: input.applyVatFree,
+      vatTaxId: freshUser.vat_tax_id,
+      availableRewardCreditVnd: toNum(freshUser.reward_credit_vnd),
+      useRewardCredit: input.useRewardCredit,
+    });
+
+    const bookingId = crypto.randomUUID();
+    const bookingCode = `VN-${crypto.randomInt(100000, 999999)}`;
+
+    if (meta.business_model === 'stay_direct') {
+      // StayDirect™: Deduct 1% referral fee from host's prepaid advertising wallet
+      const referralFeeVnd = Math.max(5000, Math.round(quote.guestTotalVnd * 0.01));
+      const walletRes = await tx.query<{ balance_vnd: string | number }>(
+        'SELECT balance_vnd FROM host_wallets WHERE host_id = $1 FOR UPDATE',
+        [meta.host_id]
+      );
+      const balance = toNum(walletRes.rows[0]?.balance_vnd, 0);
+      if (balance < referralFeeVnd) {
+        throw new AppError(
+          'INSUFFICIENT_WALLET',
+          'Host StayDirect™ ad wallet is low. Please check back soon or choose an Instant BookingFlow stay.'
+        );
+      }
+
+      await tx.query(
+        'UPDATE host_wallets SET balance_vnd = balance_vnd - $1, updated_at = NOW() WHERE host_id = $2',
+        [referralFeeVnd, meta.host_id]
+      );
+
+      const destinationUrl = meta.direct_booking_url || 'https://example.vn/direct-booking';
+      await tx.query(
+        `INSERT INTO staydirect_referrals (
+          id, stay_id, package_id, member_id, nights, retail_total_vnd, referral_fee_vnd, destination_url
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [
+          crypto.randomUUID(),
+          meta.stay_id,
+          meta.pkg_id,
+          user.id,
+          input.nights,
+          quote.guestTotalVnd,
+          referralFeeVnd,
+          destinationUrl,
+        ]
+      );
+
+      await tx.query(
+        `INSERT INTO bookings (
+          id, booking_code, stay_id, room_id, package_id, guest_id, business_model,
+          status, check_in, check_out, nights, guests_count, wholesale_total_vnd,
+          service_fee_vnd, vat_discount_vnd, reward_credit_used_vnd, guest_total_vnd,
+          reward_credit_earned_vnd, cancellation_policy, guest_note
+        ) VALUES ($1,$2,$3,$4,$5,$6,'stay_direct','direct_referral',$7,$8,$9,$10,$11,0,0,0,$12,0,$13,$14)`,
+        [
+          bookingId,
+          bookingCode,
+          meta.stay_id,
+          meta.room_id,
+          meta.pkg_id,
+          user.id,
+          input.checkIn,
+          checkOut,
+          input.nights,
+          input.guestsCount,
+          quote.wholesaleTotalVnd,
+          quote.guestTotalVnd,
+          meta.cancellation_policy,
+          (input.guestNote ?? '').trim(),
+        ]
+      );
+
+      return {
+        bookingId,
+        bookingCode,
+        status: 'direct_referral' as const,
+        businessModel: 'stay_direct' as const,
+        directReferralUrl: destinationUrl,
+        referralFeeChargedVnd: referralFeeVnd,
+        quote,
+      };
+    }
+
+    // BookingFlow: Instant Booking — atomically lock every night [checkIn, checkOut)
+    const unitsTotal = toNum(meta.units_total, 1);
+    for (const dateIso of nightDates) {
+      await tx.query(
+        `INSERT INTO room_night_locks (id, room_id, stay_date, booked_units, blocked_units)
+         VALUES ($1, $2, $3::date, 0, 0)
+         ON CONFLICT (room_id, stay_date) DO NOTHING`,
+        [crypto.randomUUID(), meta.room_id, dateIso]
+      );
+
+      const lockRes = await tx.query<{
+        id: string;
+        booked_units: number;
+        blocked_units: number;
+      }>(
+        `SELECT id, booked_units, blocked_units
+         FROM room_night_locks
+         WHERE room_id = $1 AND stay_date = $2::date
+         FOR UPDATE`,
+        [meta.room_id, dateIso]
+      );
+      const lock = lockRes.rows[0];
+      if (!lock || toNum(lock.booked_units) + toNum(lock.blocked_units) + 1 > unitsTotal) {
+        throw new AppError(
+          'CONFLICT',
+          `Selected dates include sold-out or blocked inventory (${dateIso}).`
+        );
+      }
+
+      await tx.query(
+        'UPDATE room_night_locks SET booked_units = booked_units + 1 WHERE id = $1',
+        [lock.id]
+      );
+    }
+
+    if (quote.rewardCreditUsedVnd > 0) {
+      await tx.query(
+        'UPDATE users SET reward_credit_vnd = reward_credit_vnd - $1 WHERE id = $2',
+        [quote.rewardCreditUsedVnd, user.id]
+      );
+    }
+
+    // Reward credit earned (4% for Premium) is credited into member wallet on confirmed BookingFlow
+    if (quote.rewardCreditEarnedVnd > 0) {
+      await tx.query(
+        'UPDATE users SET reward_credit_vnd = reward_credit_vnd + $1 WHERE id = $2',
+        [quote.rewardCreditEarnedVnd, user.id]
+      );
+    }
+
+    await tx.query(
+      `INSERT INTO bookings (
+        id, booking_code, stay_id, room_id, package_id, guest_id, business_model,
+        status, check_in, check_out, nights, guests_count, wholesale_total_vnd,
+        service_fee_vnd, vat_discount_vnd, reward_credit_used_vnd, guest_total_vnd,
+        reward_credit_earned_vnd, cancellation_policy, guest_note
+      ) VALUES ($1,$2,$3,$4,$5,$6,'booking_flow','confirmed',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+      [
+        bookingId,
+        bookingCode,
+        meta.stay_id,
+        meta.room_id,
+        meta.pkg_id,
+        user.id,
+        input.checkIn,
+        checkOut,
+        input.nights,
+        input.guestsCount,
+        quote.wholesaleTotalVnd,
+        quote.serviceFeeVnd,
+        quote.vatDiscountVnd,
+        quote.rewardCreditUsedVnd,
+        quote.guestTotalVnd,
+        quote.rewardCreditEarnedVnd,
+        meta.cancellation_policy,
+        (input.guestNote ?? '').trim(),
+      ]
+    );
+
+    return {
+      bookingId,
+      bookingCode,
+      status: 'confirmed' as const,
+      businessModel: 'booking_flow' as const,
+      directReferralUrl: null,
+      referralFeeChargedVnd: 0,
+      quote,
+    };
+  });
+}
+
+export async function cancelBookingByMember(user: SessionUser, bookingId: string) {
+  if (!isValidUuid(bookingId)) {
+    throw new AppError('VALIDATION_ERROR', 'Invalid booking id.');
+  }
+
+  return dbTransaction(async (tx) => {
+    const res = await tx.query<{
+      id: string;
+      guest_id: string;
+      room_id: string;
+      business_model: string;
+      status: string;
+      check_in: string | Date;
+      check_out: string | Date;
+      nights: number;
+      guest_total_vnd: string | number;
+      reward_credit_earned_vnd: string | number;
+      cancellation_policy: 'flexible' | 'moderate' | 'strict';
+      created_at: string | Date;
+    }>('SELECT * FROM bookings WHERE id = $1 FOR UPDATE', [bookingId]);
+
+    const b = res.rows[0];
+    if (!b) throw new AppError('NOT_FOUND', 'Booking not found.');
+    if (b.guest_id !== user.id && user.role !== 'admin') {
+      throw new AppError('FORBIDDEN', 'You cannot cancel another member’s booking.');
+    }
+    if (b.status !== 'confirmed') {
+      throw new AppError('CONFLICT', 'Only confirmed BookingFlow reservations can be cancelled here.');
+    }
+
+    const checkInIso =
+      b.check_in instanceof Date
+        ? b.check_in.toISOString().slice(0, 10)
+        : String(b.check_in).slice(0, 10);
+    const checkOutIso =
+      b.check_out instanceof Date
+        ? b.check_out.toISOString().slice(0, 10)
+        : String(b.check_out).slice(0, 10);
+
+    const outcome = calculateCancellationOutcome({
+      policy: b.cancellation_policy,
+      guestTotalVnd: toNum(b.guest_total_vnd),
+      nights: toNum(b.nights),
+      checkInIso,
+      bookedAt: new Date(String(b.created_at)),
+    });
+
+    const nights = enumerateStayNights(checkInIso, checkOutIso);
+    for (const dt of nights) {
+      await tx.query(
+        `UPDATE room_night_locks
+         SET booked_units = GREATEST(0, booked_units - 1)
+         WHERE room_id = $1 AND stay_date = $2::date`,
+        [b.room_id, dt]
+      );
+    }
+
+    // Reverse reward credit earned on cancelled stay and grant Adequate Notice credit if applicable
+    const earnedRollback = toNum(b.reward_credit_earned_vnd);
+    const netCreditChange = outcome.creditIssuedVnd - earnedRollback;
+    if (netCreditChange !== 0) {
+      await tx.query(
+        'UPDATE users SET reward_credit_vnd = GREATEST(0, reward_credit_vnd + $1) WHERE id = $2',
+        [netCreditChange, b.guest_id]
+      );
+    }
+
+    await tx.query(
+      `UPDATE bookings
+       SET status = 'cancelled',
+           refund_amount_vnd = $1,
+           credit_issued_vnd = $2,
+           cancelled_at = NOW()
+       WHERE id = $3`,
+      [outcome.refundAmountVnd, outcome.creditIssuedVnd, b.id]
+    );
+
+    return { bookingId: b.id, ...outcome };
+  });
+}
+
+export async function getMemberDashboard(userId: string) {
+  const [bookingsRes, savedRes, rsvpsRes] = await Promise.all([
+    dbQuery(
+      `SELECT b.*,
+              s.slug AS stay_slug, s.title_en, s.title_vi, s.hero_image,
+              s.exact_address, s.checkin_instructions_en, s.checkin_instructions_vi,
+              s.wifi_download_mbps, s.direct_booking_url,
+              d.name_en AS destination_name_en, d.name_vi AS destination_name_vi,
+              r.name_en AS room_name_en, r.name_vi AS room_name_vi
+       FROM bookings b
+       JOIN stays s ON s.id = b.stay_id
+       JOIN destinations d ON d.id = s.destination_id
+       JOIN stay_rooms r ON r.id = b.room_id
+       WHERE b.guest_id = $1
+       ORDER BY b.created_at DESC`,
+      [userId]
+    ),
+    dbQuery(
+      `SELECT s.id, s.slug, s.title_en, s.title_vi, s.hero_image, s.wifi_download_mbps,
+              s.business_model, d.name_en AS destination_name_en, d.name_vi AS destination_name_vi,
+              p.wholesale_7_vnd, p.wholesale_30_vnd
+       FROM saved_stays ss
+       JOIN stays s ON s.id = ss.stay_id
+       JOIN destinations d ON d.id = s.destination_id
+       LEFT JOIN LATERAL (
+         SELECT wholesale_7_vnd, wholesale_30_vnd FROM stay_packages sp WHERE sp.stay_id = s.id AND sp.is_listed = TRUE LIMIT 1
+       ) p ON TRUE
+       WHERE ss.user_id = $1
+       ORDER BY ss.created_at DESC`,
+      [userId]
+    ),
+    dbQuery(
+      `SELECT ne.* FROM event_rsvps er JOIN nomad_events ne ON ne.id = er.event_id WHERE er.user_id = $1`,
+      [userId]
+    ),
+  ]);
+
+  return {
+    bookings: bookingsRes.rows.map((b) => {
+      const status = String(b.status);
+      const unlockAddress = status === 'confirmed' || status === 'completed';
+      return {
+        id: String(b.id),
+        bookingCode: String(b.booking_code),
+        staySlug: String(b.stay_slug),
+        titleEn: String(b.title_en),
+        titleVi: String(b.title_vi),
+        heroImage: String(b.hero_image),
+        destinationNameEn: String(b.destination_name_en),
+        destinationNameVi: String(b.destination_name_vi),
+        roomNameEn: String(b.room_name_en),
+        roomNameVi: String(b.room_name_vi),
+        businessModel: String(b.business_model),
+        status,
+        checkIn:
+          b.check_in instanceof Date
+            ? b.check_in.toISOString().slice(0, 10)
+            : String(b.check_in).slice(0, 10),
+        checkOut:
+          b.check_out instanceof Date
+            ? b.check_out.toISOString().slice(0, 10)
+            : String(b.check_out).slice(0, 10),
+        nights: toNum(b.nights),
+        guestsCount: toNum(b.guests_count),
+        wholesaleTotalVnd: toNum(b.wholesale_total_vnd),
+        serviceFeeVnd: toNum(b.service_fee_vnd),
+        vatDiscountVnd: toNum(b.vat_discount_vnd),
+        rewardCreditUsedVnd: toNum(b.reward_credit_used_vnd),
+        guestTotalVnd: toNum(b.guest_total_vnd),
+        rewardCreditEarnedVnd: toNum(b.reward_credit_earned_vnd),
+        cancellationPolicy: String(b.cancellation_policy),
+        refundAmountVnd: toNum(b.refund_amount_vnd),
+        creditIssuedVnd: toNum(b.credit_issued_vnd),
+        wifiDownloadMbps: toNum(b.wifi_download_mbps),
+        directBookingUrl: b.direct_booking_url ? String(b.direct_booking_url) : null,
+        exactAddress: unlockAddress ? String(b.exact_address) : null,
+        checkinInstructionsEn: unlockAddress ? String(b.checkin_instructions_en) : null,
+        checkinInstructionsVi: unlockAddress ? String(b.checkin_instructions_vi) : null,
+        createdAt: new Date(String(b.created_at)).toISOString(),
+      };
+    }),
+    savedStays: savedRes.rows.map((s) => {
+      const bm = String(s.business_model);
+      const raw30 = toNum(s.wholesale_30_vnd);
+      return {
+        id: String(s.id),
+        slug: String(s.slug),
+        titleEn: String(s.title_en),
+        titleVi: String(s.title_vi),
+        heroImage: String(s.hero_image),
+        wifiDownloadMbps: toNum(s.wifi_download_mbps),
+        businessModel: bm,
+        destinationNameEn: String(s.destination_name_en),
+        destinationNameVi: String(s.destination_name_vi),
+        monthDisplayVnd: bm === 'booking_flow' ? Math.round(raw30 * 1.12) : raw30,
+      };
+    }),
+    rsvps: rsvpsRes.rows.map((e) => ({
+      id: String(e.id),
+      titleEn: String(e.title_en),
+      titleVi: String(e.title_vi),
+      cityEn: String(e.city_en),
+      cityVi: String(e.city_vi),
+      eventDate: String(e.event_date),
+      venueEn: String(e.venue_en),
+      venueVi: String(e.venue_vi),
+    })),
+  };
+}

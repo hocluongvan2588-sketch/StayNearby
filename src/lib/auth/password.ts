@@ -1,23 +1,17 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
-const SALT_BYTES = 16;
-const KEY_LENGTH = 64;
-
-export function hashPassword(plain: string): string {
-  const salt = crypto.randomBytes(SALT_BYTES).toString('hex');
-  const derived = crypto.scryptSync(plain, salt, KEY_LENGTH).toString('hex');
-  return `scrypt:${salt}:${derived}`;
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `${salt}:${derived}`;
 }
 
-export function verifyPassword(plain: string, storedHash: string | null): boolean {
-  if (!storedHash) return false;
+export function verifyPassword(password: string, storedHash: string): boolean {
   const parts = storedHash.split(':');
-  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
-  const [, salt, hexKey] = parts;
-  if (!salt || !hexKey) return false;
-
-  const expected = Buffer.from(hexKey, 'hex');
-  const actual = crypto.scryptSync(plain, salt, expected.length);
-  if (expected.length !== actual.length) return false;
-  return crypto.timingSafeEqual(expected, actual);
+  if (parts.length !== 2) return false;
+  const [salt, expectedHex] = parts;
+  const derived = crypto.scryptSync(password, salt, 64);
+  const expected = Buffer.from(expectedHex, 'hex');
+  if (derived.length !== expected.length) return false;
+  return crypto.timingSafeEqual(derived, expected);
 }

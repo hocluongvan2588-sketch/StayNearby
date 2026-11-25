@@ -1,180 +1,140 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
-import { getAppConfig } from '../config';
-import { dbQuery } from '../db';
-import { AppError } from '../errors';
-import { verifyPassword } from './password';
+import { getConfig } from '@/lib/config';
+import { dbQuery, toNum } from '@/lib/db';
+import { AppError } from '@/lib/errors';
+import type { CurrencyCode, Locale } from '@/lib/i18n';
+import { parseCurrency, parseLocale } from '@/lib/i18n';
 
-export type RoleCode = 'guest' | 'host' | 'admin';
+export const SESSION_COOKIE_NAME = 'vietnomad_session';
+
+export type UserRole = 'nomad' | 'host' | 'admin';
 
 export interface SessionUser {
   id: string;
   email: string;
-  displayName: string;
-  preferredLocale: 'en' | 'vi';
-  roles: RoleCode[];
-  isDemo: boolean;
+  fullName: string;
+  role: UserRole;
+  nationality: string;
+  preferredLocale: Locale;
+  preferredCurrency: CurrencyCode;
+  membershipTier: 'free' | 'premium';
+  membershipExpiresAt: string | null;
+  rewardCreditVnd: number;
+  vatTaxId: string | null;
+  phone: string | null;
 }
-
-export const SESSION_COOKIE_NAME = 'staynearby_session';
-const SESSION_TTL_SEC = 60 * 60 * 24 * 7; // 7 days
 
 interface TokenPayload {
   uid: string;
   exp: number;
 }
 
-function signToken(payload: TokenPayload, secret: string): string {
-  const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+function signToken(payload: TokenPayload): string {
+  const { authSecret } = getConfig();
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
   const sig = crypto
-    .createHmac('sha256', secret)
-    .update(encoded)
+    .createHmac('sha256', authSecret)
+    .update(data)
     .digest('base64url');
-  return `${encoded}.${sig}`;
+  return `${data}.${sig}`;
 }
 
-function verifyToken(token: string, secret: string): TokenPayload | null {
+function verifyToken(token: string): TokenPayload | null {
   const parts = token.split('.');
   if (parts.length !== 2) return null;
-  const [encoded, providedSig] = parts;
-  if (!encoded || !providedSig) return null;
-
+  const [data, sig] = parts;
+  const { authSecret } = getConfig();
   const expectedSig = crypto
-    .createHmac('sha256', secret)
-    .update(encoded)
+    .createHmac('sha256', authSecret)
+    .update(data)
     .digest('base64url');
-
-  const a = Buffer.from(providedSig);
+  const a = Buffer.from(sig);
   const b = Buffer.from(expectedSig);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    return null;
-  }
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
 
   try {
-    const parsed = JSON.parse(
-      Buffer.from(encoded, 'base64url').toString('utf8')
-    ) as TokenPayload;
-    if (!parsed.uid || typeof parsed.exp !== 'number') return null;
-    if (parsed.exp <= Math.floor(Date.now() / 1000)) return null;
+    const parsed = JSON.parse(Buffer.from(data, 'base64url').toString('utf-8')) as TokenPayload;
+    if (!parsed.uid || typeof parsed.exp !== 'number' || parsed.exp < Date.now()) {
+      return null;
+    }
     return parsed;
   } catch {
     return null;
   }
 }
 
-export async function loadSessionUserById(userId: string): Promise<SessionUser | null> {
-  const profileRes = await dbQuery<{
+export function createSessionCookieValue(userId: string): string {
+  return signToken({
+    uid: userId,
+    exp: Date.now() + 1000 * 60 * 60 * 24 * 14,
+  });
+}
+
+export async function loadUserById(userId: string): Promise<SessionUser | null> {
+  const res = await dbQuery<{
     id: string;
     email: string;
-    display_name: string;
-    preferred_locale: 'en' | 'vi';
-    is_demo: boolean;
+    full_name: string;
+    role: UserRole;
+    nationality: string;
+    preferred_locale: string;
+    preferred_currency: string;
+    membership_tier: 'free' | 'premium';
+    membership_expires_at: string | Date | null;
+    reward_credit_vnd: string | number;
+    vat_tax_id: string | null;
+    phone: string | null;
   }>(
-    `SELECT id, email, display_name, preferred_locale, is_demo
-     FROM profiles
+    `SELECT id, email, full_name, role, nationality, preferred_locale, preferred_currency,
+            membership_tier, membership_expires_at, reward_credit_vnd, vat_tax_id, phone
+     FROM users
      WHERE id = $1`,
     [userId]
   );
 
-  const profile = profileRes.rows[0];
-  if (!profile) return null;
-
-  const rolesRes = await dbQuery<{ role_code: RoleCode }>(
-    `SELECT role_code FROM user_roles WHERE user_id = $1 ORDER BY role_code ASC`,
-    [profile.id]
-  );
-
+  const row = res.rows[0];
+  if (!row) return null;
   return {
-    id: profile.id,
-    email: profile.email,
-    displayName: profile.display_name,
-    preferredLocale: profile.preferred_locale,
-    roles: rolesRes.rows.map((r) => r.role_code),
-    isDemo: profile.is_demo,
+    id: row.id,
+    email: row.email,
+    fullName: row.full_name,
+    role: row.role,
+    nationality: row.nationality,
+    preferredLocale: parseLocale(row.preferred_locale),
+    preferredCurrency: parseCurrency(row.preferred_currency),
+    membershipTier: row.membership_tier,
+    membershipExpiresAt: row.membership_expires_at
+      ? new Date(row.membership_expires_at).toISOString()
+      : null,
+    rewardCreditVnd: toNum(row.reward_credit_vnd, 0),
+    vatTaxId: row.vat_tax_id,
+    phone: row.phone,
   };
 }
 
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const config = getAppConfig();
   const cookieStore = await cookies();
-
-  if (config.supabase.isConfigured) {
-    const hasSupabaseCookie = cookieStore
-      .getAll()
-      .some((c) => c.name.startsWith('sb-'));
-    if (hasSupabaseCookie) {
-      try {
-        const supabase = createServerClient(
-          config.supabase.url,
-          config.supabase.anonKey,
-          {
-            cookies: {
-              getAll() {
-                return cookieStore.getAll();
-              },
-              setAll() {
-                // Read-only inside Server Components
-              },
-            },
-          }
-        );
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user?.id) {
-          return await loadSessionUserById(user.id);
-        }
-      } catch {
-        return null;
-      }
-    }
-  }
-
-  const rawCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!rawCookie) return null;
-
-  const verified = verifyToken(rawCookie, config.authSecret);
-  if (!verified) return null;
-
-  return loadSessionUserById(verified.uid);
+  const raw = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+  if (!raw) return null;
+  const payload = verifyToken(raw);
+  if (!payload) return null;
+  return loadUserById(payload.uid);
 }
 
-export async function authenticateWithPassword(
-  email: string,
-  password: string
-): Promise<SessionUser> {
-  const normalizedEmail = email.trim().toLowerCase();
-  const res = await dbQuery<{
-    id: string;
-    password_hash: string | null;
-  }>(
-    `SELECT id, password_hash FROM profiles WHERE LOWER(email) = $1`,
-    [normalizedEmail]
-  );
-
-  const row = res.rows[0];
-  if (!row || !verifyPassword(password, row.password_hash)) {
-    throw new AppError('UNAUTHORIZED', 'Invalid email or password.');
-  }
-
-  const user = await loadSessionUserById(row.id);
+export async function requireUser(): Promise<SessionUser> {
+  const user = await getCurrentUser();
   if (!user) {
-    throw new AppError('UNAUTHORIZED', 'Account profile not found.');
+    throw new AppError('UNAUTHORIZED', 'Please sign in to continue.');
   }
   return user;
 }
 
-export function createSessionCookieValue(userId: string): {
-  name: string;
-  value: string;
-  maxAge: number;
-} {
-  const config = getAppConfig();
-  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SEC;
-  return {
-    name: SESSION_COOKIE_NAME,
-    value: signToken({ uid: userId, exp }, config.authSecret),
-    maxAge: SESSION_TTL_SEC,
-  };
+export async function requireRole(roles: UserRole | UserRole[]): Promise<SessionUser> {
+  const user = await requireUser();
+  const allowed = Array.isArray(roles) ? roles : [roles];
+  if (!allowed.includes(user.role)) {
+    throw new AppError('FORBIDDEN', 'Your account role cannot access this workspace.');
+  }
+  return user;
 }
