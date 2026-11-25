@@ -22,13 +22,12 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  const isHost = user?.roles.includes('host') ?? false;
-  const isAdmin = user?.roles.includes('admin') ?? false;
-
-  // Host & Admin portals always stay strictly in Vietnamese + VND
-  const isHostOrAdminRoute =
-    pathname.startsWith('/host') || pathname.startsWith('/admin');
-  const activeLocale = isHostOrAdminRoute ? 'vi' : preferences.locale;
+  // Host, Admin & CRM portals stay strictly in Vietnamese + VND
+  const isPortalRoute =
+    pathname.startsWith('/host') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/crm');
+  const activeLocale = isPortalRoute ? 'vi' : preferences.locale;
   const t = getUserMessages(activeLocale);
 
   async function handleSignOut() {
@@ -45,8 +44,8 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
 
   return (
     <header className="bg-[var(--color-surface)] border-b border-[var(--color-hairline)]">
-      <div className="container-stay flex items-center justify-between min-h-[68px] gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="container-stay flex items-center justify-between min-h-[68px] gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
           <Link
             href="/"
             className="inline-flex items-center min-h-[44px] text-[20px] font-semibold tracking-[-0.03em] text-[var(--color-text)] whitespace-nowrap"
@@ -54,7 +53,7 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
             <span className="text-[var(--color-primary)]">{brandName}</span>
           </Link>
           {demoMode && (
-            <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-[var(--color-surface-ivory)] text-[var(--color-text-muted)] border border-[var(--color-border)]">
+            <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 text-[11px] font-medium rounded-full bg-[var(--color-surface-ivory)] text-[var(--color-text-muted)] border border-[var(--color-border)] whitespace-nowrap">
               {t.nav.demoBadge}
             </span>
           )}
@@ -63,11 +62,11 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
         {/* Desktop navigation */}
         <nav
           aria-label="Primary navigation"
-          className="hidden md:flex items-center gap-1"
+          className="hidden lg:flex items-center gap-0.5"
         >
           <Link
             href="/stays"
-            className={`inline-flex items-center min-h-[44px] px-4 rounded-[12px] text-[15px] font-medium transition-colors ${
+            className={`inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[14px] font-medium whitespace-nowrap transition-colors ${
               pathname.startsWith('/stays')
                 ? 'text-[var(--color-primary)] bg-[var(--color-primary-soft)]'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
@@ -78,7 +77,7 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
 
           <Link
             href="/explore"
-            className={`inline-flex items-center min-h-[44px] px-4 rounded-[12px] text-[15px] font-medium transition-colors ${
+            className={`inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[14px] font-medium whitespace-nowrap transition-colors ${
               pathname.startsWith('/explore')
                 ? 'text-[var(--color-primary)] bg-[var(--color-primary-soft)]'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
@@ -87,56 +86,63 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
             {t.nav.localGuides}
           </Link>
 
+          <Link
+            href={user ? '/trips' : '/customer'}
+            className={`inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[14px] font-medium whitespace-nowrap transition-colors ${
+              pathname.startsWith('/customer') || pathname.startsWith('/trips')
+                ? 'text-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+            }`}
+          >
+            {user ? t.nav.trips : t.nav.customerPortal}
+          </Link>
+
           {user && (
             <Link
-              href="/trips"
-              className={`inline-flex items-center min-h-[44px] px-4 rounded-[12px] text-[15px] font-medium transition-colors ${
-                pathname.startsWith('/trips')
+              href="/customer"
+              className={`inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[14px] font-medium whitespace-nowrap transition-colors ${
+                pathname.startsWith('/customer')
                   ? 'text-[var(--color-primary)] bg-[var(--color-primary-soft)]'
                   : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
               }`}
             >
-              {t.nav.trips}
+              {t.nav.customerPortal}
             </Link>
           )}
 
-          {isHost && (
-            <Link
-              href="/host"
-              className={`inline-flex items-center min-h-[44px] px-4 rounded-[12px] text-[15px] font-medium transition-colors ${
-                pathname.startsWith('/host')
-                  ? 'text-[var(--color-primary)] bg-[var(--color-primary-soft)]'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              Chủ nhà
-            </Link>
-          )}
+          <Link
+            href="/host"
+            className={`inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[14px] font-medium whitespace-nowrap transition-colors ${
+              pathname.startsWith('/host')
+                ? 'text-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+            }`}
+          >
+            {t.nav.hostPortal}
+          </Link>
 
-          {isAdmin && (
-            <Link
-              href="/admin"
-              className={`inline-flex items-center min-h-[44px] px-4 rounded-[12px] text-[15px] font-medium transition-colors ${
-                pathname.startsWith('/admin')
-                  ? 'text-[var(--color-primary)] bg-[var(--color-primary-soft)]'
-                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
-              }`}
-            >
-              Quản trị
-            </Link>
-          )}
+          <Link
+            href="/admin/crm"
+            className={`inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[14px] font-medium whitespace-nowrap transition-colors ${
+              pathname.startsWith('/admin') || pathname.startsWith('/crm')
+                ? 'text-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+            }`}
+          >
+            {t.nav.crmPortal}
+          </Link>
 
-          {!isHostOrAdminRoute && (
+          {!isPortalRoute && (
             <div className="pl-1">
               <LanguageCurrencySwitcher />
             </div>
           )}
 
           {user ? (
-            <div className="flex items-center gap-2 pl-3 ml-2 border-l border-[var(--color-hairline)]">
-              <span className="inline-flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--color-text-muted)]">
-                <User className="w-5 h-5 shrink-0" aria-hidden="true" />
-                <span className="max-w-[140px] truncate font-medium text-[var(--color-text)]">
+            <div className="flex items-center gap-2 pl-2.5 ml-1.5 border-l border-[var(--color-hairline)]">
+              <span className="inline-flex items-center gap-1.5 px-1.5 py-1.5 text-sm text-[var(--color-text-muted)]">
+                <User className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span className="max-w-[120px] truncate font-medium text-[var(--color-text)]">
                   {user.displayName}
                 </span>
               </span>
@@ -144,29 +150,29 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
                 type="button"
                 onClick={handleSignOut}
                 disabled={signingOut}
-                className="inline-flex items-center gap-1.5 min-h-[44px] px-3.5 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[14px] font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[13px] font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)] disabled:opacity-60 whitespace-nowrap"
               >
-                <LogOut className="w-5 h-5 shrink-0" aria-hidden="true" />
+                <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>{signingOut ? t.nav.signingOut : t.nav.signOut}</span>
               </button>
             </div>
           ) : (
             <Link
               href="/login"
-              className="ml-2 inline-flex items-center min-h-[44px] px-5 rounded-[12px] bg-[var(--color-primary)] text-white text-[15px] font-medium hover:bg-[var(--color-primary-hover)] transition-colors"
+              className="ml-1.5 inline-flex items-center min-h-[44px] px-4 rounded-[12px] bg-[var(--color-primary)] text-white text-[14px] font-medium hover:bg-[var(--color-primary-hover)] transition-colors whitespace-nowrap"
             >
               {t.nav.signIn}
             </Link>
           )}
         </nav>
 
-        {/* Mobile menu trigger */}
+        {/* Mobile / Tablet menu trigger */}
         <button
           type="button"
           onClick={() => setMobileOpen((prev) => !prev)}
           aria-expanded={mobileOpen}
           aria-label={mobileOpen ? t.nav.closeMenu : t.nav.openMenu}
-          className="md:hidden inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)]"
+          className="lg:hidden inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)]"
         >
           {mobileOpen ? (
             <X className="w-6 h-6" aria-hidden="true" />
@@ -178,7 +184,7 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
 
       {/* Mobile Drawer */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-[var(--color-hairline)] bg-[var(--color-surface)]">
+        <div className="lg:hidden border-t border-[var(--color-hairline)] bg-[var(--color-surface)]">
           <nav
             aria-label="Mobile navigation"
             className="container-stay py-3 flex flex-col gap-1"
@@ -197,6 +203,13 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
             >
               {t.nav.localGuides}
             </Link>
+            <Link
+              href="/customer"
+              onClick={() => setMobileOpen(false)}
+              className="inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[15px] font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
+            >
+              {t.nav.customerPortal}
+            </Link>
             {user && (
               <Link
                 href="/trips"
@@ -206,26 +219,22 @@ export function SiteHeader({ brandName, demoMode, user }: SiteHeaderProps) {
                 {t.nav.trips}
               </Link>
             )}
-            {isHost && (
-              <Link
-                href="/host"
-                onClick={() => setMobileOpen(false)}
-                className="inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[15px] font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
-              >
-                Chủ nhà
-              </Link>
-            )}
-            {isAdmin && (
-              <Link
-                href="/admin"
-                onClick={() => setMobileOpen(false)}
-                className="inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[15px] font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
-              >
-                Quản trị
-              </Link>
-            )}
+            <Link
+              href="/host"
+              onClick={() => setMobileOpen(false)}
+              className="inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[15px] font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
+            >
+              {t.nav.hostPortal}
+            </Link>
+            <Link
+              href="/admin/crm"
+              onClick={() => setMobileOpen(false)}
+              className="inline-flex items-center min-h-[44px] px-3 rounded-[12px] text-[15px] font-medium text-[var(--color-text)] hover:bg-[var(--color-surface-muted)]"
+            >
+              {t.nav.crmPortal}
+            </Link>
 
-            {!isHostOrAdminRoute && (
+            {!isPortalRoute && (
               <div className="pt-2 mt-1">
                 <LanguageCurrencySwitcher compact />
               </div>

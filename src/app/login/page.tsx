@@ -12,13 +12,16 @@ interface LoginPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-function sanitizeNextUrl(raw: string | string[] | undefined): string {
+function sanitizeNextUrl(raw: string | string[] | undefined): {
+  nextUrl: string;
+  hasExplicitNext: boolean;
+} {
   const val = Array.isArray(raw) ? raw[0] : raw;
-  if (!val) return '/';
+  if (!val) return { nextUrl: '/', hasExplicitNext: false };
   if (val.startsWith('/') && !val.startsWith('//')) {
-    return val;
+    return { nextUrl: val, hasExplicitNext: true };
   }
-  return '/';
+  return { nextUrl: '/', hasExplicitNext: false };
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
@@ -27,9 +30,30 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     getCurrentUser(),
     getServerUserPreferences(),
   ]);
-  const nextUrl = sanitizeNextUrl(sp.next);
-  if (user) {
-    redirect(nextUrl);
+
+  const { nextUrl, hasExplicitNext } = sanitizeNextUrl(sp.next);
+  const switchVal = Array.isArray(sp.switch) ? sp.switch[0] : sp.switch;
+  const switchMode = switchVal === '1';
+
+  const canAccessTarget = user
+    ? nextUrl.startsWith('/admin')
+      ? user.roles.includes('admin')
+      : nextUrl.startsWith('/host')
+        ? user.roles.includes('host')
+        : true
+    : false;
+
+  if (user && !switchMode && canAccessTarget) {
+    if (hasExplicitNext) {
+      redirect(nextUrl);
+    }
+    if (user.roles.includes('admin')) {
+      redirect('/admin/crm');
+    }
+    if (user.roles.includes('host')) {
+      redirect('/host');
+    }
+    redirect('/customer');
   }
 
   const config = getAppConfig();
@@ -52,8 +76,26 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <p className="text-sm text-[var(--color-text-muted)]">{t.login.subtitle}</p>
       </div>
 
+      {user && (
+        <div className="rounded-[12px] border border-[var(--color-border)] bg-[var(--color-surface-ivory)] p-4 text-sm text-[var(--color-text)] space-y-1">
+          <p>
+            {prefs.locale === 'vi' ? 'Phiên hiện tại: ' : 'Current session: '}
+            <strong>{user.displayName}</strong> ({user.email}) —{' '}
+            <span className="text-[var(--color-text-muted)]">
+              {user.roles.join(', ')}
+            </span>
+          </p>
+          <p className="text-xs text-[var(--color-text-muted)]">
+            {prefs.locale === 'vi'
+              ? 'Chọn một tài khoản khác bên dưới hoặc nhập thông tin đăng nhập để chuyển phiên làm việc ngay.'
+              : 'Select another account below or enter credentials to switch sessions immediately.'}
+          </p>
+        </div>
+      )}
+
       <LoginForm
         nextUrl={nextUrl}
+        hasExplicitNext={hasExplicitNext}
         demoMode={config.demoMode}
         demoAccounts={demoAccounts}
       />

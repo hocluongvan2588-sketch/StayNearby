@@ -2,13 +2,20 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Activity, ClipboardList, Compass, ShieldCheck } from 'lucide-react';
+import {
+  Activity,
+  ClipboardList,
+  Compass,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 
 export function AdminSubNav() {
   const pathname = usePathname();
   const isListings =
     pathname === '/admin' || pathname.startsWith('/admin/listings');
   const isBookings = pathname.startsWith('/admin/bookings');
+  const isCrm = pathname.startsWith('/admin/crm');
   const isOps = pathname.startsWith('/admin/ops');
   const isLocalGuides = pathname.startsWith('/admin/local-guides');
 
@@ -39,6 +46,18 @@ export function AdminSubNav() {
       >
         <ClipboardList className="w-4 h-4 shrink-0" aria-hidden="true" />
         <span>Tra cứu & Hỗ trợ đơn</span>
+      </Link>
+
+      <Link
+        href="/admin/crm"
+        className={`inline-flex items-center gap-2 min-h-[44px] px-4 rounded-[12px] text-sm font-medium transition-colors ${
+          isCrm
+            ? 'bg-[var(--color-primary)] text-white'
+            : 'border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] hover:border-[var(--color-primary)]'
+        }`}
+      >
+        <Users className="w-4 h-4 shrink-0" aria-hidden="true" />
+        <span>CRM & Khách hàng</span>
       </Link>
 
       <Link

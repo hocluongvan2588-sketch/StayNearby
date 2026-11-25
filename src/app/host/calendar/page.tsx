@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { getQuickDemoAccount } from '@/lib/auth/demo-quick-account';
 import { hasRole } from '@/lib/auth/rbac';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getHostCalendarData, getHostDashboardListings } from '@/modules/host';
-import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { PortalSwitchPrompt } from '@/components/auth/PortalSwitchPrompt';
 import { HostSubNav } from '@/components/host/HostSubNav';
 import { HostCalendarManager } from '@/components/host/HostCalendarManager';
 
@@ -21,14 +22,18 @@ export default async function HostCalendarPage({
 
   if (!hasRole(user, 'host')) {
     return (
-      <div className="container-stay py-10 max-w-2xl space-y-4">
-        <h1 className="page-title">Lịch & Giá theo ngày</h1>
-        <ErrorAlert
-          code="FORBIDDEN"
-          message="Tài khoản hiện tại không có quyền Chủ nhà."
-          locale="vi"
-        />
-      </div>
+      <PortalSwitchPrompt
+        title="Lịch & Giá theo ngày"
+        message="Tài khoản hiện tại không có quyền Chủ nhà."
+        currentEmail={user.email}
+        currentRoles={user.roles}
+        targetPath="/host/calendar"
+        targetRoleLabel="Chủ nhà"
+        quickDemoAccount={getQuickDemoAccount('host')}
+        fallbackHref="/stays"
+        fallbackLabel="Quay lại trang tìm kiếm"
+        locale="vi"
+      />
     );
   }
 

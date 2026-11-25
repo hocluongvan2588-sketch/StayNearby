@@ -1,8 +1,9 @@
 import { redirect } from 'next/navigation';
+import { getQuickDemoAccount } from '@/lib/auth/demo-quick-account';
 import { hasRole } from '@/lib/auth/rbac';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getHostBookingRequests } from '@/modules/bookings';
-import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { PortalSwitchPrompt } from '@/components/auth/PortalSwitchPrompt';
 import { HostSubNav } from '@/components/host/HostSubNav';
 import { HostRequestsManager } from '@/components/host/HostRequestsManager';
 
@@ -16,14 +17,18 @@ export default async function HostRequestsPage() {
 
   if (!hasRole(user, 'host')) {
     return (
-      <div className="container-stay py-10 max-w-2xl space-y-4">
-        <h1 className="page-title">Yêu cầu đặt phòng</h1>
-        <ErrorAlert
-          code="FORBIDDEN"
-          message="Tài khoản hiện tại không có quyền Chủ nhà."
-          locale="vi"
-        />
-      </div>
+      <PortalSwitchPrompt
+        title="Yêu cầu đặt phòng"
+        message="Tài khoản hiện tại không có quyền Chủ nhà."
+        currentEmail={user.email}
+        currentRoles={user.roles}
+        targetPath="/host/requests"
+        targetRoleLabel="Chủ nhà"
+        quickDemoAccount={getQuickDemoAccount('host')}
+        fallbackHref="/stays"
+        fallbackLabel="Quay lại trang tìm kiếm"
+        locale="vi"
+      />
     );
   }
 
