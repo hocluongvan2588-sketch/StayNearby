@@ -1398,3 +1398,133 @@ export async function clearHostNightlyRates(
 
   return { clearedCount };
 }
+
+export interface HostGuestContact {
+  guestId: string;
+  displayName: string;
+  email: string | null;
+  phone: string | null;
+  preferredLocale: 'en' | 'vi';
+  bookingsCount: number;
+  confirmedOrCompletedCount: number;
+  pendingCount: number;
+  totalRevenueVnd: number;
+  latestBookingCode: string;
+  latestBookingStatus: string;
+  latestStayTitle: string;
+  latestCheckIn: string;
+  latestCheckOut: string;
+  latestGuestNote: string | null;
+}
+
+export async function getHostGuestsCrm(
+  actor: SessionUser | null
+): Promise<HostGuestContact[]> {
+  const host = requireRole(actor, 'host');
+
+  const res = await dbQuery<{
+    guest_id: string;
+    display_name: string;
+    email: string;
+    phone: string | null;
+    preferred_locale: 'en' | 'vi';
+    bookings_count: string;
+    confirmed_count: string;
+    pending_count: string;
+    total_revenue_vnd: string;
+    latest_booking_code: string;
+    latest_booking_status: string;
+    latest_stay_title: string;
+    latest_check_in: string;
+    latest_check_out: string;
+    latest_guest_note: string | null;
+  }>(
+    `SELECT
+       p.id AS guest_id,
+       p.display_name,
+       p.email,
+       p.phone,
+       p.preferred_locale,
+       COUNT(b.id)::text AS bookings_count,
+       COUNT(b.id) FILTER (WHERE b.status IN ('confirmed', 'completed'))::text AS confirmed_count,
+       COUNT(b.id) FILTER (WHERE b.status = 'pending' AND b.expires_at > NOW())::text AS pending_count,
+       COALESCE(SUM(b.total_vnd) FILTER (WHERE b.status IN ('confirmed', 'completed')), 0)::text AS total_revenue_vnd,
+       (
+         SELECT b2.booking_code
+         FROM bookings b2
+         JOIN listings l2 ON l2.id = b2.listing_id
+         WHERE b2.guest_id = p.id AND l2.host_id = $1
+         ORDER BY b2.created_at DESC
+         LIMIT 1
+       ) AS latest_booking_code,
+       (
+         SELECT b2.status
+         FROM bookings b2
+         JOIN listings l2 ON l2.id = b2.listing_id
+         WHERE b2.guest_id = p.id AND l2.host_id = $1
+         ORDER BY b2.created_at DESC
+         LIMIT 1
+       ) AS latest_booking_status,
+       (
+         SELECT COALESCE(l2.published_title_en, 'Chỗ ở của bạn')
+         FROM bookings b2
+         JOIN listings l2 ON l2.id = b2.listing_id
+         WHERE b2.guest_id = p.id AND l2.host_id = $1
+         ORDER BY b2.created_at DESC
+         LIMIT 1
+       ) AS latest_stay_title,
+       (
+         SELECT b2.check_in::text
+         FROM bookings b2
+         JOIN listings l2 ON l2.id = b2.listing_id
+         WHERE b2.guest_id = p.id AND l2.host_id = $1
+         ORDER BY b2.created_at DESC
+         LIMIT 1
+       ) AS latest_check_in,
+       (
+         SELECT b2.check_out::text
+         FROM bookings b2
+         JOIN listings l2 ON l2.id = b2.listing_id
+         WHERE b2.guest_id = p.id AND l2.host_id = $1
+         ORDER BY b2.created_at DESC
+         LIMIT 1
+       ) AS latest_check_out,
+       (
+         SELECT b2.guest_note
+         FROM bookings b2
+         JOIN listings l2 ON l2.id = b2.listing_id
+         WHERE b2.guest_id = p.id AND l2.host_id = $1
+         ORDER BY b2.created_at DESC
+         LIMIT 1
+       ) AS latest_guest_note
+     FROM bookings b
+     JOIN listings l ON l.id = b.listing_id
+     JOIN profiles p ON p.id = b.guest_id
+     WHERE l.host_id = $1
+     GROUP BY p.id, p.display_name, p.email, p.phone, p.preferred_locale
+     ORDER BY MAX(b.created_at) DESC`,
+    [host.id]
+  );
+
+  return res.rows.map((r) => {
+    const confirmedCount = Number(r.confirmed_count);
+    const contactUnlocked = confirmedCount > 0;
+    return {
+      guestId: r.guest_id,
+      displayName: r.display_name,
+      email: contactUnlocked ? r.email : null,
+      phone: contactUnlocked ? r.phone : null,
+      preferredLocale: r.preferred_locale,
+      bookingsCount: Number(r.bookings_count),
+      confirmedOrCompletedCount: confirmedCount,
+      pendingCount: Number(r.pending_count),
+      totalRevenueVnd: Number(r.total_revenue_vnd),
+      latestBookingCode: r.latest_booking_code,
+      latestBookingStatus: r.latest_booking_status,
+      latestStayTitle: r.latest_stay_title,
+      latestCheckIn: r.latest_check_in,
+      latestCheckOut: r.latest_check_out,
+      latestGuestNote: r.latest_guest_note,
+    };
+  });
+}

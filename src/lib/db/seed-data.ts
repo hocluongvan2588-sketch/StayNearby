@@ -116,24 +116,65 @@ export async function runSeed(): Promise<void> {
 
     // 2. Demo Profiles & Role Grants
     const profiles = [
-      [SEED_IDS.users.guest, DEMO_ACCOUNTS.guest.email, DEMO_ACCOUNTS.guest.displayName, 'en', null, guestHash],
-      [SEED_IDS.users.host1, DEMO_ACCOUNTS.host.email, DEMO_ACCOUNTS.host.displayName, 'vi', '+84 90 123 4501', hostHash],
-      [SEED_IDS.users.host2, DEMO_ACCOUNTS.host2.email, DEMO_ACCOUNTS.host2.displayName, 'vi', '+84 90 123 4502', host2Hash],
-      [SEED_IDS.users.admin, DEMO_ACCOUNTS.admin.email, DEMO_ACCOUNTS.admin.displayName, 'vi', '+84 90 123 4599', adminHash],
+      [
+        SEED_IDS.users.guest,
+        DEMO_ACCOUNTS.guest.email,
+        DEMO_ACCOUNTS.guest.displayName,
+        'en',
+        '+84 90 123 4500',
+        guestHash,
+        'vip',
+        'Khách lưu trú dài ngày (remote work 2–4 tuần), ưu tiên khu Tây Hồ và An Thượng.',
+      ],
+      [
+        SEED_IDS.users.host1,
+        DEMO_ACCOUNTS.host.email,
+        DEMO_ACCOUNTS.host.displayName,
+        'vi',
+        '+84 90 123 4501',
+        hostHash,
+        'active',
+        'Chủ nhà đối tác lâu năm tại Hà Nội & Đà Nẵng, tỷ lệ phản hồi nhanh.',
+      ],
+      [
+        SEED_IDS.users.host2,
+        DEMO_ACCOUNTS.host2.email,
+        DEMO_ACCOUNTS.host2.displayName,
+        'vi',
+        '+84 90 123 4502',
+        host2Hash,
+        'follow_up',
+        'Chủ nhà mới tại Hội An & Thảo Điền, cần hỗ trợ hoàn thiện hồ sơ căn hộ Thảo Điền.',
+      ],
+      [
+        SEED_IDS.users.admin,
+        DEMO_ACCOUNTS.admin.email,
+        DEMO_ACCOUNTS.admin.displayName,
+        'vi',
+        '+84 90 123 4599',
+        adminHash,
+        'active',
+        'Quản trị viên phụ trách kiểm duyệt chỗ ở, vận hành & chăm sóc khách hàng.',
+      ],
     ] as const;
 
-    for (const [id, email, name, locale, phone, pwHash] of profiles) {
+    for (const [id, email, name, locale, phone, pwHash, crmStage, crmNote] of profiles) {
       await tx.query(
-        `INSERT INTO profiles (id, email, display_name, preferred_locale, phone, password_hash, is_demo)
-         VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+        `INSERT INTO profiles (
+           id, email, display_name, preferred_locale, phone, password_hash, is_demo,
+           crm_stage, crm_note, crm_updated_at
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8, NOW())
          ON CONFLICT (id) DO UPDATE
          SET email = EXCLUDED.email,
              display_name = EXCLUDED.display_name,
              preferred_locale = EXCLUDED.preferred_locale,
-             phone = EXCLUDED.phone,
+             phone = COALESCE(profiles.phone, EXCLUDED.phone),
              password_hash = EXCLUDED.password_hash,
-             is_demo = TRUE`,
-        [id, email, name, locale, phone, pwHash]
+             is_demo = TRUE,
+             crm_stage = CASE WHEN profiles.crm_updated_by IS NULL THEN EXCLUDED.crm_stage ELSE profiles.crm_stage END,
+             crm_note = CASE WHEN profiles.crm_note = '' THEN EXCLUDED.crm_note ELSE profiles.crm_note END`,
+        [id, email, name, locale, phone, pwHash, crmStage, crmNote]
       );
     }
 

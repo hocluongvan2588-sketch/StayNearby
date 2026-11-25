@@ -188,7 +188,7 @@ async function rawQuery<T extends QueryResultRow = Record<string, unknown>>(
   const res = await pglite.query<T>(sql, params);
   return {
     rows: res.rows,
-    rowCount: res.affectedRows ?? res.rows.length,
+    rowCount: res.rows.length > 0 ? res.rows.length : (res.affectedRows ?? 0),
   };
 }
 
@@ -198,7 +198,7 @@ async function isLatestMigrationApplied(): Promise<boolean> {
       `SELECT EXISTS(
          SELECT 1
          FROM public.schema_migrations
-         WHERE version = '0006_local_guides_bilingual.sql'
+         WHERE version = '0007_crm_profiles.sql'
        ) AS applied`
     );
     return Boolean(res.rows[0]?.applied);
@@ -319,13 +319,16 @@ export async function withTransaction<T>(
       await pgTx.exec(`SET LOCAL app.current_user_id = '${actorId}'`);
     }
     const tx: DbTransaction = {
-      async query<R extends QueryResultRow = Record<string, unknown>>(
-        sql: string,
-        params: unknown[] = []
-      ) {
-        const res = await pgTx.query<R>(sql, params);
-        return { rows: res.rows, rowCount: res.affectedRows ?? res.rows.length };
-      },
+        async query<R extends QueryResultRow = Record<string, unknown>>(
+          sql: string,
+          params: unknown[] = []
+        ) {
+          const res = await pgTx.query<R>(sql, params);
+          return {
+            rows: res.rows,
+            rowCount: res.rows.length > 0 ? res.rows.length : (res.affectedRows ?? 0),
+          };
+        },
       async exec(sql: string) {
         await pgTx.exec(sql);
       },

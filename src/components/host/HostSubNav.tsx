@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, Home, Inbox, Plus } from 'lucide-react';
+import { Calendar, Home, Inbox, Plus, Users } from 'lucide-react';
 
 export function HostSubNav() {
   const pathname = usePathname();
@@ -10,6 +10,7 @@ export function HostSubNav() {
   const items = [
     { href: '/host', label: 'Chỗ ở của tôi', icon: Home, exact: true },
     { href: '/host/requests', label: 'Yêu cầu đặt phòng', icon: Inbox, exact: false },
+    { href: '/host/guests', label: 'Khách hàng', icon: Users, exact: false },
     { href: '/host/calendar', label: 'Lịch & Giá theo ngày', icon: Calendar, exact: false },
     { href: '/host/listings/new', label: 'Đăng chỗ ở mới', icon: Plus, exact: true },
   ];

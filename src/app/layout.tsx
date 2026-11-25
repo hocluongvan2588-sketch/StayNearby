@@ -13,7 +13,11 @@ export const dynamic = 'force-dynamic';
 
 function isPortalPath(pathname: string | null): boolean {
   if (!pathname) return false;
-  return pathname.startsWith('/host') || pathname.startsWith('/admin');
+  return (
+    pathname.startsWith('/host') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/crm')
+  );
 }
 
 export async function generateMetadata(): Promise<Metadata> {

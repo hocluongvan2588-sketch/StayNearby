@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { getQuickDemoAccount } from '@/lib/auth/demo-quick-account';
+import { hasRole } from '@/lib/auth/rbac';
 import { getCurrentUser } from '@/lib/auth/session';
 import { isAppError, type ErrorCode } from '@/lib/errors';
 import { getHostListingDetail, listHostFormOptions } from '@/modules/host';
+import { PortalSwitchPrompt } from '@/components/auth/PortalSwitchPrompt';
 import { ErrorAlert } from '@/components/ui/ErrorAlert';
 import { HostSubNav } from '@/components/host/HostSubNav';
 import { HostListingEditor } from '@/components/host/HostListingEditor';
@@ -19,6 +22,23 @@ export default async function HostEditListingPage({
   const user = await getCurrentUser();
   if (!user) {
     redirect(`/login?next=${encodeURIComponent(`/host/listings/${id}`)}`);
+  }
+
+  if (!hasRole(user, 'host') && !hasRole(user, 'admin')) {
+    return (
+      <PortalSwitchPrompt
+        title="Chỉnh sửa chỗ ở"
+        message="Tài khoản hiện tại không có quyền Chủ nhà."
+        currentEmail={user.email}
+        currentRoles={user.roles}
+        targetPath={`/host/listings/${id}`}
+        targetRoleLabel="Chủ nhà"
+        quickDemoAccount={getQuickDemoAccount('host')}
+        fallbackHref="/stays"
+        fallbackLabel="Quay lại trang tìm kiếm"
+        locale="vi"
+      />
+    );
   }
 
   let listing = null;

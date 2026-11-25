@@ -1,9 +1,9 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { getQuickDemoAccount } from '@/lib/auth/demo-quick-account';
 import { hasRole } from '@/lib/auth/rbac';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getAllAdminBookings } from '@/modules/bookings';
-import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { PortalSwitchPrompt } from '@/components/auth/PortalSwitchPrompt';
 import { AdminSubNav } from '@/components/admin/AdminSubNav';
 import { AdminBookingsClient } from '@/components/admin/AdminBookingsClient';
 
@@ -17,20 +17,18 @@ export default async function AdminBookingsPage() {
 
   if (!hasRole(user, 'admin')) {
     return (
-      <div className="container-stay py-10 max-w-2xl space-y-4">
-        <h1 className="page-title">Quản lý đơn đặt phòng</h1>
-        <ErrorAlert
-          code="FORBIDDEN"
-          message="Bạn không có quyền Quản trị."
-          locale="vi"
-        />
-        <Link
-          href="/"
-          className="inline-flex items-center min-h-[44px] px-5 rounded-[12px] bg-[var(--color-primary)] text-white text-sm font-medium"
-        >
-          Về trang chủ
-        </Link>
-      </div>
+      <PortalSwitchPrompt
+        title="Quản lý đơn đặt phòng"
+        message="Bạn không có quyền Quản trị."
+        currentEmail={user.email}
+        currentRoles={user.roles}
+        targetPath="/admin/bookings"
+        targetRoleLabel="Quản trị viên"
+        quickDemoAccount={getQuickDemoAccount('admin')}
+        fallbackHref="/"
+        fallbackLabel="Về trang chủ"
+        locale="vi"
+      />
     );
   }
 

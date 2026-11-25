@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Calendar, Edit3, ExternalLink, Plus } from 'lucide-react';
+import { getQuickDemoAccount } from '@/lib/auth/demo-quick-account';
 import { hasRole } from '@/lib/auth/rbac';
 import { getCurrentUser } from '@/lib/auth/session';
 import { formatVnd } from '@/lib/format';
 import { getHostDashboardListings } from '@/modules/host';
-import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { PortalSwitchPrompt } from '@/components/auth/PortalSwitchPrompt';
 import { FallbackImage } from '@/components/ui/FallbackImage';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { HostSubNav } from '@/components/host/HostSubNav';
@@ -31,20 +32,18 @@ export default async function HostPortalPage() {
 
   if (!hasRole(user, 'host')) {
     return (
-      <div className="container-stay py-10 max-w-2xl space-y-4">
-        <h1 className="page-title">Cổng thông tin Chủ nhà</h1>
-        <ErrorAlert
-          code="FORBIDDEN"
-          message="Tài khoản hiện tại không có quyền Chủ nhà. Vui lòng đăng nhập bằng tài khoản Chủ nhà để quản lý chỗ ở."
-          locale="vi"
-        />
-        <Link
-          href="/stays"
-          className="inline-flex items-center min-h-[44px] px-5 rounded-[12px] bg-[var(--color-primary)] text-white text-sm font-medium"
-        >
-          Quay lại trang tìm kiếm
-        </Link>
-      </div>
+      <PortalSwitchPrompt
+        title="Cổng thông tin Chủ nhà"
+        message="Tài khoản hiện tại không có quyền Chủ nhà. Vui lòng chuyển sang tài khoản Chủ nhà để quản lý chỗ ở."
+        currentEmail={user.email}
+        currentRoles={user.roles}
+        targetPath="/host"
+        targetRoleLabel="Chủ nhà"
+        quickDemoAccount={getQuickDemoAccount('host')}
+        fallbackHref="/stays"
+        fallbackLabel="Quay lại trang tìm kiếm"
+        locale="vi"
+      />
     );
   }
 

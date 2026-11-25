@@ -10,9 +10,11 @@ export interface UserMessages {
   nav: {
     exploreStays: string;
     localGuides: string;
+    customerPortal: string;
     trips: string;
     hostPortal: string;
     adminPortal: string;
+    crmPortal: string;
     signIn: string;
     signOut: string;
     signingOut: string;
@@ -362,9 +364,11 @@ const EN_MESSAGES: UserMessages = {
   nav: {
     exploreStays: 'Explore stays',
     localGuides: 'Local Guides',
+    customerPortal: 'Customer',
     trips: 'Trips',
-    hostPortal: 'Host workspace',
+    hostPortal: 'Host',
     adminPortal: 'Admin',
+    crmPortal: 'Admin CRM',
     signIn: 'Sign in',
     signOut: 'Sign out',
     signingOut: 'Signing out...',
@@ -761,10 +765,12 @@ const VI_MESSAGES: UserMessages = {
   },
   nav: {
     exploreStays: 'Khám phá chỗ ở',
-    localGuides: 'Khám phá địa phương',
+    localGuides: 'Địa phương',
+    customerPortal: 'Khách hàng',
     trips: 'Chuyến đi',
     hostPortal: 'Chủ nhà',
     adminPortal: 'Quản trị',
+    crmPortal: 'Quản trị CRM',
     signIn: 'Đăng nhập',
     signOut: 'Đăng xuất',
     signingOut: 'Đang đăng xuất...',

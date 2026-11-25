@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { KeyRound, UserCheck } from 'lucide-react';
 import { getUserMessages } from '@/lib/i18n/messages';
@@ -19,16 +18,37 @@ interface DemoAccountOption {
 
 interface LoginFormProps {
   nextUrl: string;
+  hasExplicitNext?: boolean;
   demoMode: boolean;
   demoAccounts: DemoAccountOption[];
 }
 
+function resolvePostLoginDestination(
+  roles: string[] | undefined,
+  nextUrl: string,
+  hasExplicitNext: boolean
+): string {
+  if (hasExplicitNext && nextUrl && nextUrl !== '/') {
+    return nextUrl;
+  }
+  if (roles?.includes('admin')) {
+    return '/admin/crm';
+  }
+  if (roles?.includes('host')) {
+    return '/host';
+  }
+  if (hasExplicitNext && nextUrl === '/') {
+    return '/';
+  }
+  return '/customer';
+}
+
 export function LoginForm({
   nextUrl,
+  hasExplicitNext = false,
   demoMode,
   demoAccounts,
 }: LoginFormProps) {
-  const router = useRouter();
   const { preferences } = useUserPreferences();
   const locale = preferences.locale;
   const t = getUserMessages(locale);
@@ -58,8 +78,12 @@ export function LoginForm({
         return;
       }
 
-      router.push(nextUrl);
-      router.refresh();
+      const destination = resolvePostLoginDestination(
+        json.user?.roles,
+        nextUrl,
+        hasExplicitNext
+      );
+      window.location.assign(destination);
     } catch {
       setError({
         code: 'INTERNAL_ERROR',

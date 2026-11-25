@@ -14,9 +14,10 @@ src/
 │   ├── pricing/       # Integer VND nightly calculation, rate overrides, deterministic quote hashes
 │   ├── bookings/      # Canonical booking state machine & guest trip queries
 │   ├── host/          # Host-owned listing queries (enforces host role & record ownership)
-│   ├── admin/         # Admin moderation queue queries (enforces admin role)
-│   ├── ops/           # Background expiry/completion jobs, exponential backoff outbox dispatcher & audit snapshot
-│   └── local-guides/  # Local area guides: bilingual public queries (LIMIT 5), coworking & admin CRUD
+│   ├── admin/           # Admin moderation queue queries (enforces admin role)
+│   ├── crm/             # Admin CRM segmentation & internal customer/host notes (admin-only)
+│   ├── ops/             # Background expiry/completion jobs, exponential backoff outbox dispatcher & audit snapshot
+│   └── local-guides/    # Local area guides: bilingual public queries (LIMIT 5), coworking & admin CRUD
 ├── lib/
 │   ├── auth/          # Session resolution (Supabase SSR or HMAC cookie), scrypt hashing, RBAC guards
 │   ├── db/            # PostgreSQL pool / PGlite adapter, migration runner, idempotent EN/VI seed
@@ -30,8 +31,8 @@ src/
 │   ├── qr.ts          # Clean public QR SVG generator targeting /explore/[areaSlug] only (zero PII)
 │   ├── rate-limit.ts  # Sliding-window rate limiting for auth, search, quote, booking & media endpoints
 │   └── validation.ts  # Strict UUID & input guards preventing raw DB syntax 500s
-└── app/               # Bilingual EN/VI Guest routes (/, /stays, /stays/[slug], /explore, /explore/[areaSlug], /booking/review, /trips, /login)
-                       # Vietnamese-only Operator routes (/host, /admin, /admin/local-guides)
+└── app/               # Bilingual EN/VI Guest routes (/, /stays, /stays/[slug], /explore, /explore/[areaSlug], /customer, /booking/review, /trips, /login)
+                       # Vietnamese-only Operator routes (/host, /host/guests, /admin, /admin/crm, /crm, /admin/local-guides)
 ```
 
 ## Environment Variables
@@ -43,7 +44,7 @@ cp .env.example .env.local
 ```
 
 - **Local Development (default):** Leave `DATABASE_URL` and `NEXT_PUBLIC_SUPABASE_URL` empty to run against local embedded PostgreSQL (`PGlite` at `.data/staynearby-pglite`) with signed HTTP-only cookie authentication and labeled demo data (`NEXT_PUBLIC_DEMO_MODE=true`).
-- **Supabase / Vercel / External PostgreSQL:** Set `DATABASE_URL` (or connect Vercel's Supabase integration which sets `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` automatically), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and a strong `AUTH_SECRET`. On first boot, the server automatically ensures schema migrations (`0001`–`0006`) are applied and seeds demo data when `NEXT_PUBLIC_DEMO_MODE=true` and `areas` is empty. Create a public Supabase Storage bucket named `listing-photos` for host photo uploads.
+- **Supabase / Vercel / External PostgreSQL:** Set `DATABASE_URL` (or connect Vercel's Supabase integration which sets `POSTGRES_URL` / `POSTGRES_URL_NON_POOLING` automatically), `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and a strong `AUTH_SECRET`. On first boot, the server automatically ensures schema migrations (`0001`–`0007`) are applied and seeds demo data when `NEXT_PUBLIC_DEMO_MODE=true` and `areas` is empty. Create a public Supabase Storage bucket named `listing-photos` for host photo uploads.
 
 ## Database Migrations & Seed
 
@@ -54,6 +55,7 @@ Migrations live in `supabase/migrations/`:
 - `0004_user_bilingual_fields.sql`: Adds Vietnamese user-facing catalog/check-in fields (`areas.walkability_note_vi`, `listings` & `listing_revisions` `_vi` columns) for bilingual guest storefront support.
 - `0005_ops_and_audit.sql`: Adds outbox retry metadata (`max_attempts`, `last_attempt_at`, `updated_at`) and `ops_job_runs` audit log table with strict RLS.
 - `0006_local_guides_bilingual.sql`: Adds bilingual Vietnamese (`_vi`) fields, coworking booking/booth metadata, and directional hints on `local_places`, `local_guides`, and `local_guide_stops`.
+- `0007_crm_profiles.sql`: Adds admin-only internal CRM segmentation (`crm_stage`, `crm_note`, `crm_updated_at`, `crm_updated_by`) on `profiles` with `anon`/`authenticated` column revokes.
 
 Run migrations and idempotent bilingual EN/VI seed:
 

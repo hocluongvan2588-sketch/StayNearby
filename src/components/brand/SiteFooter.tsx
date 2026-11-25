@@ -15,10 +15,12 @@ export function SiteFooter({ brandName, demoMode }: SiteFooterProps) {
   const pathname = usePathname();
   const { preferences } = useUserPreferences();
 
-  const isHostOrAdminRoute =
-    pathname.startsWith('/host') || pathname.startsWith('/admin');
-  const activeLocale = isHostOrAdminRoute ? 'vi' : preferences.locale;
-  const activeCurrency = isHostOrAdminRoute ? 'VND' : preferences.currency;
+  const isPortalRoute =
+    pathname.startsWith('/host') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/crm');
+  const activeLocale = isPortalRoute ? 'vi' : preferences.locale;
+  const activeCurrency = isPortalRoute ? 'VND' : preferences.currency;
   const t = getUserMessages(activeLocale);
 
   return (
@@ -28,9 +30,9 @@ export function SiteFooter({ brandName, demoMode }: SiteFooterProps) {
           <p className="font-semibold text-[var(--color-text)]">{brandName}</p>
           <p>
             {t.footer.tagline}{' '}
-            {!isHostOrAdminRoute ? t.footer.currencyNote : ''}
+            {!isPortalRoute ? t.footer.currencyNote : ''}
           </p>
-          {!isHostOrAdminRoute && activeCurrency !== 'VND' && (
+          {!isPortalRoute && activeCurrency !== 'VND' && (
             <p className="text-xs font-medium text-[var(--color-text)]">
               {getExchangeRateNote(activeCurrency, activeLocale)}
             </p>
@@ -41,7 +43,7 @@ export function SiteFooter({ brandName, demoMode }: SiteFooterProps) {
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center gap-6">
+        <div className="flex flex-wrap items-center gap-5">
           <Link
             href="/stays"
             className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)] transition-colors"
@@ -53,6 +55,24 @@ export function SiteFooter({ brandName, demoMode }: SiteFooterProps) {
             className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)] transition-colors"
           >
             {t.nav.localGuides}
+          </Link>
+          <Link
+            href="/customer"
+            className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)] transition-colors"
+          >
+            {t.nav.customerPortal}
+          </Link>
+          <Link
+            href="/host"
+            className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)] transition-colors"
+          >
+            {t.nav.hostPortal}
+          </Link>
+          <Link
+            href="/admin/crm"
+            className="font-medium text-[var(--color-text)] hover:text-[var(--color-primary)] transition-colors"
+          >
+            {t.nav.crmPortal}
           </Link>
           <Link
             href="/login"

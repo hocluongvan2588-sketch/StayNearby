@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
+import { getQuickDemoAccount } from '@/lib/auth/demo-quick-account';
 import { hasRole } from '@/lib/auth/rbac';
 import { getCurrentUser } from '@/lib/auth/session';
 import { listHostFormOptions } from '@/modules/host';
-import { ErrorAlert } from '@/components/ui/ErrorAlert';
+import { PortalSwitchPrompt } from '@/components/auth/PortalSwitchPrompt';
 import { HostSubNav } from '@/components/host/HostSubNav';
 import { HostListingEditor } from '@/components/host/HostListingEditor';
 
@@ -18,14 +19,18 @@ export default async function HostNewListingPage() {
 
   if (!hasRole(user, 'host')) {
     return (
-      <div className="container-stay py-10 max-w-2xl space-y-4">
-        <h1 className="page-title">Đăng chỗ ở mới</h1>
-        <ErrorAlert
-          code="FORBIDDEN"
-          message="Tài khoản của bạn không có quyền Chủ nhà."
-          locale="vi"
-        />
-      </div>
+      <PortalSwitchPrompt
+        title="Đăng chỗ ở mới"
+        message="Tài khoản của bạn không có quyền Chủ nhà."
+        currentEmail={user.email}
+        currentRoles={user.roles}
+        targetPath="/host/listings/new"
+        targetRoleLabel="Chủ nhà"
+        quickDemoAccount={getQuickDemoAccount('host')}
+        fallbackHref="/stays"
+        fallbackLabel="Quay lại trang tìm kiếm"
+        locale="vi"
+      />
     );
   }
 
