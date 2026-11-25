@@ -2,295 +2,258 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   ArrowLeft,
-  Bike,
-  Check,
-  Clock,
-  Coffee,
+  CheckCircle2,
   Laptop,
-  Lock,
   MapPin,
-  Shirt,
-  Trees,
-  Users,
+  Monitor,
+  Shield,
+  Star,
   Utensils,
   Wifi,
-  Wind,
-  type LucideIcon,
 } from 'lucide-react';
-import { getUserMessages } from '@/lib/i18n/messages';
-import { getServerUserPreferences } from '@/lib/i18n/preferences';
-import { getPublishedStayBySlug } from '@/modules/catalog';
-import { getNeighborhoodDayPreview } from '@/modules/local-guides';
-import { StayGallery } from '@/components/stays/StayGallery';
-import { QuoteWidget } from '@/components/stays/QuoteWidget';
-import { StatusBadge } from '@/components/ui/StatusBadge';
-import { NeighborhoodDayPreviewSection } from '@/components/local-guides/NeighborhoodDayPreviewSection';
+import { getCurrentUser } from '@/lib/auth/session';
+import { getServerPreferences } from '@/lib/preferences';
+import { formatVndExact } from '@/lib/i18n';
+import { formatPropertyTypeLabel, getStayDetailBySlug } from '@/modules/catalog';
+import { StayBookingWidget } from '@/components/StayBookingWidget';
 
 export const dynamic = 'force-dynamic';
 
-const AMENITY_ICONS: Record<string, LucideIcon> = {
-  Wifi,
-  Laptop,
-  Wind,
-  Shirt,
-  Utensils,
-  Coffee,
-  Trees,
-  Bike,
-};
-
-interface StayDetailPageProps {
-  params: Promise<{ slug: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}
-
-function firstParam(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0];
-  return value;
-}
-
 export default async function StayDetailPage({
   params,
-  searchParams,
-}: StayDetailPageProps) {
-  const [{ slug }, sp, prefs] = await Promise.all([
-    params,
-    searchParams,
-    getServerUserPreferences(),
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const [stay, prefs, user] = await Promise.all([
+    getStayDetailBySlug(slug),
+    getServerPreferences(),
+    getCurrentUser(),
   ]);
-  const stay = await getPublishedStayBySlug(slug);
-  if (!stay) {
-    notFound();
-  }
 
-  const neighborhoodPreview = await getNeighborhoodDayPreview(stay.areaSlug);
-
-  const locale = prefs.locale;
-  const t = getUserMessages(locale);
-
-  const initialCheckIn = firstParam(sp.checkIn);
-  const initialCheckOut = firstParam(sp.checkOut);
-  const initialGuestsRaw = firstParam(sp.guests);
-  const initialGuests = initialGuestsRaw
-    ? Number.parseInt(initialGuestsRaw, 10)
-    : undefined;
-
-  const title = locale === 'vi' ? stay.titleVi : stay.titleEn;
-  const description = locale === 'vi' ? stay.descriptionVi : stay.descriptionEn;
-  const areaName = locale === 'vi' ? stay.areaNameVi : stay.areaNameEn;
-  const cityName = locale === 'vi' ? stay.cityVi : stay.cityEn;
-  const areaVibe = locale === 'vi' ? stay.areaVibeVi : stay.areaVibeEn;
-  const walkabilityNote =
-    locale === 'vi' ? stay.walkabilityNoteVi : stay.walkabilityNoteEn;
-  const workspaceNotes =
-    locale === 'vi' ? stay.workspaceNotesVi : stay.workspaceNotesEn;
-  const checkinConditions =
-    locale === 'vi' ? stay.checkinConditionsVi : stay.checkinConditionsEn;
-  const houseRules = locale === 'vi' ? stay.houseRulesVi : stay.houseRulesEn;
+  if (!stay) notFound();
+  const isVi = prefs.locale === 'vi';
 
   return (
-    <div className="container-stay pt-8 pb-28 lg:pb-16 space-y-8">
-      <div>
-        <Link
-          href="/stays"
-          className="inline-flex items-center gap-2 min-h-[44px] px-3 -ml-3 rounded-[12px] text-sm font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-        >
-          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
-          <span>{t.stayDetail.backToAll}</span>
-        </Link>
-      </div>
-
-      {/* Editorial Header */}
-      <div className="space-y-3 max-w-4xl">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary)]">
-            <MapPin className="w-4 h-4" aria-hidden="true" />
-            <span>
-              {areaName}, {cityName}
-            </span>
-          </span>
-          {stay.isDemo && <StatusBadge label={t.stayDetail.demoData} tone="neutral" />}
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* Breadcrumb */}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 text-xs text-[#53635D]">
+        <div className="flex items-center gap-2">
+          <Link href="/stays" className="inline-flex items-center gap-1 font-semibold text-[#164E3F] hover:underline">
+            <ArrowLeft className="h-3.5 w-3.5" />
+            {isVi ? 'Tất cả chỗ ở' : 'All stays'}
+          </Link>
+          <span>/</span>
+          <Link href={`/destinations/${stay.destinationSlug}`} className="hover:underline">
+            {isVi ? stay.destinationNameVi : stay.destinationNameEn}
+          </Link>
+          <span>/</span>
+          <span className="text-[#17221E]">{isVi ? stay.titleVi : stay.titleEn}</span>
         </div>
-
-        <h1 className="page-title">{title}</h1>
-
-        <p className="text-[15px] text-[var(--color-text-muted)]">
-          {t.stayDetail.hostedBy}{' '}
-          <strong className="text-[var(--color-text)]">{stay.hostDisplayName}</strong>
-          {' — '}
-          {locale === 'vi'
-            ? `Tối đa ${stay.maxGuests} ${t.stayDetail.guestsWord}, ${stay.bedrooms} ${t.stayDetail.bedroomSingular}, ${stay.beds} ${t.stayDetail.bedSingular}, ${stay.bathrooms} ${t.stayDetail.bathWord}. ${t.stayDetail.timezoneLabel}: ${stay.timezone}.`
-            : `Up to ${stay.maxGuests} ${t.stayDetail.guestsWord}, ${stay.bedrooms} ${stay.bedrooms === 1 ? t.stayDetail.bedroomSingular : t.stayDetail.bedroomPlural}, ${stay.beds} ${stay.beds === 1 ? t.stayDetail.bedSingular : t.stayDetail.bedPlural}, ${stay.bathrooms} ${t.stayDetail.bathWord}. ${t.stayDetail.timezoneLabel}: ${stay.timezone}.`}
-        </p>
+        <span className="rounded-full border border-[#E5DFD3] bg-white px-3 py-1 font-medium">
+          {isVi ? 'Đăng ký cư trú:' : 'Reg:'} {stay.registrationCode}
+        </span>
       </div>
 
-      {/* Two-column showcase layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
-        <div className="lg:col-span-7 space-y-10">
-          <StayGallery photos={stay.photos} stayTitle={title} />
+      {/* Title Header */}
+      <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+            <span className="rounded-full bg-[#164E3F] px-3 py-1 text-white">
+              {formatPropertyTypeLabel(stay.propertyType, prefs.locale)}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#FAF8F3] px-3 py-1 text-[#A67C2E] border border-[#E5DFD3]">
+              <Star className="h-3.5 w-3.5" fill="#A67C2E" />
+              {stay.googleRating.toFixed(1)} · {stay.googleReviewCount} Google reviews
+            </span>
+          </div>
+          <h1 className="font-serif-display mt-2 text-3xl font-semibold text-[#17221E] sm:text-5xl">
+            {isVi ? stay.titleVi : stay.titleEn}
+          </h1>
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-[#53635D]">
+            <MapPin className="h-4 w-4 text-[#C25E28]" />
+            {isVi ? stay.neighborhoodVi : stay.neighborhoodEn} ·{' '}
+            {isVi ? 'Địa chỉ chi tiết mở ngay sau khi đặt phòng' : 'Exact street address unlocks upon confirmation'}
+          </p>
+        </div>
+      </div>
 
-          {/* Multi-week & remote stay summary */}
-          <section className="pt-8 border-t border-[var(--color-hairline)] space-y-4">
-            <h2 className="section-title">{t.stayDetail.designedTitle}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-[var(--color-primary)] shrink-0 mt-0.5" aria-hidden="true" />
+      {/* Photo Gallery */}
+      <div className="mb-10 grid gap-3 sm:grid-cols-12">
+        <div className="overflow-hidden rounded-3xl bg-[#F2EDE3] sm:col-span-7">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={stay.heroImage}
+            alt={isVi ? stay.titleVi : stay.titleEn}
+            className="aspect-[4/3] h-full w-full object-cover"
+          />
+        </div>
+        <div className="grid gap-3 sm:col-span-5">
+          <div className="relative overflow-hidden rounded-3xl bg-[#F2EDE3]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={stay.workspacePhotoUrl}
+              alt="Dedicated Workspace"
+              className="aspect-[16/9] h-full w-full object-cover"
+            />
+            <span className="absolute bottom-3 left-3 rounded-full bg-[#164E3F]/90 px-3 py-1 text-xs font-semibold text-white">
+              <Laptop className="mr-1 inline h-3.5 w-3.5" />
+              {isVi ? 'Ảnh thực tế góc làm việc' : 'Verified Workspace Setup'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {stay.galleryImages.slice(0, 2).map((img, i) => (
+              <div key={`${img}-${i}`} className="overflow-hidden rounded-2xl bg-[#F2EDE3]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img} alt="Residence view" className="aspect-[4/3] h-full w-full object-cover" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content + Booking Widget */}
+      <div className="grid gap-10 lg:grid-cols-12">
+        <div className="space-y-10 lg:col-span-7">
+          {/* NomadStays Verified Internet Panel */}
+          <section className="rounded-3xl border border-[#164E3F]/25 bg-white p-6 lacquer-shadow">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E7F1EC] text-[#164E3F]">
+                  <Wifi className="h-5 w-5" />
+                </span>
                 <div>
-                  <p className="font-semibold text-[var(--color-text)]">
-                    {stay.lateCheckinAvailable
-                      ? t.stayDetail.lateCheckinSupported
-                      : t.stayDetail.standardCheckinWindow}
-                  </p>
-                  <p className="text-[var(--color-text-muted)] mt-0.5">
-                    {checkinConditions || t.stayDetail.defaultCheckinNote}
-                  </p>
+                  <h2 className="font-serif-display text-xl font-semibold text-[#17221E]">
+                    {isVi ? 'Kiểm định tốc độ Internet thực tế' : 'Verified Internet Speed Test'}
+                  </h2>
+                  <p className="text-xs text-[#53635D]">{stay.wifiTesterNote}</p>
                 </div>
               </div>
+              <span className="rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
+                {isVi ? 'Đã kiểm tra' : 'Tested'} {stay.wifiTestedAt.slice(0, 10)}
+              </span>
+            </div>
 
-              <div className="flex items-start gap-3">
-                <Users className="w-5 h-5 text-[var(--color-primary)] shrink-0 mt-0.5" aria-hidden="true" />
-                <div>
-                  <p className="font-semibold text-[var(--color-text)]">
-                    {t.stayDetail.stayDuration(stay.minNights, stay.maxNights)}
-                  </p>
-                  <p className="text-[var(--color-text-muted)] mt-0.5">
-                    {t.stayDetail.suitableForGuests(stay.maxGuests)}
-                  </p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-2xl bg-[#FAF8F3] p-4">
+                <div className="text-xs text-[#53635D]">Download</div>
+                <div className="font-serif-display text-2xl font-bold text-[#164E3F]">
+                  {stay.wifiDownloadMbps} <span className="text-xs font-normal">Mbps</span>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-[#FAF8F3] p-4">
+                <div className="text-xs text-[#53635D]">Upload</div>
+                <div className="font-serif-display text-2xl font-bold text-[#17221E]">
+                  {stay.wifiUploadMbps} <span className="text-xs font-normal">Mbps</span>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-[#FAF8F3] p-4">
+                <div className="text-xs text-[#53635D]">Jitter</div>
+                <div className="font-serif-display text-2xl font-bold text-[#C25E28]">
+                  {stay.wifiJitterMs} <span className="text-xs font-normal">ms</span>
                 </div>
               </div>
             </div>
-
-            {workspaceNotes && (
-              <p className="text-sm text-[var(--color-text-muted)] pt-1">
-                {workspaceNotes}
-              </p>
-            )}
           </section>
 
           {/* Description */}
-          <section className="pt-8 border-t border-[var(--color-hairline)] space-y-3">
-            <h2 className="section-title">{t.stayDetail.aboutHome}</h2>
-            <p className="text-[15px] leading-relaxed text-[var(--color-text)]">
-              {description}
+          <section className="space-y-3">
+            <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+              {isVi ? 'Không gian sống & làm việc' : 'About this work-ready stay'}
+            </h2>
+            <p className="text-sm leading-relaxed text-[#53635D]">
+              {isVi ? stay.descriptionVi : stay.descriptionEn}
             </p>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-medium border border-[#E5DFD3]">
+                <Shield className="h-3.5 w-3.5 text-[#164E3F]" />
+                {isVi ? 'Không ở ghép chủ nhà · Không gian riêng' : 'Zero room-share · Private space'}
+              </span>
+              {stay.hasExternalMonitor && (
+                <span className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7F1EC] px-3 py-1.5 text-xs font-semibold text-[#164E3F]">
+                  <Monitor className="h-3.5 w-3.5" /> 4K USB-C Monitor Included
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-medium border border-[#E5DFD3]">
+                <Utensils className="h-3.5 w-3.5 text-[#C25E28]" />
+                {stay.kitchenType} kitchen · {stay.laundryType.replace('_', ' ')} laundry
+              </span>
+            </div>
           </section>
 
-          {/* Neighborhood context */}
-          {(areaVibe || walkabilityNote) && (
-            <section className="pt-8 border-t border-[var(--color-hairline)] space-y-3">
-              <h2 className="section-title">{t.stayDetail.neighborhoodWalkability}</h2>
-              <div className="rounded-[12px] bg-[var(--color-surface-ivory)] border border-[var(--color-hairline)] p-5 space-y-1.5 text-sm">
-                <p className="font-semibold text-[var(--color-text)]">
-                  {areaName}, {cityName}
-                  {areaVibe ? ` — ${areaVibe}` : ''}
-                </p>
-                {walkabilityNote && (
-                  <p className="text-[var(--color-text-muted)]">{walkabilityNote}</p>
-                )}
-              </div>
-            </section>
-          )}
+          {/* Dedicated Workspaces */}
+          <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6">
+            <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+              {isVi ? 'Trang bị góc làm việc' : 'Dedicated Work Space'}
+            </h2>
+            <p className="mt-2 text-sm text-[#53635D]">
+              {isVi ? stay.workspaceSummaryVi : stay.workspaceSummaryEn}
+            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {stay.amenities.map((a) => (
+                <div key={a} className="flex items-center gap-2 text-sm text-[#17221E]">
+                  <CheckCircle2 className="h-4 w-4 text-[#164E3F]" />
+                  <span>{a}</span>
+                </div>
+              ))}
+            </div>
+          </section>
 
-          {/* Moment 1: Pre-booking neighborhood day preview (only when published content exists) */}
-          {neighborhoodPreview && (
-            <NeighborhoodDayPreviewSection preview={neighborhoodPreview} />
-          )}
+          {/* Nearby Coworking Spaces & Interactive Mini-Radar Map */}
+          <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+                {isVi ? 'Không gian Coworking lân cận' : 'Nearest Coworking Spaces'}
+              </h2>
+              <span className="text-xs text-[#53635D]">
+                {isVi ? 'Bán kính < 2.5 km' : 'Mapped before you book'}
+              </span>
+            </div>
 
-          {/* Host-declared amenities */}
-          <section className="pt-8 border-t border-[var(--color-hairline)] space-y-4">
-            <div>
-              <h2 className="section-title">{t.stayDetail.hostDeclaredAmenities}</h2>
-              <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                {t.stayDetail.amenitiesNote}
+            {stay.nearbyCoworking.length === 0 ? (
+              <p className="text-sm text-[#53635D]">
+                {isVi
+                  ? 'Bàn làm việc riêng đã được trang bị sẵn trong căn hộ.'
+                  : 'Private work setup included in-unit.'}
               </p>
-            </div>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {stay.amenities.map((amenity) => {
-                const Icon = AMENITY_ICONS[amenity.iconName] ?? Check;
-                return (
-                  <li
-                    key={amenity.code}
-                    className="flex items-center gap-3 p-3.5 rounded-[12px] border border-[var(--color-hairline)] bg-[var(--color-surface)] text-sm text-[var(--color-text)]"
+            ) : (
+              <div className="space-y-3">
+                {stay.nearbyCoworking.map((cw) => (
+                  <div
+                    key={cw.name}
+                    className="flex flex-col justify-between gap-2 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4 sm:flex-row sm:items-center"
                   >
-                    <Icon
-                      className="w-5 h-5 text-[var(--color-primary)] shrink-0"
-                      aria-hidden="true"
-                    />
-                    <span>{locale === 'vi' ? amenity.labelVi : amenity.labelEn}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-
-          {/* House Rules */}
-          {houseRules.length > 0 && (
-            <section className="pt-8 border-t border-[var(--color-hairline)] space-y-3">
-              <h2 className="section-title">{t.stayDetail.houseRules}</h2>
-              <ul className="space-y-2.5 text-[15px] text-[var(--color-text)]">
-                {houseRules.map((rule, idx) => (
-                  <li key={idx} className="flex items-start gap-2.5">
-                    <Check
-                      className="w-5 h-5 text-[var(--color-primary)] shrink-0 mt-0.5"
-                      aria-hidden="true"
-                    />
-                    <span>{rule}</span>
-                  </li>
+                    <div>
+                      <div className="font-semibold text-[#17221E]">{cw.name}</div>
+                      <div className="text-xs text-[#53635D]">
+                        {isVi ? cw.noteVi : cw.noteEn}
+                        {cw.hasCallBooth && (
+                          <span className="ml-2 rounded bg-[#E7F1EC] px-1.5 py-0.5 text-[10px] font-semibold text-[#164E3F]">
+                            {isVi ? 'Có bốt họp riêng' : 'Call Booths'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs">
+                      <div className="font-bold text-[#C25E28]">{cw.distanceKm} km</div>
+                      <div className="text-[#53635D]">
+                        {cw.dayPassVnd === 0
+                          ? isVi
+                            ? 'Miễn phí cư dân'
+                            : 'Included free'
+                          : `${formatVndExact(cw.dayPassVnd)} / ${isVi ? 'ngày' : 'day'}`}
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </ul>
-            </section>
-          )}
-
-          {/* Location privacy & availability */}
-          <section className="pt-8 border-t border-[var(--color-hairline)] space-y-4">
-            <h2 className="section-title">{t.stayDetail.locationNotes}</h2>
-            <div className="rounded-[12px] border border-[var(--color-hairline)] bg-[var(--color-surface)] p-4 flex items-start gap-3">
-              <Lock className="w-5 h-5 text-[var(--color-primary)] shrink-0 mt-0.5" aria-hidden="true" />
-              <div className="text-sm space-y-1">
-                <p className="font-medium text-[var(--color-text)]">
-                  {t.stayDetail.areaLabel}: {areaName}, {cityName}
-                </p>
-                <p className="text-[var(--color-text-muted)]">
-                  {t.stayDetail.privacyExplanation}
-                </p>
-              </div>
-            </div>
-
-            {stay.upcomingBlockedDates.length > 0 && (
-              <div className="rounded-[12px] border border-[var(--color-hairline)] bg-[var(--color-surface)] p-4 text-sm space-y-1.5">
-                <p className="font-medium text-[var(--color-text)]">
-                  {t.stayDetail.upcomingUnavailable}
-                </p>
-                <p className="text-xs text-[var(--color-text-muted)] tabular-nums">
-                  {stay.upcomingBlockedDates.join(', ')}
-                </p>
               </div>
             )}
           </section>
         </div>
 
-        {/* Right sticky quote column */}
-        <div className="lg:col-span-5 lg:sticky lg:top-8">
-          <QuoteWidget
-            listingId={stay.id}
-            listingSlug={stay.slug}
-            timezone={stay.timezone}
-            maxGuests={stay.maxGuests}
-            minNights={stay.minNights}
-            maxNights={stay.maxNights}
-            baseNightlyRateVnd={stay.baseNightlyRateVnd}
-            cleaningFeeVnd={stay.cleaningFeeVnd}
-            paymentTerms={stay.paymentTerms}
-            cancellationTitleEn={stay.cancellationPolicy.titleEn}
-            cancellationTitleVi={stay.cancellationPolicy.titleVi}
-            initialCheckIn={initialCheckIn}
-            initialCheckOut={initialCheckOut}
-            initialGuests={
-              initialGuests && Number.isFinite(initialGuests)
-                ? initialGuests
-                : undefined
-            }
-          />
+        {/* Right Sticky Package & Instant Booking Column */}
+        <div className="lg:col-span-5">
+          <StayBookingWidget stay={stay} user={user} />
         </div>
       </div>
     </div>

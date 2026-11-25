@@ -1,17 +1,15 @@
-import { closeDb, getDbMode } from '../src/lib/db';
+import { closeDb } from '../src/lib/db';
 import { runMigrations } from '../src/lib/db/migrate';
 import { runSeed } from '../src/lib/db/seed-data';
 
 async function main() {
-  console.log(`[db:seed] Ensuring migrations & seeding demo data (mode=${getDbMode()})...`);
   await runMigrations();
   await runSeed();
-  console.log('[db:seed] Seed completed successfully.');
+  console.log('[db:seed] Vietnam NomadStays demo database seeded successfully.');
   await closeDb();
 }
 
-main().catch(async (err) => {
+main().catch((err) => {
   console.error('[db:seed] Failed:', err);
-  await closeDb();
   process.exit(1);
 });

@@ -1,33 +1,24 @@
-import fs from 'fs';
-import path from 'path';
-import { dbExec, dbQuery, runWithDbBootstrap, withTransaction } from './index';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { resolveMigrationsDir, runWithDbBootstrap } from '@/lib/config';
+import { dbExec, dbQuery } from './index';
 
-export interface MigrationResult {
-  applied: string[];
-  skipped: string[];
-}
-
-export async function runMigrations(
-  migrationsDir = path.resolve(
-    /*turbopackIgnore: true*/ process.cwd(),
-    'supabase/migrations'
-  )
-): Promise<MigrationResult> {
+export async function runMigrations(): Promise<{ applied: string[]; skipped: string[] }> {
   return runWithDbBootstrap(async () => {
     await dbExec(`
-      CREATE TABLE IF NOT EXISTS public.schema_migrations (
-        version TEXT PRIMARY KEY,
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        filename TEXT PRIMARY KEY,
         applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
     `);
 
-    const appliedRes = await dbQuery<{ version: string }>(
-      'SELECT version FROM public.schema_migrations ORDER BY version ASC'
+    const existing = await dbQuery<{ filename: string }>(
+      'SELECT filename FROM schema_migrations'
     );
-    const alreadyApplied = new Set(appliedRes.rows.map((r) => r.version));
+    const appliedSet = new Set(existing.rows.map((r) => r.filename));
 
-    const files = fs
-      .readdirSync(/*turbopackIgnore: true*/ migrationsDir)
+    const migrationsDir = resolveMigrationsDir();
+    const files = readdirSync(migrationsDir)
       .filter((f) => f.endsWith('.sql'))
       .sort();
 
@@ -35,20 +26,16 @@ export async function runMigrations(
     const skipped: string[] = [];
 
     for (const file of files) {
-      if (alreadyApplied.has(file)) {
+      if (appliedSet.has(file)) {
         skipped.push(file);
         continue;
       }
-
-      const fullPath = path.join(/*turbopackIgnore: true*/ migrationsDir, file);
-      const sql = fs.readFileSync(/*turbopackIgnore: true*/ fullPath, 'utf8');
-      await withTransaction(async (tx) => {
-        await tx.exec(sql);
-        await tx.query(
-          'INSERT INTO public.schema_migrations (version) VALUES ($1) ON CONFLICT (version) DO NOTHING',
-          [file]
-        );
-      });
+      const sql = readFileSync(path.join(migrationsDir, file), 'utf-8');
+      await dbExec(sql);
+      await dbQuery(
+        'INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT (filename) DO NOTHING',
+        [file]
+      );
       applied.push(file);
     }
 

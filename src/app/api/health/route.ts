@@ -1,23 +1,17 @@
-import { NextResponse } from 'next/server';
-import { getAppConfig } from '@/lib/config';
-import { dbQuery, getDbMode } from '@/lib/db';
-
-export const dynamic = 'force-dynamic';
+import { getConfig } from '@/lib/config';
+import { dbQuery } from '@/lib/db';
+import { errJson, okJson } from '@/lib/http';
 
 export async function GET() {
   try {
-    const config = getAppConfig();
-    const res = await dbQuery<{ ok: number }>('SELECT 1 AS ok');
-    return NextResponse.json({
-      ok: res.rows[0]?.ok === 1,
-      brandName: config.brandName,
-      dbMode: getDbMode(),
-      supabaseConfigured: config.supabase.isConfigured,
+    const res = await dbQuery<{ count: string | number }>('SELECT COUNT(*) AS count FROM stays');
+    const cfg = getConfig();
+    return okJson({
+      brandName: cfg.brandName,
+      dbMode: cfg.databaseUrl ? 'postgres' : 'pglite',
+      liveStays: Number(res.rows[0]?.count ?? 0),
     });
   } catch (err) {
-    return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : 'Health check failed' },
-      { status: 500 }
-    );
+    return errJson(err);
   }
 }

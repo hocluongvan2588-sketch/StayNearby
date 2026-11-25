@@ -1,46 +1,58 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  authenticateWithPassword,
-  createSessionCookieValue,
-} from '@/lib/auth/session';
-import { getClientIp, handleApiError } from '@/lib/http';
-import { assertRateLimit } from '@/lib/rate-limit';
+import { verifyPassword } from '@/lib/auth/password';
+import { createSessionCookieValue, SESSION_COOKIE_NAME } from '@/lib/auth/session';
+import { dbQuery } from '@/lib/db';
+import { AppError } from '@/lib/errors';
+import { errJson } from '@/lib/http';
 
-const loginSchema = z.object({
+const schema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  password: z.string().min(6),
 });
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = loginSchema.parse(await req.json());
-    const ip = getClientIp(req);
+    const body = await req.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      throw new AppError('VALIDATION_ERROR', 'Please enter a valid email and password.');
+    }
 
-    assertRateLimit({
-      bucket: 'auth_login',
-      key: `${ip}:${body.email.toLowerCase()}`,
-      limit: 10,
-      windowMs: 60_000,
+    const email = parsed.data.email.trim().toLowerCase();
+    const userRes = await dbQuery<{
+      id: string;
+      email: string;
+      password_hash: string;
+      full_name: string;
+      role: string;
+    }>('SELECT id, email, password_hash, full_name, role FROM users WHERE LOWER(email) = $1', [
+      email,
+    ]);
+
+    const user = userRes.rows[0];
+    if (!user || !verifyPassword(parsed.data.password, user.password_hash)) {
+      throw new AppError('UNAUTHORIZED', 'Invalid email or password.');
+    }
+
+    const token = createSessionCookieValue(user.id);
+    const res = NextResponse.json({
+      ok: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.full_name,
+        role: user.role,
+      },
     });
-
-    const user = await authenticateWithPassword(body.email, body.password);
-    const cookie = createSessionCookieValue(user.id);
-
-    const isHttps =
-      req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() === 'https' ||
-      req.nextUrl.protocol === 'https:';
-
-    const res = NextResponse.json({ ok: true, user });
-    res.cookies.set(cookie.name, cookie.value, {
+    res.cookies.set(SESSION_COOKIE_NAME, token, {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
-      maxAge: cookie.maxAge,
-      secure: isHttps,
+      maxAge: 60 * 60 * 24 * 14,
     });
     return res;
   } catch (err) {
-    return handleApiError(err);
+    return errJson(err);
   }
 }

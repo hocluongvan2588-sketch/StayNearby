@@ -1,111 +1,41 @@
 @import "tailwindcss";
-@import "@fontsource/be-vietnam-pro/400.css";
-@import "@fontsource/be-vietnam-pro/500.css";
-@import "@fontsource/be-vietnam-pro/600.css";
-@import "@fontsource/be-vietnam-pro/700.css";
 
 :root {
-  --color-bg: #FFFFFF;
-  --color-surface: #FFFFFF;
-  --color-surface-ivory: #FAF8F3;
-  --color-surface-muted: #F5F5F3;
-  --color-text: #202824;
-  --color-text-muted: #56625B;
-  --color-border: #DEDCD3;
-  --color-hairline: #ECEBE5;
-  --color-primary: #205B47;
-  --color-primary-hover: #184737;
-  --color-primary-soft: #EEF4F1;
-  --color-warning-bg: #FDF7EB;
-  --color-warning-text: #7A4E0B;
-  --color-warning-border: #EAD9B8;
-  --color-danger-bg: #FDF1F1;
-  --color-danger-text: #922324;
-  --color-danger-border: #ECCDCD;
-  --radius-card: 12px;
-  --container-max: 1320px;
+  --font-sans: 'Plus Jakarta Sans', 'Be Vietnam Pro', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Newsreader', 'Georgia', 'Palatino Linotype', 'Times New Roman', serif;
+  --bg-canvas: #FAF8F3;
+  --bg-surface: #FFFFFF;
+  --bg-sand: #F2EDE3;
+  --ink: #17221E;
+  --ink-muted: #53635D;
+  --jade: #164E3F;
+  --jade-dark: #0F392E;
+  --jade-soft: #E7F1EC;
+  --terracotta: #C25E28;
+  --terracotta-soft: #FAEDE5;
+  --brass: #A67C2E;
+  --border-subtle: #E5DFD3;
 }
 
 @layer base {
-  html,
+  html {
+    scroll-behavior: smooth;
+    background-color: var(--bg-canvas);
+    color: var(--ink);
+  }
+
   body {
-    background-color: var(--color-bg);
-    color: var(--color-text);
-    font-family: "Be Vietnam Pro", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 16px;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
+    background-color: var(--bg-canvas);
+    color: var(--ink);
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
     overflow-x: hidden;
   }
 
-  *:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
+  h1, h2, h3, .font-serif-display {
+    font-family: var(--font-serif), Georgia, serif;
   }
 }
 
-.container-stay {
-  width: 100%;
-  max-width: var(--container-max);
-  margin-inline: auto;
-  padding-inline: 16px;
-}
-
-@media (min-width: 768px) {
-  .container-stay {
-    padding-inline: 32px;
-  }
-}
-
-/* Stay results grid: 1 col at 360px, 2 cols at 640px, 3 cols at 960px, 4 cols at 1280px */
-.stays-grid {
-  display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 28px 24px;
-}
-
-@media (min-width: 640px) {
-  .stays-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 960px) {
-  .stays-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .stays-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.page-title {
-  font-size: clamp(1.875rem, 2.3vw + 1.05rem, 2.5rem);
-  line-height: 1.14;
-  letter-spacing: -0.03em;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.section-title {
-  font-size: clamp(1.375rem, 1.1vw + 0.95rem, 1.75rem);
-  line-height: 1.22;
-  letter-spacing: -0.02em;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
-
-.shadow-apple-subtle {
-  box-shadow: 0 2px 12px -2px rgba(32, 40, 36, 0.05);
-}
-
-.shadow-apple-card {
-  box-shadow: 0 12px 32px -10px rgba(32, 40, 36, 0.08);
+.lacquer-shadow {
+  box-shadow: 0 10px 30px -12px rgba(22, 78, 63, 0.14), 0 2px 8px -2px rgba(23, 34, 30, 0.05);
 }

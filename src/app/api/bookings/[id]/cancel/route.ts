@@ -1,41 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { getCurrentUser } from '@/lib/auth/session';
-import {
-  getClientIp,
-  handleApiError,
-  readOptionalJsonBody,
-} from '@/lib/http';
-import { assertRateLimit } from '@/lib/rate-limit';
-import { cancelConfirmedBooking } from '@/modules/bookings';
-
-export const dynamic = 'force-dynamic';
-
-const reasonSchema = z
-  .object({
-    reason: z.string().max(500).optional(),
-  })
-  .optional();
+import { requireUser } from '@/lib/auth/session';
+import { errJson, okJson } from '@/lib/http';
+import { cancelBookingByMember } from '@/modules/bookings';
 
 export async function POST(
-  req: NextRequest,
+  _req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser();
     const { id } = await context.params;
-    const user = await getCurrentUser();
-    assertRateLimit({
-      bucket: 'booking_cancel',
-      key: `${getClientIp(req)}:${user?.id || 'anon'}`,
-      limit: 20,
-      windowMs: 60_000,
-    });
-
-    const raw = await readOptionalJsonBody(req);
-    const parsed = reasonSchema.parse(raw);
-    const booking = await cancelConfirmedBooking(user, id, parsed?.reason);
-    return NextResponse.json({ ok: true, booking });
+    const outcome = await cancelBookingByMember(user, id);
+    return okJson({ outcome });
   } catch (err) {
-    return handleApiError(err);
+    return errJson(err);
   }
 }

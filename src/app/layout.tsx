@@ -1,65 +1,47 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import './globals.css';
-import { getAppConfig } from '@/lib/config';
 import { getCurrentUser } from '@/lib/auth/session';
-import { getUserMessages } from '@/lib/i18n/messages';
-import { getServerUserPreferences } from '@/lib/i18n/preferences';
-import { UserPreferencesProvider } from '@/components/i18n/UserPreferencesProvider';
-import { SiteHeader } from '@/components/brand/SiteHeader';
-import { SiteFooter } from '@/components/brand/SiteFooter';
+import { getServerPreferences } from '@/lib/preferences';
+import { getDestinations, getLifestyles } from '@/modules/catalog';
+import { PreferencesProvider } from '@/components/PreferencesProvider';
+import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter } from '@/components/SiteFooter';
+import { CompareDrawer } from '@/components/CompareDrawer';
 
-export const dynamic = 'force-dynamic';
-
-function isPortalPath(pathname: string | null): boolean {
-  if (!pathname) return false;
-  return (
-    pathname.startsWith('/host') ||
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/crm')
-  );
-}
-
-export async function generateMetadata(): Promise<Metadata> {
-  const [config, prefs, hdrs] = await Promise.all([
-    Promise.resolve(getAppConfig()),
-    getServerUserPreferences(),
-    headers(),
-  ]);
-  const portalRoute = isPortalPath(hdrs.get('x-pathname'));
-  const t = getUserMessages(portalRoute ? 'vi' : prefs.locale);
-  return {
-    title: `${config.brandName} — ${t.meta.titleSuffix}`,
-    description: t.meta.description,
-  };
-}
+export const metadata: Metadata = {
+  title: 'VietNomad Stays — Work-Ready Extended Stays Across Vietnam',
+  description:
+    'Independently tested Wi-Fi, upfront 7 to 30+ night all-inclusive pricing, workspaces, and kitchens for international digital nomads in Vietnam.',
+};
 
 export default async function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
-  const config = getAppConfig();
-  const [user, preferences, hdrs] = await Promise.all([
-    getCurrentUser().catch(() => null),
-    getServerUserPreferences(),
-    headers(),
+}) {
+  const [prefs, user, destinations, lifestyles] = await Promise.all([
+    getServerPreferences(),
+    getCurrentUser(),
+    getDestinations(),
+    getLifestyles(),
   ]);
-  const portalRoute = isPortalPath(hdrs.get('x-pathname'));
-  const htmlLang = portalRoute ? 'vi' : preferences.locale;
 
   return (
-    <html lang={htmlLang}>
-      <body className="min-h-screen flex flex-col bg-[var(--color-bg)] text-[var(--color-text)]">
-        <UserPreferencesProvider initialPreferences={preferences}>
+    <html lang={prefs.locale}>
+      <body className="min-h-screen flex flex-col antialiased">
+        <PreferencesProvider
+          initialLocale={prefs.locale}
+          initialCurrency={prefs.currency}
+        >
           <SiteHeader
-            brandName={config.brandName}
-            demoMode={config.demoMode}
             user={user}
+            destinations={destinations}
+            lifestyles={lifestyles}
           />
           <main className="flex-1">{children}</main>
-          <SiteFooter brandName={config.brandName} demoMode={config.demoMode} />
-        </UserPreferencesProvider>
+          <CompareDrawer />
+          <SiteFooter destinations={destinations} />
+        </PreferencesProvider>
       </body>
     </html>
   );

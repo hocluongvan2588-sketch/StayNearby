@@ -1,183 +1,77 @@
-import fs from 'fs';
-import { AsyncLocalStorage } from 'node:async_hooks';
-import path from 'path';
-import { Pool, type PoolConfig, types as pgTypes, type QueryResultRow } from 'pg';
 import { PGlite } from '@electric-sql/pglite';
-import { getAppConfig } from '../config';
+import { Pool, type PoolConfig } from 'pg';
+import { mkdirSync } from 'node:fs';
+import { getConfig, isInDbBootstrap, runWithDbBootstrap } from '@/lib/config';
 
-// Return PostgreSQL DATE (OID 1082) as raw 'YYYY-MM-DD' string without JS Date timezone drift.
-pgTypes.setTypeParser(1082, (value: string) => value);
+export type DbRow = Record<string, unknown>;
 
-export interface DbQueryResult<T> {
+export interface DbQueryResult<T extends DbRow = DbRow> {
   rows: T[];
   rowCount: number;
 }
 
-export interface DbExecutor {
-  query<T extends QueryResultRow = Record<string, unknown>>(
-    sql: string,
-    params?: unknown[]
-  ): Promise<DbQueryResult<T>>;
-}
-
-export interface DbTransaction extends DbExecutor {
-  exec(sql: string): Promise<void>;
-}
-
-export interface TransactionOptions {
-  actorId?: string | null;
+export interface DbClient {
+  query<T extends DbRow = DbRow>(sql: string, params?: unknown[]): Promise<DbQueryResult<T>>;
 }
 
 interface GlobalDbState {
-  pgPool?: Pool;
-  pgPoolUrl?: string;
+  pool?: Pool;
   pglite?: PGlite;
-  pglitePath?: string;
-  bootstrappingStorage: AsyncLocalStorage<boolean>;
-  initDone?: boolean;
-  initPromise?: Promise<void>;
+  readyPromise?: Promise<void>;
 }
 
-const globalForDb = globalThis as typeof globalThis & {
-  __staynearbyDb?: GlobalDbState;
-};
-
-function getGlobalDbState(): GlobalDbState {
-  if (!globalForDb.__staynearbyDb) {
-    globalForDb.__staynearbyDb = {
-      bootstrappingStorage: new AsyncLocalStorage<boolean>(),
-    };
-  }
-  return globalForDb.__staynearbyDb;
+const g = globalThis as typeof globalThis & { __vietnomadDb?: GlobalDbState };
+if (!g.__vietnomadDb) {
+  g.__vietnomadDb = {};
 }
+const dbState = g.__vietnomadDb;
 
-export function runWithDbBootstrap<T>(fn: () => Promise<T>): Promise<T> {
-  return getGlobalDbState().bootstrappingStorage.run(true, fn);
-}
+function buildPgPoolConfig(rawUrl: string): PoolConfig {
+  const parsed = new URL(rawUrl);
+  const sslMode = parsed.searchParams.get('sslmode');
+  const isLocal =
+    parsed.hostname === 'localhost' ||
+    parsed.hostname === '127.0.0.1' ||
+    parsed.hostname === '::1';
 
-export function markDbInitialized(): void {
-  getGlobalDbState().initDone = true;
-}
-
-export function getDbMode(): 'postgres' | 'pglite' {
-  const { databaseUrl, pgliteDataDir } = getAppConfig();
-  if (pgliteDataDir === 'memory://') {
-    return 'pglite';
-  }
-  return databaseUrl ? 'postgres' : 'pglite';
-}
-
-export function resolvePgliteDataDir(rawDir: string): string {
-  if (rawDir === 'memory://' || rawDir.startsWith('idb://')) {
-    return rawDir;
-  }
-  const resolved = path.resolve(/*turbopackIgnore: true*/ process.cwd(), rawDir);
-  if (process.env.VERCEL === '1' || resolved.startsWith('/var/task')) {
-    return '/tmp/staynearby-pglite';
-  }
-  return resolved;
-}
-
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
-
-export function buildPgPoolConfig(databaseUrl: string): PoolConfig {
-  const max = process.env.VERCEL === '1' ? 3 : 10;
-  let parsed: URL | null = null;
-  try {
-    parsed = new URL(databaseUrl);
-  } catch {
-    return {
-      connectionString: databaseUrl,
-      max,
-      idleTimeoutMillis: 15_000,
-      connectionTimeoutMillis: 10_000,
-    };
-  }
-
-  const sslMode = parsed.searchParams.get('sslmode')?.toLowerCase();
-  const isLocalHost = LOCAL_HOSTS.has(parsed.hostname.toLowerCase());
-
-  if (sslMode === 'disable' || (isLocalHost && !sslMode)) {
-    return {
-      connectionString: databaseUrl,
-      max,
-      idleTimeoutMillis: 15_000,
-      connectionTimeoutMillis: 10_000,
-    };
-  }
-
-  // pg-connection-string v2+/pg v8 treats sslmode=require as verify-full and overrides Pool.ssl
-  // unless stripped from the query string. Cloud poolers (e.g. Supabase) require rejectUnauthorized: false.
-  if (sslMode !== 'verify-full') {
-    parsed.searchParams.delete('sslmode');
-    parsed.searchParams.delete('uselibpqcompat');
-  }
+  // Strip sslmode & uselibpqcompat so pg uses explicit ssl config cleanly
+  parsed.searchParams.delete('sslmode');
+  parsed.searchParams.delete('uselibpqcompat');
 
   return {
     connectionString: parsed.toString(),
-    max,
-    idleTimeoutMillis: 15_000,
-    connectionTimeoutMillis: 10_000,
-    ssl: {
-      rejectUnauthorized: false,
-    },
+    max: 10,
+    ssl: isLocal && sslMode !== 'require' ? undefined : { rejectUnauthorized: false },
   };
 }
 
-function getPgPool(): Pool {
-  const state = getGlobalDbState();
-  const { databaseUrl } = getAppConfig();
-  if (!state.pgPool || state.pgPoolUrl !== databaseUrl) {
-    if (state.pgPool) {
-      void state.pgPool.end().catch(() => {});
-    }
-    state.pgPool = new Pool(buildPgPoolConfig(databaseUrl));
-    state.pgPoolUrl = databaseUrl;
+async function getPool(): Promise<Pool> {
+  if (!dbState.pool) {
+    const { databaseUrl } = getConfig();
+    dbState.pool = new Pool(buildPgPoolConfig(databaseUrl));
   }
-  return state.pgPool;
+  return dbState.pool;
 }
 
 async function getPglite(): Promise<PGlite> {
-  const state = getGlobalDbState();
-  const { pgliteDataDir } = getAppConfig();
-  const resolved = resolvePgliteDataDir(pgliteDataDir);
-
-  if (state.pglite && state.pglitePath === resolved) {
-    return state.pglite;
+  if (!dbState.pglite) {
+    const { pgliteDataDir } = getConfig();
+    if (pgliteDataDir !== 'memory://') {
+      mkdirSync(pgliteDataDir, { recursive: true });
+    }
+    dbState.pglite = new PGlite(pgliteDataDir);
   }
-
-  if (state.pglite) {
-    await state.pglite.close();
-    state.pglite = undefined;
-  }
-
-  if (resolved !== 'memory://' && !resolved.startsWith('idb://')) {
-    fs.mkdirSync(resolved, { recursive: true });
-    state.pglite = await PGlite.create({
-      dataDir: resolved,
-      parsers: {
-        1082: (value: string) => value,
-      },
-    });
-  } else {
-    state.pglite = await PGlite.create({
-      dataDir: resolved,
-      parsers: {
-        1082: (value: string) => value,
-      },
-    });
-  }
-
-  state.pglitePath = resolved;
-  return state.pglite;
+  return dbState.pglite;
 }
 
-async function rawQuery<T extends QueryResultRow = Record<string, unknown>>(
+async function rawQuery<T extends DbRow = DbRow>(
   sql: string,
   params: unknown[] = []
 ): Promise<DbQueryResult<T>> {
-  if (getDbMode() === 'postgres') {
-    const res = await getPgPool().query<T>(sql, params);
+  const { databaseUrl } = getConfig();
+  if (databaseUrl) {
+    const pool = await getPool();
+    const res = await pool.query<T>(sql, params);
     return {
       rows: res.rows,
       rowCount: res.rowCount ?? res.rows.length,
@@ -192,67 +86,29 @@ async function rawQuery<T extends QueryResultRow = Record<string, unknown>>(
   };
 }
 
-async function isLatestMigrationApplied(): Promise<boolean> {
-  try {
-    const res = await rawQuery<{ applied: boolean }>(
-      `SELECT EXISTS(
-         SELECT 1
-         FROM public.schema_migrations
-         WHERE version = '0007_crm_profiles.sql'
-       ) AS applied`
-    );
-    return Boolean(res.rows[0]?.applied);
-  } catch {
-    return false;
+export async function ensureDbReady(): Promise<void> {
+  if (isInDbBootstrap()) return;
+  if (!dbState.readyPromise) {
+    dbState.readyPromise = runWithDbBootstrap(async () => {
+      const { runMigrations } = await import('./migrate');
+      await runMigrations();
+
+      const destCount = await rawQuery<{ count: string | number }>(
+        'SELECT COUNT(*) AS count FROM destinations'
+      );
+      if (Number(destCount.rows[0]?.count ?? 0) === 0) {
+        const { runSeed } = await import('./seed-data');
+        await runSeed();
+      }
+    }).catch((err) => {
+      dbState.readyPromise = undefined;
+      throw err;
+    });
   }
+  await dbState.readyPromise;
 }
 
-async function ensureDbReady(): Promise<void> {
-  const state = getGlobalDbState();
-  if (state.initDone || state.bootstrappingStorage.getStore() === true) {
-    return;
-  }
-
-  if (!state.initPromise) {
-    state.initPromise = state.bootstrappingStorage
-      .run(true, async () => {
-        const migrated = await isLatestMigrationApplied();
-        if (!migrated) {
-          const { runMigrations } = await import('./migrate');
-          try {
-            await runMigrations();
-          } catch (err) {
-            // Handle concurrent cold-start DDL race across serverless instances
-            await new Promise((r) => setTimeout(r, 350));
-            const migratedAfterWait = await isLatestMigrationApplied();
-            if (!migratedAfterWait) {
-              throw err;
-            }
-          }
-        }
-
-        const { demoMode } = getAppConfig();
-        if (demoMode) {
-          const areaCountRes = await rawQuery<{ count: string }>(
-            `SELECT COUNT(*)::text AS count FROM public.areas`
-          );
-          if (Number(areaCountRes.rows[0]?.count ?? '0') === 0) {
-            const { runSeed } = await import('./seed-data');
-            await runSeed();
-          }
-        }
-
-        state.initDone = true;
-      })
-      .finally(() => {
-        state.initPromise = undefined;
-      });
-  }
-
-  await state.initPromise;
-}
-
-export async function dbQuery<T extends QueryResultRow = Record<string, unknown>>(
+export async function dbQuery<T extends DbRow = DbRow>(
   sql: string,
   params: unknown[] = []
 ): Promise<DbQueryResult<T>> {
@@ -261,45 +117,29 @@ export async function dbQuery<T extends QueryResultRow = Record<string, unknown>
 }
 
 export async function dbExec(sql: string): Promise<void> {
-  await ensureDbReady();
-  if (getDbMode() === 'postgres') {
-    await getPgPool().query(sql);
+  const { databaseUrl } = getConfig();
+  if (databaseUrl) {
+    const pool = await getPool();
+    await pool.query(sql);
     return;
   }
-
   const pglite = await getPglite();
   await pglite.exec(sql);
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export async function withTransaction<T>(
-  fn: (tx: DbTransaction) => Promise<T>,
-  options?: TransactionOptions
-): Promise<T> {
+export async function dbTransaction<T>(fn: (tx: DbClient) => Promise<T>): Promise<T> {
   await ensureDbReady();
-  const actorId = options?.actorId ?? null;
-  if (actorId && !UUID_RE.test(actorId)) {
-    throw new Error('Invalid actorId UUID for transaction context');
-  }
+  const { databaseUrl } = getConfig();
 
-  if (getDbMode() === 'postgres') {
-    const client = await getPgPool().connect();
+  if (databaseUrl) {
+    const pool = await getPool();
+    const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      if (actorId) {
-        await client.query(`SET LOCAL app.current_user_id = '${actorId}'`);
-      }
-      const tx: DbTransaction = {
-        async query<R extends QueryResultRow = Record<string, unknown>>(
-          sql: string,
-          params: unknown[] = []
-        ) {
+      const tx: DbClient = {
+        async query<R extends DbRow = DbRow>(sql: string, params: unknown[] = []) {
           const res = await client.query<R>(sql, params);
           return { rows: res.rows, rowCount: res.rowCount ?? res.rows.length };
-        },
-        async exec(sql: string) {
-          await client.query(sql);
         },
       };
       const out = await fn(tx);
@@ -315,22 +155,13 @@ export async function withTransaction<T>(
 
   const pglite = await getPglite();
   return pglite.transaction(async (pgTx) => {
-    if (actorId) {
-      await pgTx.exec(`SET LOCAL app.current_user_id = '${actorId}'`);
-    }
-    const tx: DbTransaction = {
-        async query<R extends QueryResultRow = Record<string, unknown>>(
-          sql: string,
-          params: unknown[] = []
-        ) {
-          const res = await pgTx.query<R>(sql, params);
-          return {
-            rows: res.rows,
-            rowCount: res.rows.length > 0 ? res.rows.length : (res.affectedRows ?? 0),
-          };
-        },
-      async exec(sql: string) {
-        await pgTx.exec(sql);
+    const tx: DbClient = {
+      async query<R extends DbRow = DbRow>(sql: string, params: unknown[] = []) {
+        const res = await pgTx.query<R>(sql, params);
+        return {
+          rows: res.rows,
+          rowCount: res.rows.length > 0 ? res.rows.length : (res.affectedRows ?? 0),
+        };
       },
     };
     return fn(tx);
@@ -338,17 +169,22 @@ export async function withTransaction<T>(
 }
 
 export async function closeDb(): Promise<void> {
-  const state = getGlobalDbState();
-  state.initDone = false;
-  state.initPromise = undefined;
-  if (state.pgPool) {
-    await state.pgPool.end();
-    state.pgPool = undefined;
-    state.pgPoolUrl = undefined;
+  if (dbState.pool) {
+    await dbState.pool.end();
+    dbState.pool = undefined;
   }
-  if (state.pglite) {
-    await state.pglite.close();
-    state.pglite = undefined;
-    state.pglitePath = undefined;
+  if (dbState.pglite) {
+    await dbState.pglite.close();
+    dbState.pglite = undefined;
   }
+  dbState.readyPromise = undefined;
+}
+
+export function toNum(val: unknown, fallback = 0): number {
+  if (typeof val === 'number') return Number.isFinite(val) ? val : fallback;
+  if (typeof val === 'string' && val.trim() !== '') {
+    const n = Number(val);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  return fallback;
 }
