@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import {
   Bell,
@@ -8,6 +9,7 @@ import {
   CalendarX,
   CheckCircle2,
   ExternalLink,
+  ImagePlus,
   PlusCircle,
   Wallet,
   Wifi,
@@ -20,40 +22,36 @@ import {
   formatVndExact,
 } from '@/lib/i18n';
 import { getTodayIsoVietnam, addDaysIso } from '@/lib/dates';
+import { HostStayEditorModal, type HostEditableStay } from './HostStayEditorModal';
 import { usePreferences } from './PreferencesProvider';
 
 interface HostConsoleData {
+  mediaStorage: {
+    supabaseConfigured: boolean;
+    bucket: string;
+  };
   walletBalanceVnd: number;
-  stays: Array<{
-    id: string;
-    slug: string;
-    titleEn: string;
-    titleVi: string;
-    destinationNameEn: string;
-    destinationNameVi: string;
-    propertyType: string;
-    businessModel: 'booking_flow' | 'stay_direct';
-    status: string;
-    wifiDownloadMbps: number;
-    wifiUploadMbps: number;
-    wifiJitterMs: number;
-    verificationTier: string;
-    speedtestProofUrl: string;
-    workspaceVideoUrl: string;
-    roomId: string | null;
-    roomNameEn: string;
-    unitsTotal: number;
-    icalUrl: string;
-    icalLastSyncedAt: string | null;
-    icalSyncStatus: string;
-    wholesale7Vnd: number;
-    wholesale14Vnd: number;
-    wholesale21Vnd: number;
-    wholesale30Vnd: number;
-    extraNightVnd: number;
-    isDealFeatured: boolean;
-    directBookingUrl: string;
-  }>;
+  stays: Array<
+    HostEditableStay & {
+      destinationNameEn: string;
+      destinationNameVi: string;
+      status: string;
+      wifiDownloadMbps: number;
+      wifiUploadMbps: number;
+      wifiJitterMs: number;
+      verificationTier: string;
+      speedtestProofUrl: string;
+      workspaceVideoUrl: string;
+      roomId: string | null;
+      roomNameEn: string;
+      unitsTotal: number;
+      icalUrl: string;
+      icalLastSyncedAt: string | null;
+      icalSyncStatus: string;
+      isDealFeatured: boolean;
+      directBookingUrl: string;
+    }
+  >;
   applications: Array<{
     id: string;
     stayName: string;
@@ -110,13 +108,16 @@ export function HostConsoleClient({
   hostName: string;
   data: HostConsoleData;
 }) {
+  const router = useRouter();
   const { locale, currency } = usePreferences();
   const isVi = locale === 'vi';
 
   const [walletVnd, setWalletVnd] = useState(data.walletBalanceVnd);
   const [message, setMessage] = useState('');
+  const [editingStayId, setEditingStayId] = useState<string | null>(null);
   const [blockRoomId, setBlockRoomId] = useState(data.stays[0]?.roomId ?? '');
   const [blockDate, setBlockDate] = useState(addDaysIso(getTodayIsoVietnam(), 15));
+  const editingStay = data.stays.find((s) => s.id === editingStayId) ?? null;
 
   async function handleTopUp(amountUsd: 50 | 100 | 200) {
     const res = await fetch('/api/host/wallet', {
@@ -302,36 +303,54 @@ export function HostConsoleClient({
         <div className="grid gap-6">
           {data.stays.map((stay) => (
             <div key={stay.id} className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-6">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5DFD3] pb-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                    <span className="rounded-full bg-[#164E3F] px-2.5 py-0.5 text-white">
-                      {stay.status === 'live'
-                        ? isVi
-                          ? 'Đang mở đặt'
-                          : 'Live'
-                        : stay.status === 'limited'
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#E5DFD3] pb-4">
+                <div className="flex items-start gap-4">
+                  <img
+                    src={stay.heroImage}
+                    alt={stay.titleEn}
+                    className="hidden h-20 w-28 shrink-0 rounded-2xl border border-[#E5DFD3] object-cover sm:block"
+                  />
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                      <span className="rounded-full bg-[#164E3F] px-2.5 py-0.5 text-white">
+                        {stay.status === 'live'
                           ? isVi
-                            ? 'Giới hạn'
-                            : 'Limited'
-                          : isVi
-                            ? 'Tạm ẩn'
-                            : 'Paused'}
-                    </span>
-                    <span className="rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-[#164E3F]">
-                      {formatVerificationTierLabel(stay.verificationTier, locale)}
-                    </span>
-                    <span className="text-[#53635D]">
-                      {isVi ? stay.destinationNameVi : stay.destinationNameEn}, {stay.unitsTotal} {isVi ? 'phòng' : 'units'}
-                    </span>
+                            ? 'Đang mở đặt'
+                            : 'Live'
+                          : stay.status === 'limited'
+                            ? isVi
+                              ? 'Giới hạn'
+                              : 'Limited'
+                            : isVi
+                              ? 'Tạm ẩn'
+                              : 'Paused'}
+                      </span>
+                      <span className="rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-[#164E3F]">
+                        {formatVerificationTierLabel(stay.verificationTier, locale)}
+                      </span>
+                      <span className="text-[#53635D]">
+                        {isVi ? stay.destinationNameVi : stay.destinationNameEn}, {stay.galleryImages.length}{' '}
+                        {isVi ? 'ảnh' : 'photos'}, {stay.rooms.length} {isVi ? 'loại phòng' : 'room types'}
+                      </span>
+                    </div>
+                    <Link
+                      href={`/stays/${stay.slug}`}
+                      className="font-serif-display mt-1 inline-flex items-center gap-1.5 text-2xl font-semibold text-[#17221E] hover:text-[#164E3F]"
+                    >
+                      {isVi ? stay.titleVi : stay.titleEn}
+                      <ExternalLink className="h-4 w-4" />
+                    </Link>
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingStayId(stay.id)}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-[#164E3F]/30 bg-[#E7F1EC] px-3.5 py-1.5 text-xs font-semibold text-[#164E3F] hover:bg-[#164E3F] hover:text-white transition"
+                      >
+                        <ImagePlus className="h-3.5 w-3.5" />
+                        {isVi ? 'Quản lý ảnh, thông tin & phòng' : 'Edit photos, details & rooms'}
+                      </button>
+                    </div>
                   </div>
-                  <Link
-                    href={`/stays/${stay.slug}`}
-                    className="font-serif-display mt-1 inline-flex items-center gap-1.5 text-2xl font-semibold text-[#17221E] hover:text-[#164E3F]"
-                  >
-                    {isVi ? stay.titleVi : stay.titleEn}
-                    <ExternalLink className="h-4 w-4" />
-                  </Link>
                 </div>
 
                 <form
@@ -506,13 +525,21 @@ export function HostConsoleClient({
               onChange={(e) => setBlockRoomId(e.target.value)}
               className="flex-1 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 text-xs font-semibold"
             >
-              {data.stays
-                .filter((s) => s.roomId)
-                .map((s) => (
-                  <option key={s.roomId!} value={s.roomId!}>
-                    {s.titleEn} ({s.roomNameEn})
-                  </option>
-                ))}
+              {data.stays.flatMap((s) =>
+                s.rooms.length > 0
+                  ? s.rooms.map((rm) => (
+                      <option key={rm.id} value={rm.id}>
+                        {isVi ? s.titleVi : s.titleEn} ({isVi ? rm.nameVi : rm.nameEn})
+                      </option>
+                    ))
+                  : s.roomId
+                    ? [
+                        <option key={s.roomId} value={s.roomId}>
+                          {isVi ? s.titleVi : s.titleEn} ({s.roomNameEn})
+                        </option>,
+                      ]
+                    : []
+              )}
             </select>
             <input
               type="date"
@@ -618,6 +645,20 @@ export function HostConsoleClient({
             ))}
           </div>
         </section>
+      )}
+
+      {editingStay && (
+        <HostStayEditorModal
+          stay={editingStay}
+          isVi={isVi}
+          supabaseConfigured={data.mediaStorage.supabaseConfigured}
+          storageBucket={data.mediaStorage.bucket}
+          onClose={() => setEditingStayId(null)}
+          onUpdated={(feedback) => {
+            setMessage(feedback);
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

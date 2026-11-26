@@ -22,6 +22,10 @@ export interface AppConfig {
   vietqrAccountNo: string;
   vietqrAccountName: string;
   vietqrWebhookToken: string;
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+  supabaseStorageBucket: string;
+  localUploadsDir: string;
 }
 
 export function getConfig(): AppConfig {
@@ -39,6 +43,13 @@ export function getConfig(): AppConfig {
     : isVercel
       ? '/tmp/vietnomad-pglite'
       : path.join(process.cwd(), '.data', 'vietnomad-pglite');
+
+  const configuredUploadsDir = process.env.LOCAL_UPLOADS_DIR?.trim();
+  const localUploadsDir = configuredUploadsDir
+    ? configuredUploadsDir
+    : isVercel
+      ? '/tmp/vietnomad-uploads'
+      : path.join(process.cwd(), '.data', 'uploads');
 
   return {
     brandName: 'VietNomad Stays',
@@ -65,6 +76,12 @@ export function getConfig(): AppConfig {
     vietqrAccountNo: process.env.VIETQR_ACCOUNT_NO?.trim() || '',
     vietqrAccountName: process.env.VIETQR_ACCOUNT_NAME?.trim() || '',
     vietqrWebhookToken: process.env.VIETQR_WEBHOOK_TOKEN?.trim() || '',
+    supabaseUrl:
+      (process.env.SUPABASE_URL?.trim() || process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || '').replace(/\/+$/, ''),
+    supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || '',
+    supabaseStorageBucket:
+      process.env.SUPABASE_STORAGE_BUCKET?.trim() || 'stay-photos',
+    localUploadsDir,
   };
 }
 
