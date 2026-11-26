@@ -1,18 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Building2,
+  Check,
   ChevronDown,
   Compass,
   Globe,
+  LogOut,
+  MapPin,
   Menu,
+  ShieldCheck,
   Sparkles,
   User,
   X,
-  LogOut,
-  Building2,
-  ShieldCheck,
 } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
 import { SUPPORTED_CURRENCIES, type CurrencyCode } from '@/lib/i18n';
@@ -29,10 +31,31 @@ export function SiteHeader({
   lifestyles: LifestyleItem[];
 }) {
   const { locale, currency, setLocale, setCurrency } = usePreferences();
-  const [openMenu, setOpenMenu] = useState<'lifestyles' | 'destinations' | null>(null);
+  const [openMenu, setOpenMenu] = useState<'explore' | 'locale' | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
 
   const isVi = locale === 'vi';
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpenMenu(null);
+        setMobileOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, []);
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -40,183 +63,237 @@ export function SiteHeader({
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#E5DFD3] bg-[#FAF8F3]/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-40 border-b border-[#E5DFD3] bg-[#FAF8F3]/95 backdrop-blur-md"
+    >
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        {/* Brand */}
         <Link
           href="/"
-          className="flex items-center gap-2.5 text-[#17221E] transition hover:opacity-85"
+          className="flex shrink-0 items-center gap-2.5 text-[#17221E] transition hover:opacity-85"
           onClick={() => setOpenMenu(null)}
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#164E3F] text-[#FAF8F3] shadow-sm">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#164E3F] text-[#FAF8F3] shadow-sm">
             <svg viewBox="0 0 28 28" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9">
               <path d="M4 18.5L14 7l10 11.5H4z" strokeLinejoin="round" />
               <path d="M10.5 21.5a5 5 0 017 0" strokeLinecap="round" />
             </svg>
           </span>
-          <div className="leading-tight">
+          <div className="leading-tight whitespace-nowrap">
             <span className="font-serif-display block text-lg font-semibold tracking-tight text-[#164E3F]">
               VietNomad
             </span>
-            <span className="block text-[10px] font-medium uppercase tracking-[0.18em] text-[#A67C2E]">
+            <span className="block text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A67C2E]">
               Vietnam Stays
             </span>
           </div>
         </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden items-center gap-1 lg:flex">
+        {/* Primary Desktop Navigation */}
+        <nav className="hidden shrink-0 items-center gap-0.5 lg:flex xl:gap-1">
           <div className="relative">
             <button
               type="button"
-              onClick={() => setOpenMenu(openMenu === 'lifestyles' ? null : 'lifestyles')}
-              className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-[#17221E] hover:bg-[#F2EDE3]"
+              onClick={() => setOpenMenu(openMenu === 'explore' ? null : 'explore')}
+              aria-expanded={openMenu === 'explore'}
+              className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium transition xl:px-3.5 ${
+                openMenu === 'explore'
+                  ? 'bg-[#EFECE4] text-[#164E3F]'
+                  : 'text-[#17221E] hover:bg-[#EFECE4]/70'
+              }`}
             >
-              {isVi ? 'Phong cách ở' : 'Lifestyles'}
-              <ChevronDown className="h-3.5 w-3.5 text-[#53635D]" />
+              {isVi ? 'Khám phá' : 'Explore'}
+              <ChevronDown
+                className={`h-3.5 w-3.5 text-[#53635D] transition-transform ${
+                  openMenu === 'explore' ? 'rotate-180' : ''
+                }`}
+              />
             </button>
-            {openMenu === 'lifestyles' && (
-              <div
-                onMouseLeave={() => setOpenMenu(null)}
-                className="absolute left-0 top-full mt-2 grid w-[440px] grid-cols-2 gap-1.5 rounded-2xl border border-[#E5DFD3] bg-white p-3 shadow-xl"
-              >
-                {lifestyles.map((l) => (
-                  <Link
-                    key={l.id}
-                    href={`/lifestyles/${l.slug}`}
-                    onClick={() => setOpenMenu(null)}
-                    className="rounded-xl px-3 py-2 text-sm hover:bg-[#FAF8F3]"
-                  >
-                    <div className="font-medium text-[#164E3F]">
-                      {isVi ? l.nameVi : l.nameEn}
-                    </div>
-                    <div className="line-clamp-1 text-xs text-[#53635D]">
-                      {isVi ? l.descriptionVi : l.descriptionEn}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
 
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setOpenMenu(openMenu === 'destinations' ? null : 'destinations')}
-              className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-[#17221E] hover:bg-[#F2EDE3]"
-            >
-              {isVi ? 'Thành phố' : 'Cities'}
-              <ChevronDown className="h-3.5 w-3.5 text-[#53635D]" />
-            </button>
-            {openMenu === 'destinations' && (
-              <div
-                onMouseLeave={() => setOpenMenu(null)}
-                className="absolute left-0 top-full mt-2 grid w-[420px] grid-cols-2 gap-1.5 rounded-2xl border border-[#E5DFD3] bg-white p-3 shadow-xl"
-              >
-                {destinations.map((d) => (
-                  <Link
-                    key={d.id}
-                    href={`/destinations/${d.slug}`}
-                    onClick={() => setOpenMenu(null)}
-                    className="flex items-center justify-between rounded-xl px-3 py-2 text-sm hover:bg-[#FAF8F3]"
-                  >
-                    <div>
-                      <div className="font-medium text-[#164E3F]">
-                        {isVi ? d.nameVi : d.nameEn}
-                      </div>
-                      <div className="text-xs text-[#53635D]">
-                        ~{d.avgWifiMbps} Mbps, {d.liveStaysCount} {isVi ? 'chỗ ở' : 'stays'}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
+            {openMenu === 'explore' && (
+              <div className="absolute left-0 top-full mt-2.5 grid w-[600px] grid-cols-12 gap-5 rounded-2xl border border-[#E5DFD3] bg-white p-5 shadow-2xl">
+                <div className="col-span-6 space-y-2 border-r border-[#E5DFD3] pr-4">
+                  <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
+                    {isVi ? 'Thành phố nổi bật' : 'Top cities'}
+                  </div>
+                  <div className="space-y-1">
+                    {destinations.map((d) => (
+                      <Link
+                        key={d.id}
+                        href={`/destinations/${d.slug}`}
+                        onClick={() => setOpenMenu(null)}
+                        className="flex items-center justify-between rounded-xl px-2.5 py-2 text-sm transition hover:bg-[#FAF8F3]"
+                      >
+                        <span className="flex items-center gap-2 font-medium text-[#17221E]">
+                          <MapPin className="h-3.5 w-3.5 text-[#C25E28]" />
+                          {isVi ? d.nameVi : d.nameEn}
+                        </span>
+                        <span className="text-xs text-[#53635D]">
+                          {d.avgWifiMbps} Mbps
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="col-span-6 space-y-2">
+                  <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
+                    {isVi ? 'Phong cách ở' : 'Lifestyles'}
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {lifestyles.map((l) => (
+                      <Link
+                        key={l.id}
+                        href={`/lifestyles/${l.slug}`}
+                        onClick={() => setOpenMenu(null)}
+                        className="rounded-xl px-2.5 py-1.5 text-sm transition hover:bg-[#FAF8F3]"
+                      >
+                        <div className="font-medium text-[#164E3F]">
+                          {isVi ? l.nameVi : l.nameEn}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
           <Link
             href="/stays"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-[#17221E] hover:bg-[#F2EDE3]"
+            onClick={() => setOpenMenu(null)}
+            className="whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium text-[#17221E] transition hover:bg-[#EFECE4]/70 xl:px-3.5"
           >
-            {isVi ? 'Tìm chỗ ở' : 'Find Stays'}
+            {isVi ? 'Tìm chỗ ở' : 'Stays'}
           </Link>
 
           <Link
             href="/deals"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-[#C25E28] hover:bg-[#FAEDE5]"
+            onClick={() => setOpenMenu(null)}
+            className="whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium text-[#C25E28] transition hover:bg-[#FAEDE5] xl:px-3.5"
           >
-            {isVi ? 'Giá tốt theo tháng' : 'Monthly Deals'}
+            {isVi ? 'Ưu đãi' : 'Deals'}
           </Link>
 
           <Link
             href="/community"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-[#17221E] hover:bg-[#F2EDE3]"
+            onClick={() => setOpenMenu(null)}
+            className="whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium text-[#17221E] transition hover:bg-[#EFECE4]/70 xl:px-3.5"
           >
-            {isVi ? 'Visa & Cộng đồng' : 'Visa & Community'}
+            {isVi ? 'Cộng đồng' : 'Community'}
           </Link>
 
           <Link
             href="/membership"
-            className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-[#A67C2E] hover:bg-[#F2EDE3]"
+            onClick={() => setOpenMenu(null)}
+            className="flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium text-[#A67C2E] transition hover:bg-[#EFECE4]/70 xl:px-3.5"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            {isVi ? 'Thẻ hội viên' : 'Nomad Pass'}
-          </Link>
-
-          <Link
-            href="/list-your-stay"
-            className="rounded-lg border border-[#164E3F]/25 px-3 py-1.5 text-sm font-semibold text-[#164E3F] hover:bg-[#E7F1EC]"
-          >
-            {isVi ? 'Đăng cho thuê' : 'List a Property'}
+            {isVi ? 'Hội viên' : 'Nomad Pass'}
           </Link>
         </nav>
 
-        {/* Right Controls */}
-        <div className="hidden items-center gap-2 lg:flex">
-          <div className="flex items-center rounded-lg border border-[#E5DFD3] bg-white p-0.5 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setLocale('en')}
-              className={`rounded-md px-2 py-1 transition ${
-                locale === 'en' ? 'bg-[#164E3F] text-white' : 'text-[#53635D] hover:text-[#17221E]'
-              }`}
-              aria-label="Switch to English"
-            >
-              EN
-            </button>
-            <button
-              type="button"
-              onClick={() => setLocale('vi')}
-              className={`rounded-md px-2 py-1 transition ${
-                locale === 'vi' ? 'bg-[#164E3F] text-white' : 'text-[#53635D] hover:text-[#17221E]'
-              }`}
-              aria-label="Chuyển sang Tiếng Việt"
-            >
-              VI
-            </button>
-          </div>
+        {/* Right Utility & Account Cluster */}
+        <div className="hidden shrink-0 items-center gap-2 lg:flex">
+          <Link
+            href="/list-your-stay"
+            onClick={() => setOpenMenu(null)}
+            className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold text-[#164E3F] transition hover:bg-[#E7F1EC]"
+          >
+            {isVi ? 'Cho thuê nhà' : 'Host a stay'}
+          </Link>
 
-          <label className="flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-white px-2 py-1 text-xs font-medium text-[#17221E]">
-            <Globe className="h-3.5 w-3.5 text-[#53635D]" />
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-              className="bg-transparent font-semibold outline-none"
-              aria-label={isVi ? 'Chọn tiền tệ' : 'Currency'}
+          {/* Compact Language + Currency Popover */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOpenMenu(openMenu === 'locale' ? null : 'locale')}
+              aria-expanded={openMenu === 'locale'}
+              aria-label={isVi ? 'Ngôn ngữ và tiền tệ' : 'Language and currency'}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#E5DFD3] bg-white px-3 py-1.5 text-xs font-semibold text-[#17221E] transition hover:border-[#164E3F]/40"
             >
-              {SUPPORTED_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.code} {c.symbol}
-                </option>
-              ))}
-            </select>
-          </label>
+              <Globe className="h-3.5 w-3.5 text-[#164E3F]" />
+              <span>{locale.toUpperCase()}</span>
+              <span className="text-[#D4CEC2]">|</span>
+              <span>{currency}</span>
+              <ChevronDown className="h-3 w-3 text-[#53635D]" />
+            </button>
+
+            {openMenu === 'locale' && (
+              <div className="absolute right-0 top-full mt-2.5 w-72 space-y-4 rounded-2xl border border-[#E5DFD3] bg-white p-4 shadow-2xl">
+                <div>
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
+                    {isVi ? 'Ngôn ngữ' : 'Language'}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocale('en');
+                        setOpenMenu(null);
+                      }}
+                      className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                        locale === 'en'
+                          ? 'border-[#164E3F] bg-[#E7F1EC] text-[#164E3F]'
+                          : 'border-[#E5DFD3] text-[#17221E] hover:bg-[#FAF8F3]'
+                      }`}
+                    >
+                      <span>English</span>
+                      {locale === 'en' && <Check className="h-3.5 w-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocale('vi');
+                        setOpenMenu(null);
+                      }}
+                      className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                        locale === 'vi'
+                          ? 'border-[#164E3F] bg-[#E7F1EC] text-[#164E3F]'
+                          : 'border-[#E5DFD3] text-[#17221E] hover:bg-[#FAF8F3]'
+                      }`}
+                    >
+                      <span>Tiếng Việt</span>
+                      {locale === 'vi' && <Check className="h-3.5 w-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
+                    {isVi ? 'Tiền tệ hiển thị' : 'Currency'}
+                  </div>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {SUPPORTED_CURRENCIES.map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => {
+                          setCurrency(c.code as CurrencyCode);
+                          setOpenMenu(null);
+                        }}
+                        className={`rounded-lg border px-2 py-1.5 text-center text-xs font-semibold transition ${
+                          currency === c.code
+                            ? 'border-[#164E3F] bg-[#164E3F] text-white'
+                            : 'border-[#E5DFD3] text-[#17221E] hover:bg-[#FAF8F3]'
+                        }`}
+                      >
+                        {c.code} {c.symbol}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {user ? (
             <div className="flex items-center gap-1.5">
               {user.role === 'host' && (
                 <Link
                   href="/host"
-                  className="flex items-center gap-1 rounded-lg bg-[#E7F1EC] px-2.5 py-1.5 text-xs font-semibold text-[#164E3F] hover:bg-[#d7eae0]"
+                  className="flex items-center gap-1 whitespace-nowrap rounded-full bg-[#E7F1EC] px-3 py-1.5 text-xs font-semibold text-[#164E3F] hover:bg-[#d7eae0]"
                 >
                   <Building2 className="h-3.5 w-3.5" />
                   {isVi ? 'Quản lý nhà' : 'Host Portal'}
@@ -225,7 +302,7 @@ export function SiteHeader({
               {user.role === 'admin' && (
                 <Link
                   href="/admin"
-                  className="flex items-center gap-1 rounded-lg bg-[#FAEDE5] px-2.5 py-1.5 text-xs font-semibold text-[#C25E28] hover:bg-[#f4dfd3]"
+                  className="flex items-center gap-1 whitespace-nowrap rounded-full bg-[#FAEDE5] px-3 py-1.5 text-xs font-semibold text-[#C25E28] hover:bg-[#f4dfd3]"
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />
                   {isVi ? 'Kiểm duyệt' : 'Admin'}
@@ -233,7 +310,7 @@ export function SiteHeader({
               )}
               <Link
                 href="/dashboard"
-                className="flex items-center gap-1.5 rounded-lg bg-[#164E3F] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0F392E]"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#164E3F] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0F392E]"
               >
                 <User className="h-3.5 w-3.5" />
                 {user.fullName.split(' ')[0]}
@@ -242,39 +319,41 @@ export function SiteHeader({
                 type="button"
                 onClick={handleLogout}
                 title={isVi ? 'Đăng xuất' : 'Sign out'}
-                className="rounded-lg border border-[#E5DFD3] bg-white p-1.5 text-[#53635D] hover:text-[#C25E28]"
+                className="rounded-full border border-[#E5DFD3] bg-white p-1.5 text-[#53635D] hover:text-[#C25E28]"
               >
                 <LogOut className="h-3.5 w-3.5" />
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <Link
                 href="/login"
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-[#17221E] hover:bg-[#F2EDE3]"
+                className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium text-[#17221E] transition hover:bg-[#EFECE4]"
               >
-                {isVi ? 'Đăng nhập' : 'Log In'}
+                {isVi ? 'Đăng nhập' : 'Log in'}
               </Link>
               <Link
                 href="/register"
-                className="rounded-lg bg-[#164E3F] px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-[#0F392E]"
+                className="whitespace-nowrap rounded-full bg-[#164E3F] px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0F392E]"
               >
-                {isVi ? 'Đăng ký' : 'Sign Up'}
+                {isVi ? 'Đăng ký' : 'Sign up'}
               </Link>
             </div>
           )}
         </div>
 
+        {/* Mobile Toggle */}
         <button
           type="button"
           onClick={() => setMobileOpen(!mobileOpen)}
-          className="rounded-lg border border-[#E5DFD3] bg-white p-2 text-[#17221E] lg:hidden"
+          className="rounded-xl border border-[#E5DFD3] bg-white p-2 text-[#17221E] lg:hidden"
           aria-label="Toggle Menu"
         >
           {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
 
+      {/* Mobile Drawer */}
       {mobileOpen && (
         <div className="border-t border-[#E5DFD3] bg-white px-4 py-4 lg:hidden">
           <div className="mb-3 flex items-center justify-between gap-2">
@@ -313,16 +392,16 @@ export function SiteHeader({
               {isVi ? 'Tìm chỗ ở dài ngày' : 'Find Stays'}
             </Link>
             <Link href="/deals" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 text-[#C25E28] hover:bg-[#FAEDE5]">
-              {isVi ? 'Giá tốt theo tháng' : 'Monthly Deals'}
+              {isVi ? 'Ưu đãi thuê theo tháng' : 'Monthly Deals'}
             </Link>
             <Link href="/community" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 hover:bg-[#FAF8F3]">
-              {isVi ? 'Visa & Cộng đồng' : 'Visa & Community'}
+              {isVi ? 'Visa và Cộng đồng' : 'Visa and Community'}
             </Link>
             <Link href="/membership" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 text-[#A67C2E] hover:bg-[#FAF8F3]">
               {isVi ? 'Thẻ hội viên (Hoàn 4%)' : 'Nomad Pass (4% Credit)'}
             </Link>
             <Link href="/list-your-stay" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 font-semibold text-[#164E3F] hover:bg-[#E7F1EC]">
-              {isVi ? 'Đăng cho thuê (0% hoa hồng)' : 'List a Property'}
+              {isVi ? 'Cho thuê nhà (0% hoa hồng)' : 'Host a stay'}
             </Link>
             <div className="my-2 border-t border-[#E5DFD3]" />
             {user ? (
@@ -341,16 +420,16 @@ export function SiteHeader({
                   </Link>
                 )}
                 <button type="button" onClick={handleLogout} className="rounded-lg px-3 py-2 text-left text-[#C25E28]">
-                  {isVi ? 'Đăng xuất' : 'Sign Out'}
+                  {isVi ? 'Đăng xuất' : 'Sign out'}
                 </button>
               </>
             ) : (
               <div className="flex gap-2">
                 <Link href="/login" onClick={() => setMobileOpen(false)} className="flex-1 rounded-lg border border-[#E5DFD3] px-3 py-2 text-center">
-                  {isVi ? 'Đăng nhập' : 'Log In'}
+                  {isVi ? 'Đăng nhập' : 'Log in'}
                 </Link>
                 <Link href="/register" onClick={() => setMobileOpen(false)} className="flex-1 rounded-lg bg-[#164E3F] px-3 py-2 text-center text-white">
-                  {isVi ? 'Đăng ký' : 'Sign Up'}
+                  {isVi ? 'Đăng ký' : 'Sign up'}
                 </Link>
               </div>
             )}
