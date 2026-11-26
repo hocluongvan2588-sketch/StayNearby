@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import {
-  ArrowLeftRight,
   Bookmark,
   CheckCircle2,
   MapPin,
@@ -31,12 +30,13 @@ export function StayCard({
   initialSaved?: boolean;
   isAuthenticated?: boolean;
 }) {
-  const { locale, currency, compareList, toggleCompare } = usePreferences();
+  const { locale, currency } = usePreferences();
   const [saved, setSaved] = useState(initialSaved);
   const [saving, setSaving] = useState(false);
 
   const isVi = locale === 'vi';
-  const isCompared = compareList.some((c) => c.id === stay.id);
+  const minReserveFeeVnd =
+    stay.businessModel === 'booking_flow' ? stay.weekFeeOnlineVnd : 0;
 
   async function handleSaveToggle(e: React.MouseEvent) {
     e.preventDefault();
@@ -57,12 +57,6 @@ export function StayCard({
     } finally {
       setSaving(false);
     }
-  }
-
-  function handleCompareToggle(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleCompare(stay);
   }
 
   return (
@@ -98,33 +92,18 @@ export function StayCard({
             )}
           </div>
 
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleCompareToggle}
-              title={isCompared ? (isVi ? 'Bỏ so sánh' : 'Remove from compare') : isVi ? 'So sánh' : 'Compare'}
-              aria-label={isCompared ? (isVi ? 'Bỏ so sánh' : 'Remove from compare') : isVi ? 'So sánh' : 'Compare'}
-              className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-md transition ${
-                isCompared
-                  ? 'bg-[#A67C2E] text-white'
-                  : 'bg-white/90 text-[#17221E] hover:bg-white'
-              }`}
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveToggle}
-              disabled={saving}
-              title={isVi ? 'Lưu chỗ ở' : 'Save stay'}
-              aria-label={isVi ? 'Lưu chỗ ở' : 'Save stay'}
-              className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-md transition ${
-                saved ? 'bg-[#C25E28] text-white' : 'bg-white/90 text-[#17221E] hover:bg-white'
-              }`}
-            >
-              <Bookmark className="h-3.5 w-3.5" fill={saved ? 'currentColor' : 'none'} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSaveToggle}
+            disabled={saving}
+            title={isVi ? 'Lưu chỗ ở' : 'Save stay'}
+            aria-label={isVi ? 'Lưu chỗ ở' : 'Save stay'}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full backdrop-blur-md transition ${
+              saved ? 'bg-[#C25E28] text-white' : 'bg-white/90 text-[#17221E] hover:bg-white'
+            }`}
+          >
+            <Bookmark className="h-3.5 w-3.5" fill={saved ? 'currentColor' : 'none'} />
+          </button>
         </div>
 
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-medium text-white">
@@ -192,61 +171,28 @@ export function StayCard({
           </div>
         </div>
 
-        <div className="mt-4 border-t border-[#E5DFD3] pt-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-[#FAF8F3] px-2.5 py-2">
-              <div className="text-[11px] text-[#53635D]">
-                {isVi ? '7 đêm' : '7 nights'}
-              </div>
-              <div className="whitespace-nowrap text-sm font-bold text-[#17221E]">
-                {formatMoneyFromVnd(stay.weekDisplayVnd, currency)}
-              </div>
-              <div className="text-[10px] text-[#53635D]">
-                {formatMoneyFromVnd(stay.weekNightVnd, currency)}/{isVi ? 'đêm' : 'night'}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-[#164E3F]/20 bg-[#E7F1EC]/55 px-2.5 py-2">
-              <div className="flex items-center justify-between gap-1 text-[11px]">
-                <span className="whitespace-nowrap font-semibold text-[#164E3F]">
-                  {isVi ? '30 đêm' : '30 nights'}
-                </span>
-                {stay.stayLongerSavingsPct > 0 && (
-                  <span className="rounded bg-[#164E3F] px-1 text-[9px] font-bold text-white">
-                    -{stay.stayLongerSavingsPct}%
-                  </span>
-                )}
-              </div>
-              <div className="whitespace-nowrap text-sm font-bold text-[#164E3F]">
-                {formatMoneyFromVnd(stay.monthDisplayVnd, currency)}
-              </div>
-              <div className="flex items-center gap-1 text-[10px] text-[#164E3F]">
-                <span className="whitespace-nowrap">
-                  {formatMoneyFromVnd(stay.monthNightVnd, currency)}/{isVi ? 'đêm' : 'night'}
-                </span>
-                {stay.compareMonthDisplayVnd && (
-                  <span className="truncate text-[#53635D] line-through">
-                    {formatMoneyFromVnd(stay.compareMonthDisplayVnd, currency)}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {stay.businessModel === 'booking_flow' ? (
-            <div className="mt-2 rounded-lg bg-[#FAF8F3] px-2.5 py-1.5 text-[11px] font-medium text-[#164E3F]">
-              {isVi
-                ? `Trả ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} giữ chỗ hôm nay, trả ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} khi nhận phòng`
-                : `Pay ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} today, pay ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} at check-in`}
-            </div>
+        <Link
+          href={`/stays/${stay.slug}`}
+          className="mt-4 block rounded-xl border border-[#164E3F]/15 bg-[#E7F1EC]/65 px-3.5 py-2.5 text-xs font-medium text-[#164E3F] transition group-hover:bg-[#E7F1EC]"
+        >
+          {isVi ? (
+            <>
+              Trả{' '}
+              <span className="text-sm font-bold text-[#0F392E]">
+                {formatMoneyFromVnd(minReserveFeeVnd, currency)}
+              </span>{' '}
+              để giữ chỗ hôm nay
+            </>
           ) : (
-            <div className="mt-2 rounded-lg bg-[#FAEDE5]/70 px-2.5 py-1.5 text-[11px] font-medium text-[#C25E28]">
-              {isVi
-                ? 'Đặt trực tiếp trên website chủ nhà, 0% phí nền tảng'
-                : 'Book directly on host website with 0% booking fee'}
-            </div>
+            <>
+              Pay{' '}
+              <span className="text-sm font-bold text-[#0F392E]">
+                {formatMoneyFromVnd(minReserveFeeVnd, currency)}
+              </span>{' '}
+              to reserve today
+            </>
           )}
-        </div>
+        </Link>
       </div>
     </article>
   );

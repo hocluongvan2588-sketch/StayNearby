@@ -7,7 +7,6 @@ import { getDestinations, getLifestyles } from '@/modules/catalog';
 import { PreferencesProvider } from '@/components/PreferencesProvider';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { CompareDrawer } from '@/components/CompareDrawer';
 
 export const metadata: Metadata = {
   title: 'VietNomad Stays | Extended Stays for Remote Work in Vietnam',
@@ -40,7 +39,6 @@ export default async function RootLayout({
             lifestyles={lifestyles}
           />
           <main className="flex-1">{children}</main>
-          <CompareDrawer />
           <SiteFooter destinations={destinations} demoEnabled={getConfig().demoMode} />
         </PreferencesProvider>
       </body>
