@@ -62,8 +62,8 @@ export default async function HomePage() {
   const faqs = isVi
     ? [
         {
-          q: 'Mô hình thanh toán 12% giữ chỗ online hoạt động thế nào?',
-          a: 'Với mọi đặt phòng BookingFlow, bạn chỉ thanh toán Phí Đặt chỗ & Xác minh 12% trực tuyến để khóa lịch và mở địa chỉ chi tiết. Toàn bộ 88% giá thuê gốc (Host Net) còn lại được thanh toán trực tiếp cho chủ nhà khi nhận phòng.',
+          q: 'Mô hình thanh toán phí đặt chỗ & xác minh 12% hoạt động thế nào?',
+          a: 'Với mọi đặt phòng BookingFlow, bạn chỉ thanh toán Phí Đặt chỗ & Bảo chứng Kiểm định 12% (tính trên giá thuê của chủ nhà) qua cổng online để khóa lịch, mở địa chỉ thật và nhận chứng nhận Wi-Fi. Toàn bộ 100% tiền thuê nhà gốc bạn thanh toán trực tiếp cho chủ nhà khi nhận phòng.',
         },
         {
           q: 'Nếu tốc độ Wi-Fi thực tế lúc check-in không đạt chứng nhận thì sao?',
@@ -169,7 +169,7 @@ export default async function HomePage() {
           <div className="mt-10 grid gap-3 border-t border-white/15 pt-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Zap className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Chỉ trả 12% giữ chỗ · 88% trả tại quầy' : 'Pay only 12% today · Pay host at check-in'}</span>
+              <span>{isVi ? 'Chỉ trả 12% giữ chỗ · Trả chủ nhà khi nhận phòng' : 'Pay 12% booking fee online · Pay host at check-in'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Wifi className="h-5 w-5 shrink-0 text-[#E6B87A]" />
@@ -411,8 +411,8 @@ export default async function HomePage() {
                 [
                   isVi ? 'Thanh toán & Rủi ro' : 'Payment & Risk',
                   isVi
-                    ? 'Chỉ trả 12% phí giữ chỗ online; trả 88% trực tiếp cho chủ nhà khi nhận phòng + Hoàn 100% nếu Wi-Fi sai cam kết'
-                    : 'Pay only 12% today to reserve; pay host directly at check-in + 100% Wi-Fi refund guarantee',
+                    ? 'Chỉ trả phí giữ chỗ & kiểm định 12% online; trả 100% tiền thuê trực tiếp cho chủ nhà khi nhận phòng + Hoàn 100% phí nếu Wi-Fi sai cam kết'
+                    : 'Pay only the 12% booking & verification fee online; pay host directly at check-in + 100% Wi-Fi refund guarantee',
                   isVi
                     ? 'Khóa 100% tiền thuê ngay khi đặt; quy trình khiếu nại & hoàn tiền phức tạp'
                     : '100% upfront lock-in with slow dispute refunds',

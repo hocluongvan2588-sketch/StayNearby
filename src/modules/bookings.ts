@@ -289,7 +289,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       };
     }
 
-    // BookingFlow: 12% Booking & Verification Fee collected online; 88% (P_host) paid directly at check-in
+    // BookingFlow: mandatory 12% Booking & Verification Fee collected online; 100% of host net rate (P_host) paid directly at check-in
     const unitsTotal = toNum(meta.units_total, 1);
     const paymentIntentId = `pi_vn_${crypto.randomBytes(8).toString('hex')}`;
 

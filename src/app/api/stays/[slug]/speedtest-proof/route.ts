@@ -69,7 +69,7 @@ export async function GET(
   <text x="88" y="310" fill="#cbe3db" font-family="system-ui, sans-serif" font-size="14">Wi-Fi Confirmed: ${down} Mbps Down / ${up} Mbps Up · ${jitter}ms Jitter · Verified ${verifiedIso}</text>
   <rect x="64" y="360" width="380" height="96" rx="12" fill="#134e3f" stroke="#5bb397" stroke-opacity="0.5"/>
   <text x="88" y="396" fill="#9de2c8" font-family="system-ui, sans-serif" font-size="13" font-weight="700">100% BOOKING FEE REFUND GUARANTEE</text>
-  <text x="88" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14">Only 12% online today · Pay 88% directly to Host</text>
+  <text x="88" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14">Pay 12% verification fee online · Pay host at check-in</text>
   <rect x="468" y="360" width="428" height="96" rx="12" fill="#c89d54" fill-opacity="0.18" stroke="#c89d54" stroke-opacity="0.6"/>
   <text x="492" y="396" fill="#f5deb3" font-family="system-ui, sans-serif" font-size="13" font-weight="700">VERIFICATION TIER</text>
   <text x="492" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" font-weight="700">${escapeXml(tierLabel)}</text>

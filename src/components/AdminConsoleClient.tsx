@@ -341,7 +341,7 @@ export function AdminConsoleClient({ data }: { data: AdminConsoleData }) {
       {/* Bookings & 100% Wi-Fi Guarantee Disputes */}
       <section className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-6">
         <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-          {isVi ? 'Đơn đặt phòng (12% Online / 88% Tại chỗ) & Bảo chứng Wi-Fi' : 'Recent Bookings (12% Online / Pay at Check-in)'}
+          {isVi ? 'Đơn đặt phòng (12% Phí Online + Trả Chủ Nhà Tại Chỗ) & Bảo chứng Wi-Fi' : 'Recent Bookings (12% Online Fee + Pay Host at Check-in)'}
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-xs">

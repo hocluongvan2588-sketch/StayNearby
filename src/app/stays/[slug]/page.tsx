@@ -223,7 +223,7 @@ export default async function StayDetailPage({
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div className="space-y-1">
                   <div className="text-xs font-bold uppercase tracking-wider text-[#C25E28]">
-                    {isVi ? 'Mô hình Đặt phòng An toàn 12% / 88%' : 'Low-Risk Split Payment (12% / 88%)'}
+                    {isVi ? 'Thanh toán An toàn: Phí Giữ Chỗ 12% + Trả Chủ Nhà Khi Nhận Phòng' : 'Low-Risk Split Payment: 12% Verification Fee + Pay Host at Check-in'}
                   </div>
                   <h3 className="font-serif-display text-xl font-semibold text-[#17221E]">
                     {isVi
