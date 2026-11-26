@@ -1523,6 +1523,95 @@ export async function runSeed(): Promise<void> {
       );
     }
 
+    // Seed booking timeline event & guest-host thread for VN-940218
+    await dbQuery(
+      `INSERT INTO booking_events (
+        id, booking_id, actor_user_id, actor_role, event_type, summary, metadata_json
+      ) VALUES (
+        $1, $2, $3, 'guest', 'booking_confirmed',
+        '12% booking fee paid online (1,224,000₫); 14 nights locked.',
+        '{"bookingCode":"VN-940218"}'::jsonb
+      ) ON CONFLICT (id) DO NOTHING`,
+      [
+        '72000000-0000-4000-8000-000000000001',
+        sampleBookingId,
+        SEED_IDS.users.nomadFree,
+      ]
+    );
+
+    const sampleConvId = '73000000-0000-4000-8000-000000000001';
+    await dbQuery(
+      `INSERT INTO conversations (
+        id, stay_id, booking_id, host_id, guest_id,
+        last_message_preview, host_unread_count, guest_unread_count
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        'Hi Linh, my flight arrives in Da Nang around 15:30 — will early check-in work?',
+        1, 0
+      ) ON CONFLICT (id) DO NOTHING`,
+      [
+        sampleConvId,
+        SEED_IDS.stays.myKheAtelier,
+        sampleBookingId,
+        SEED_IDS.users.hostBookingFlow,
+        SEED_IDS.users.nomadFree,
+      ]
+    );
+
+    await dbQuery(
+      `INSERT INTO messages (
+        id, conversation_id, sender_id, sender_role, body
+      ) VALUES (
+        $1, $2, $3, 'guest',
+        'Hi Linh, my flight arrives in Da Nang around 15:30 — will self check-in instructions be sent on arrival day?'
+      ) ON CONFLICT (id) DO NOTHING`,
+      [
+        '74000000-0000-4000-8000-000000000001',
+        sampleConvId,
+        SEED_IDS.users.nomadFree,
+      ]
+    );
+
+    const quickReplies = [
+      {
+        id: '75000000-0000-4000-8000-000000000001',
+        title: 'Self check-in details',
+        body: 'Welcome! Your smart-lock PIN is active from 14:00 on check-in day. Let me know your flight arrival time so we can prepare the room.',
+        sortOrder: 1,
+      },
+      {
+        id: '75000000-0000-4000-8000-000000000002',
+        title: 'Wi-Fi credentials',
+        body: 'Primary fiber Wi-Fi network details are on the desk card inside your suite. Reach out anytime if you need a backup Ethernet cable.',
+        sortOrder: 2,
+      },
+      {
+        id: '75000000-0000-4000-8000-000000000003',
+        title: 'Check-in rent reminder',
+        body: 'Just a quick note that your 12% online booking fee is already settled. You can pay the remaining host stay balance via cash or VietQR transfer upon check-in.',
+        sortOrder: 3,
+      },
+    ];
+    for (const qr of quickReplies) {
+      await dbQuery(
+        `INSERT INTO host_quick_replies (id, host_id, title, body, sort_order)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (id) DO NOTHING`,
+        [qr.id, SEED_IDS.users.hostBookingFlow, qr.title, qr.body, qr.sortOrder]
+      );
+    }
+
+    await dbQuery(
+      `INSERT INTO host_settings (
+        host_id, display_name, contact_phone, whatsapp_number, zalo_handle,
+        payout_method, bank_name, bank_account_name, notify_email, notify_in_app, auto_ical_sync
+      ) VALUES
+      ($1, 'Linh Tran — An Thuong & Tay Ho Homes', '+84 905 112 889', '+84905112889', '@linhtran_stays', 'direct_checkin_and_bank', 'Vietcombank Da Nang', 'TRAN THI LINH', TRUE, TRUE, TRUE),
+      ($2, 'Minh Nguyen — Saigon & Phu Quoc Stays', '+84 908 334 991', '+84908334991', '@minhnguyen_coliving', 'direct_checkin_and_bank', 'Techcombank Ho Chi Minh', 'NGUYEN QUOC MINH', TRUE, TRUE, TRUE)
+      ON CONFLICT (host_id) DO NOTHING`,
+      [SEED_IDS.users.hostBookingFlow, SEED_IDS.users.hostStayDirect]
+    );
+
     // Seed sample pending host application so Admin moderation queue has immediate data
     await dbQuery(
       `INSERT INTO host_applications (

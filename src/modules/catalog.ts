@@ -2,6 +2,7 @@ import { dbQuery, toNum } from '@/lib/db';
 import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
 import type { Locale } from '@/lib/i18n';
 import { calculateStayQuote } from '@/lib/pricing';
+import { parseHouseRules, type HostHouseRules } from '@/modules/host';
 
 export interface CoworkingSpot {
   name: string;
@@ -132,6 +133,18 @@ export interface StayRoomDetail {
     dealMonthLabel: string;
   }[];
   unavailableDates: string[];
+  customPricesByDate: Record<string, number>;
+  minNightsByDate: Record<string, number>;
+}
+
+export interface StayGuestReviewItem {
+  id: string;
+  guestName: string;
+  rating: number;
+  comment: string;
+  hostReply: string | null;
+  hostRepliedAt: string | null;
+  createdAt: string;
 }
 
 export interface StayDetail extends StayCardItem {
@@ -141,6 +154,13 @@ export interface StayDetail extends StayCardItem {
   descriptionEn: string;
   descriptionVi: string;
   registrationCode: string;
+  checkinFrom: string;
+  checkoutBefore: string;
+  defaultMinNights: number;
+  houseRules: HostHouseRules;
+  reviews: StayGuestReviewItem[];
+  reviewsAvg: number | null;
+  reviewsCount: number;
   wifiTestedAt: string;
   wifiTesterNote: string;
   speedtestProofUrl: string | null;
@@ -504,31 +524,71 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
 
   const today = getTodayIsoVietnam();
   const horizon = addDaysIso(today, 90);
-  const locksRes = await dbQuery<{
-    room_id: string;
-    stay_date: string | Date;
-    booked_units: number;
-    blocked_units: number;
-  }>(
-    `SELECT room_id, stay_date, booked_units, blocked_units
-     FROM room_night_locks
-     WHERE room_id = ANY($1::uuid[]) AND stay_date >= $2::date AND stay_date <= $3::date`,
-    [roomsRes.rows.map((rm) => String(rm.id)), today, horizon]
-  );
+  const [locksRes, reviewsRes] = await Promise.all([
+    dbQuery<{
+      room_id: string;
+      stay_date: string | Date;
+      booked_units: number;
+      blocked_units: number;
+      custom_nightly_vnd: string | number | null;
+      min_nights: number | null;
+    }>(
+      `SELECT room_id, stay_date, booked_units, blocked_units, custom_nightly_vnd, min_nights
+       FROM room_night_locks
+       WHERE room_id = ANY($1::uuid[]) AND stay_date >= $2::date AND stay_date <= $3::date`,
+      [roomsRes.rows.map((rm) => String(rm.id)), today, horizon]
+    ),
+    dbQuery<{
+      id: string;
+      guest_name: string;
+      rating: number;
+      comment: string;
+      host_reply: string | null;
+      host_replied_at: string | Date | null;
+      created_at: string | Date;
+    }>(
+      `SELECT sr.id,
+              COALESCE(u.full_name, 'Verified Guest') AS guest_name,
+              sr.rating,
+              sr.comment,
+              sr.host_reply,
+              sr.host_replied_at,
+              sr.created_at
+       FROM stay_reviews sr
+       LEFT JOIN users u ON u.id = sr.guest_id
+       WHERE sr.stay_id = $1
+       ORDER BY sr.created_at DESC`,
+      [row.id]
+    ),
+  ]);
 
   const rooms: StayRoomDetail[] = roomsRes.rows.map((rm) => {
     const unitsTotal = toNum(rm.units_total, 1);
-    const unavailableDates = locksRes.rows
-      .filter(
-        (l) =>
-          l.room_id === String(rm.id) &&
-          toNum(l.booked_units) + toNum(l.blocked_units) >= unitsTotal
-      )
+    const roomLocks = locksRes.rows.filter((l) => l.room_id === String(rm.id));
+    const unavailableDates = roomLocks
+      .filter((l) => toNum(l.booked_units) + toNum(l.blocked_units) >= unitsTotal)
       .map((l) =>
         l.stay_date instanceof Date
           ? l.stay_date.toISOString().slice(0, 10)
           : String(l.stay_date).slice(0, 10)
       );
+
+    const customPricesByDate: Record<string, number> = {};
+    const minNightsByDate: Record<string, number> = {};
+    for (const l of roomLocks) {
+      const iso =
+        l.stay_date instanceof Date
+          ? l.stay_date.toISOString().slice(0, 10)
+          : String(l.stay_date).slice(0, 10);
+      if (l.custom_nightly_vnd !== null && l.custom_nightly_vnd !== undefined) {
+        const val = toNum(l.custom_nightly_vnd);
+        if (val > 0) customPricesByDate[iso] = val;
+      }
+      if (l.min_nights !== null && l.min_nights !== undefined) {
+        const mn = toNum(l.min_nights);
+        if (mn > 0) minNightsByDate[iso] = mn;
+      }
+    }
 
     const roomPackages = pkgsRes.rows
       .filter((p) => String(p.room_id) === String(rm.id))
@@ -573,8 +633,30 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
       icalSyncStatus: String(rm.ical_sync_status ?? 'idle'),
       packages: roomPackages,
       unavailableDates,
+      customPricesByDate,
+      minNightsByDate,
     };
   });
+
+  const reviews: StayGuestReviewItem[] = reviewsRes.rows.map((rv) => ({
+    id: String(rv.id),
+    guestName: String(rv.guest_name),
+    rating: toNum(rv.rating, 5),
+    comment: String(rv.comment),
+    hostReply: rv.host_reply ? String(rv.host_reply) : null,
+    hostRepliedAt: rv.host_replied_at
+      ? new Date(String(rv.host_replied_at)).toISOString()
+      : null,
+    createdAt: new Date(String(rv.created_at)).toISOString(),
+  }));
+
+  const reviewsCount = reviews.length;
+  const reviewsAvg =
+    reviewsCount > 0
+      ? Number(
+          (reviews.reduce((s, r) => s + r.rating, 0) / reviewsCount).toFixed(2)
+        )
+      : null;
 
   return {
     ...card,
@@ -584,6 +666,13 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     descriptionEn: String(row.description_en),
     descriptionVi: String(row.description_vi),
     registrationCode: String(row.registration_code ?? ''),
+    checkinFrom: String(row.checkin_from ?? '14:00'),
+    checkoutBefore: String(row.checkout_before ?? '12:00'),
+    defaultMinNights: Math.max(1, toNum(row.default_min_nights, 1)),
+    houseRules: parseHouseRules(row.house_rules),
+    reviews,
+    reviewsAvg,
+    reviewsCount,
     wifiTestedAt: new Date(String(row.wifi_tested_at)).toISOString(),
     wifiTesterNote: String(row.wifi_tester_note),
     speedtestProofUrl: row.speedtest_proof_url ? String(row.speedtest_proof_url) : null,

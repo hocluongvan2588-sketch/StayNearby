@@ -90,6 +90,7 @@ export function formatPropertyTypeLabel(type: string, locale: Locale): string {
 export function formatBookingStatusLabel(status: string, locale: Locale): string {
   const map: Record<string, { en: string; vi: string }> = {
     PENDING_PAYMENT: { en: 'Awaiting 12% fee', vi: 'Chờ trả phí 12%' },
+    PENDING_HOST_APPROVAL: { en: 'Pending host approval', vi: 'Chờ chủ nhà duyệt' },
     RESERVED_LOCKED: { en: 'Dates locked', vi: 'Đã giữ phòng' },
     confirmed: { en: 'Dates locked', vi: 'Đã giữ phòng' },
     CHECKED_IN_COMPLETED: { en: 'Checked in', vi: 'Đã nhận phòng' },

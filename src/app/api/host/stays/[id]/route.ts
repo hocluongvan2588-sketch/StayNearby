@@ -50,6 +50,19 @@ const schema = z.object({
   wheelchairFriendly: z.boolean().optional(),
   amenities: z.array(z.string().min(1).max(80)).max(30).optional(),
   nearbyCoworking: z.array(coworkingSchema).max(8).optional(),
+  status: z.enum(['live', 'paused']).optional(),
+  checkinFrom: z.string().max(20).optional(),
+  checkoutBefore: z.string().max(20).optional(),
+  defaultMinNights: z.number().int().min(7).max(90).optional(),
+  houseRules: z
+    .object({
+      quietHours: z.string().max(80).optional(),
+      smokingAllowed: z.boolean().optional(),
+      partiesAllowed: z.boolean().optional(),
+      petsNote: z.string().max(300).optional(),
+      extraGuestNote: z.string().max(300).optional(),
+    })
+    .optional(),
 });
 
 async function handleUpdate(

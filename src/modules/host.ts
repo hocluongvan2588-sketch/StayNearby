@@ -11,6 +11,35 @@ export interface HostCoworkingSpot {
   distance: string;
 }
 
+export interface HostHouseRules {
+  quietHours: string;
+  smokingAllowed: boolean;
+  partiesAllowed: boolean;
+  petsNote: string;
+  extraGuestNote: string;
+}
+
+export function parseHouseRules(raw: unknown): HostHouseRules {
+  let obj: Record<string, unknown> = {};
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    obj = raw as Record<string, unknown>;
+  } else if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') obj = parsed as Record<string, unknown>;
+    } catch {
+      obj = {};
+    }
+  }
+  return {
+    quietHours: typeof obj.quietHours === 'string' && obj.quietHours ? obj.quietHours : '22:00 - 07:00',
+    smokingAllowed: Boolean(obj.smokingAllowed),
+    partiesAllowed: Boolean(obj.partiesAllowed),
+    petsNote: typeof obj.petsNote === 'string' ? obj.petsNote : '',
+    extraGuestNote: typeof obj.extraGuestNote === 'string' ? obj.extraGuestNote : '',
+  };
+}
+
 export interface HostStayRoomItem {
   id: string;
   stayId: string;
@@ -239,6 +268,12 @@ export async function getHostConsoleData(user: SessionUser) {
         laundryType: String(s.laundry_type) as 'in_unit' | 'building' | 'service' | 'none',
         petFriendly: Boolean(s.pet_friendly),
         wheelchairFriendly: Boolean(s.wheelchair_friendly),
+        houseRules: parseHouseRules(s.house_rules),
+        checkinFrom: String(s.checkin_from ?? '14:00'),
+        checkoutBefore: String(s.checkout_before ?? '12:00'),
+        defaultMinNights: Math.max(7, toNum(s.default_min_nights, 7)),
+        googleRating: toNum(s.google_rating, 4.8),
+        googleReviewCount: toNum(s.google_review_count, 0),
         heroImage: String(s.hero_image),
         galleryImages: parseJsonArray<string>(s.gallery_images),
         amenities: parseJsonArray<string>(s.amenities),
@@ -513,6 +548,13 @@ export interface UpdateHostStayFullInput {
   workspacePhotoUrl?: string;
   galleryImages?: string[];
 
+  // House rules & availability defaults
+  houseRules?: Partial<HostHouseRules>;
+  checkinFrom?: string;
+  checkoutBefore?: string;
+  defaultMinNights?: number;
+  status?: 'live' | 'paused';
+
   // Property Details & Self-Declared Amenities
   titleEn?: string;
   titleVi?: string;
@@ -591,9 +633,30 @@ export async function updateHostStayConfiguration(
             .slice(0, 8)
         : parseJsonArray<HostCoworkingSpot>(current.nearby_coworking);
 
+    const existingRules = parseHouseRules(current.house_rules);
+    const nextHouseRules: HostHouseRules = input.houseRules
+      ? {
+          quietHours: input.houseRules.quietHours?.trim() || existingRules.quietHours,
+          smokingAllowed:
+            input.houseRules.smokingAllowed ?? existingRules.smokingAllowed,
+          partiesAllowed:
+            input.houseRules.partiesAllowed ?? existingRules.partiesAllowed,
+          petsNote: input.houseRules.petsNote ?? existingRules.petsNote,
+          extraGuestNote:
+            input.houseRules.extraGuestNote ?? existingRules.extraGuestNote,
+        }
+      : existingRules;
+
+    const currentStatus = String(current.status);
+    const nextStatus =
+      input.status && (user.role === 'admin' || currentStatus !== 'pending_review')
+        ? input.status
+        : currentStatus;
+
     await tx.query(
       `UPDATE stays
        SET business_model = 'booking_flow',
+           status = $31,
            title_en = $1,
            title_vi = $2,
            subtitle_en = $3,
@@ -622,7 +685,11 @@ export async function updateHostStayConfiguration(
            hero_image = $26,
            gallery_images = $27::jsonb,
            amenities = $28::jsonb,
-           nearby_coworking = $29::jsonb
+           nearby_coworking = $29::jsonb,
+           house_rules = $32::jsonb,
+           checkin_from = $33,
+           checkout_before = $34,
+           default_min_nights = $35
        WHERE id = $30`,
       [
         input.titleEn?.trim() || String(current.title_en),
@@ -655,6 +722,13 @@ export async function updateHostStayConfiguration(
         JSON.stringify(nextAmenities),
         JSON.stringify(nextCoworking),
         stayId,
+        nextStatus,
+        JSON.stringify(nextHouseRules),
+        input.checkinFrom?.trim() || String(current.checkin_from ?? '14:00'),
+        input.checkoutBefore?.trim() || String(current.checkout_before ?? '12:00'),
+        input.defaultMinNights !== undefined
+          ? Math.max(7, Math.min(90, Math.round(input.defaultMinNights)))
+          : Math.max(7, toNum(current.default_min_nights, 7)),
       ]
     );
 
@@ -1059,3 +1133,7 @@ export async function toggleHostRoomBlock(
     return { ok: true };
   });
 }
+
+export type HostConsoleData = Awaited<ReturnType<typeof getHostConsoleData>>;
+export type HostStaySummary = HostConsoleData['stays'][number];
+

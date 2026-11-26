@@ -14,7 +14,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
-import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
+import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
 import {
   formatCancellationPolicyLabel,
   formatMoneyFromVnd,
@@ -86,6 +86,12 @@ export function StayBookingWidget({
   const totalNights = baseTier + extraNights;
   const checkOut = addDaysIso(checkIn, totalNights);
 
+  const nightOverridesVnd = useMemo(() => {
+    if (!selectedRoom) return [];
+    const nights = enumerateStayNights(checkIn, checkOut);
+    return nights.map((d) => selectedRoom.customPricesByDate?.[d] ?? null);
+  }, [selectedRoom, checkIn, checkOut]);
+
   const quote = useMemo(() => {
     if (!selectedPkg) return null;
     return calculateStayQuote({
@@ -96,8 +102,9 @@ export function StayBookingWidget({
       vatTaxId: user?.vatTaxId,
       availableRewardCreditVnd: user?.rewardCreditVnd ?? 0,
       useRewardCredit,
+      nightOverridesVnd,
     });
-  }, [selectedPkg, totalNights, user, applyVatFree, useRewardCredit]);
+  }, [selectedPkg, totalNights, user, applyVatFree, useRewardCredit, nightOverridesVnd]);
 
   async function handleStartReservation() {
     if (!user) {

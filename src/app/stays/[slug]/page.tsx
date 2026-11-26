@@ -29,6 +29,7 @@ import {
 import { formatPropertyTypeLabel, getStayDetailBySlug } from '@/modules/catalog';
 import { buildConciergeWhatsappUrl } from '@/modules/notifications';
 import { StayBookingWidget } from '@/components/StayBookingWidget';
+import { StayGuestReviewsSection } from '@/components/StayGuestReviewsSection';
 import { StayPhotoGallery } from '@/components/StayPhotoGallery';
 
 export const dynamic = 'force-dynamic';
@@ -333,6 +334,18 @@ export default async function StayDetailPage({
               </div>
             )}
           </section>
+
+          <StayGuestReviewsSection
+            slug={stay.slug}
+            user={user}
+            locale={prefs.locale}
+            checkinFrom={stay.checkinFrom}
+            checkoutBefore={stay.checkoutBefore}
+            defaultMinNights={stay.defaultMinNights}
+            houseRules={stay.houseRules}
+            initialReviews={stay.reviews}
+            initialAvg={stay.reviewsAvg}
+          />
         </div>
 
         <div className="lg:col-span-5">

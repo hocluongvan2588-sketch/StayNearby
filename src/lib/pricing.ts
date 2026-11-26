@@ -70,11 +70,29 @@ export function calculateStayQuote(params: {
   vatTaxId?: string | null;
   availableRewardCreditVnd?: number;
   useRewardCredit?: boolean;
+  nightOverridesVnd?: Array<number | null>;
 }): QuoteBreakdown {
-  const { baseTier, extraNights, wholesaleTotalVnd } = calculateWholesaleForNights(
-    params.pkg,
-    params.nights
+  const {
+    baseTier,
+    extraNights,
+    wholesaleTotalVnd: baseWholesaleTotalVnd,
+  } = calculateWholesaleForNights(params.pkg, params.nights);
+
+  const overrides = params.nightOverridesVnd ?? [];
+  const hasAnyOverride = overrides.some(
+    (v) => typeof v === 'number' && Number.isFinite(v) && v > 0
   );
+  const wholesaleTotalVnd = hasAnyOverride
+    ? Math.round(
+        Array.from({ length: params.nights }, (_, idx) => {
+          const custom = overrides[idx];
+          if (typeof custom === 'number' && Number.isFinite(custom) && custom > 0) {
+            return custom;
+          }
+          return baseWholesaleTotalVnd / params.nights;
+        }).reduce((sum, n) => sum + n, 0)
+      )
+    : baseWholesaleTotalVnd;
 
   // Unified BookingFlow (Option A: P_host + 12%):
   // P_host = wholesaleTotalVnd (paid directly to Host at check-in, 0% host commission)
