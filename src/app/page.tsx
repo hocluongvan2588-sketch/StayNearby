@@ -63,37 +63,37 @@ export default async function HomePage() {
     ? [
         {
           q: 'Cách thanh toán phí giữ chỗ 12% hoạt động thế nào?',
-          a: 'Khi đặt phòng qua VietNomad, bạn chỉ thanh toán trước 12% phí giữ chỗ và kiểm định (tính trên giá thuê chủ nhà) để khóa lịch và mở địa chỉ thật. Toàn bộ tiền thuê nhà bạn trả trực tiếp cho chủ nhà khi nhận phòng.',
+          a: 'Mọi chỗ ở đều đặt thống nhất qua BookingFlow: bạn thanh toán trước 12% phí giữ chỗ online để khóa lịch và mở địa chỉ thật. Toàn bộ 100% tiền thuê nhà bạn trả trực tiếp cho chủ nhà khi nhận phòng (0% hoa hồng chủ nhà).',
         },
         {
-          q: 'Nếu tốc độ Wi-Fi khi nhận phòng gặp sự cố thì sao?',
-          a: 'Đội ngũ VietNomad sẽ phối hợp cùng chủ nhà kiểm tra router, đường truyền kỹ thuật hoặc hỗ trợ tìm chỗ ở phù hợp cùng khu vực ngay trong ngày nhận phòng.',
+          q: 'Chủ nhà có bắt buộc phải kiểm định Wi-Fi hay đủ bàn làm việc để đăng phòng không?',
+          a: 'Không. Chủ nhà đăng phòng hoàn toàn miễn phí (€0) và tự khai trung thực tiện nghi (tốc độ Wi-Fi, bàn làm việc, ghế công thái học, màn hình, bếp, máy giặt). Những căn muốn nổi bật thêm có thể xin cấp badge Wi-Fi Verified hoặc Work-Ready từ Admin.',
         },
         {
           q: 'Thời gian thuê tối thiểu là bao nhiêu đêm?',
           a: 'Tối thiểu 7 đêm (1 tuần). Các gói giá được tính sẵn theo mốc 7, 14, 21 hoặc 30 đêm và cộng thêm từng đêm lẻ linh hoạt.',
         },
         {
-          q: 'Đặt qua VietNomad và đặt trực tiếp chủ nhà khác nhau thế nào?',
-          a: 'Đặt qua VietNomad cho phép giữ phòng ngay với phí 12% online và được đội ngũ hỗ trợ kỹ thuật trong suốt thời gian lưu trú. Đặt trực tiếp chủ nhà sẽ chuyển bạn sang website riêng của chủ nhà với giá niêm yết gốc.',
+          q: 'Làm sao tìm đúng căn có bàn làm việc hoặc đã kiểm định Wi-Fi?',
+          a: 'Trên trang Tìm chỗ ở, bạn có thể lọc trực tiếp theo tốc độ Wi-Fi tối thiểu, bàn làm việc riêng, màn hình 4K, bếp riêng hoặc tick chọn badge Wi-Fi Verified / Work-Ready.',
         },
       ]
     : [
         {
-          q: 'How does the 12% booking fee work?',
-          a: 'To confirm a stay on VietNomad, you pay only the 12% booking and verification fee online to lock your dates and unlock the exact address. You pay the full host rent directly to your host when you check in.',
+          q: 'How does the unified 12% BookingFlow fee work?',
+          a: 'Every listing on VietNomad Stays uses BookingFlow: pay only a 12% online service fee to lock your dates and unlock the exact address, then pay 100% of your stay rent directly to your host at check-in (0% host commission).',
         },
         {
-          q: 'What if the Wi-Fi has technical issues at check-in?',
-          a: 'VietNomad coordinates with the host to troubleshoot the router line or help arrange a suitable alternative nearby on your check-in day.',
+          q: 'Are Wi-Fi tests or desks mandatory for hosts to list?',
+          a: 'No. Hosting is completely free (€0) with zero mandatory hardware or speedtest gates. Hosts self-declare their Wi-Fi speed and amenities, and can optionally apply for Wi-Fi Verified or Work-Ready badges.',
         },
         {
           q: 'What is the minimum stay?',
           a: '7 nights (1 week). Pricing is ready upfront for 7, 14, 21, and 30-night stays, and you can add extra nights as needed.',
         },
         {
-          q: 'What is the difference between Book on VietNomad and Direct Booking?',
-          a: 'Book on VietNomad locks your dates immediately with a 12% online fee and active stay support. Direct Booking sends signed-in members straight to the host website with zero markup.',
+          q: 'How do I filter for verified Wi-Fi or specific work setups?',
+          a: 'Use the Search Stays filters to select dedicated desks, ergonomic chairs, 4K monitors, kitchen & laundry types, or toggle the optional Wi-Fi Verified and Work-Ready badges.',
         },
       ];
 
@@ -116,20 +116,20 @@ export default async function HomePage() {
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-md">
               <span className="h-2 w-2 rounded-full bg-[#68D391]" />
               {isVi
-                ? 'Chỗ ở thuê theo tuần và tháng tại Việt Nam'
-                : 'Weekly and monthly stays across Vietnam'}
+                ? 'Chỗ ở thoải mái theo tuần & tháng khắp Việt Nam'
+                : 'Comfortable weekly & monthly stays across Vietnam'}
             </div>
 
             <h1 className="font-serif-display text-4xl font-semibold leading-[1.1] tracking-tight sm:text-6xl">
               {isVi
-                ? 'Thuê nhà ở dài ngày tại Việt Nam. Làm việc ổn định mỗi ngày.'
-                : 'Extended stays in Vietnam, built for remote work.'}
+                ? 'Ở thoải mái dài ngày tại Việt Nam. Sẵn sàng sống và làm việc linh hoạt.'
+                : 'Comfortable extended stays in Vietnam, built for living & remote work.'}
             </h1>
 
             <p className="max-w-2xl text-base leading-relaxed text-[#DCECE5] sm:text-lg">
               {isVi
-                ? 'Chỉ trả phí giữ chỗ 12% online để khóa phòng và trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng. Mọi chỗ ở đều được đo tốc độ Wi-Fi thực tế từ 250 đến 680 Mbps tại bàn làm việc.'
-                : 'Pay only a 12% booking fee online to hold your dates, then pay rent directly to your host at check-in. Every listing includes on-site verified Wi-Fi speeds from 250 to 680 Mbps at the desk.'}
+                ? 'Đặt thống nhất qua BookingFlow: chỉ trả 12% phí giữ chỗ online để khóa phòng và trả 100% tiền thuê trực tiếp cho chủ nhà khi nhận phòng. Dễ dàng lọc tốc độ Wi-Fi, bàn làm việc, bếp và badge kiểm định tùy chọn.'
+                : 'Unified BookingFlow checkout: pay just 12% online to reserve dates, then settle rent directly with your host at check-in. Filter freely by reported Wi-Fi speed, home comforts, workspace setup, or optional verified badges.'}
             </p>
           </div>
 
@@ -145,22 +145,22 @@ export default async function HomePage() {
               {isVi ? 'Xem ưu đãi thuê 1 tháng' : 'View monthly deals'}
             </Link>
             <Link
-              href="/stays?destination=da-nang&minWifi=400"
+              href="/stays?destination=da-nang&minWifi=300"
               className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[#FAF8F3] backdrop-blur-sm hover:bg-white/20"
             >
-              {isVi ? 'Biển Đà Nẵng, 400+ Mbps' : 'Da Nang Beach, 400+ Mbps'}
+              {isVi ? 'Biển Đà Nẵng, 300+ Mbps' : 'Da Nang Beach, 300+ Mbps'}
             </Link>
             <Link
-              href="/stays?lifestyle=heritage-slow"
+              href="/stays?wifiVerified=1"
               className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[#FAF8F3] backdrop-blur-sm hover:bg-white/20"
             >
-              {isVi ? 'Hội An yên tĩnh' : 'Hoi An quiet stays'}
+              {isVi ? 'Badge Wi-Fi Verified' : 'Wi-Fi Verified badge'}
             </Link>
             <Link
-              href="/stays?model=stay_direct"
+              href="/stays?workReady=1"
               className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[#FAF8F3] backdrop-blur-sm hover:bg-white/20"
             >
-              {isVi ? 'Đặt trực tiếp chủ nhà' : 'Direct host booking'}
+              {isVi ? 'Badge Work-Ready' : 'Work-Ready badge'}
             </Link>
           </div>
 
@@ -171,7 +171,7 @@ export default async function HomePage() {
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Wifi className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Wi-Fi đo thực tế trước khi đăng' : 'Tested Wi-Fi speed before listing'}</span>
+              <span>{isVi ? 'Tốc độ Wi-Fi minh bạch & badge kiểm định tùy chọn' : 'Reported Wi-Fi speeds & optional verified badges'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Clock className="h-5 w-5 shrink-0 text-[#E6B87A]" />
@@ -179,7 +179,7 @@ export default async function HomePage() {
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Utensils className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Đủ bàn làm việc, bếp và máy giặt' : 'Dedicated desk, kitchen, and laundry'}</span>
+              <span>{isVi ? 'Lọc linh hoạt bàn làm việc, bếp và đời sống bản địa' : 'Filter by desk, kitchen, laundry & local life'}</span>
             </div>
           </div>
 
@@ -194,7 +194,7 @@ export default async function HomePage() {
             </div>
             <div>
               <div className="font-serif-display text-2xl font-bold">{community.stats.liveStays}</div>
-              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Chỗ ở đang mở' : 'Verified stays'}</div>
+              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Chỗ ở đang mở' : 'Live stays'}</div>
             </div>
             <div>
               <div className="font-serif-display text-2xl font-bold">{community.stats.totalUnits}</div>
@@ -213,13 +213,13 @@ export default async function HomePage() {
             </span>
             <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E] sm:text-4xl">
               {isVi
-                ? 'Wi-Fi rõ tốc độ. Giá thuê minh bạch.'
-                : 'Tested Wi-Fi speeds. Clear monthly prices.'}
+                ? 'Không gian sống thoải mái. Giá thuê minh bạch.'
+                : 'Comfortable spaces. Clear monthly prices.'}
             </h2>
             <p className="mt-1 text-sm text-[#53635D]">
               {isVi
-                ? 'Sắp xếp theo tốc độ Wi-Fi thực tế, hiển thị đủ tiền giữ chỗ 12% và tiền trả chủ nhà.'
-                : 'Sorted by verified Wi-Fi speed with upfront 1-week and 1-month totals.'}
+                ? 'Hiển thị rõ tiền giữ chỗ 12% và phần trả chủ nhà khi nhận phòng cùng thông số Wi-Fi & tiện ích.'
+                : 'Upfront 1-week and 1-month totals with transparent 12% online deposit, amenities, and optional badges.'}
             </p>
           </div>
           <Link
@@ -411,9 +411,9 @@ export default async function HomePage() {
                     : 'Pay 100% upfront with slow refund disputes.',
                 ],
                 [
-                  isVi ? 'Tốc độ Wi-Fi' : 'Wi-Fi speed',
-                  isVi ? 'Đo thực tế tốc độ tải xuống, tải lên và độ trễ trước khi đăng.' : 'Tested download, upload, and latency speeds shown upfront.',
-                  isVi ? 'Chủ nhà tự điền thông tin, không có số đo cụ thể.' : 'Self-reported without speed measurements.',
+                  isVi ? 'Tốc độ Wi-Fi & Badge' : 'Wi-Fi & Badges',
+                  isVi ? 'Chủ nhà khai rõ tốc độ + tùy chọn badge Wi-Fi Verified & Work-Ready để lọc nhanh.' : 'Host-reported speeds plus optional Wi-Fi Verified & Work-Ready badges.',
+                  isVi ? 'Thông tin Wi-Fi chung chung, khó lọc chỗ làm việc chuẩn.' : 'Vague Wi-Fi mentions without work-ready filters.',
                 ],
                 [
                   isVi ? 'Minh bạch giá' : 'Pricing',
@@ -421,14 +421,14 @@ export default async function HomePage() {
                   isVi ? 'Đến bước thanh toán cuối mới hiện thêm phí dọn phòng và thuế.' : 'Extra service and cleaning fees added at checkout.',
                 ],
                 [
-                  isVi ? 'Bàn làm việc' : 'Workspaces',
-                  isVi ? 'Bắt buộc có ảnh thực tế góc làm việc và khoảng cách tới coworking gần nhất.' : 'Required workspace photos plus distance to nearby coworking.',
-                  isVi ? 'Ít ảnh chi tiết về bàn ghế làm việc.' : 'Optional filter, rarely photographed.',
+                  isVi ? 'Không gian làm việc' : 'Workspaces',
+                  isVi ? 'Lọc chi tiết bàn làm việc, ghế công thái học, màn hình 4K và coworking gần kề.' : 'Filter directly by desk, ergonomic chair, 4K monitor, and nearby coworking.',
+                  isVi ? 'Ít thông tin chi tiết về góc làm việc dài ngày.' : 'Minimal details for remote work setups.',
                 ],
                 [
                   isVi ? 'Tiện ích sinh hoạt' : 'Daily living',
-                  isVi ? 'Tất cả chỗ ở đều có bếp nấu và máy giặt.' : 'Kitchen and laundry required in every listing.',
-                  isVi ? 'Nhiều phòng khách sạn không có bếp và giặt ủi.' : 'Often lacks kitchen or laundry.',
+                  isVi ? 'Chủ nhà khai rõ loại bếp và giặt sấy (riêng, chung hoặc không) cho từng căn.' : 'Clear kitchen and laundry details self-declared on every listing.',
+                  isVi ? 'Khó biết rõ tiện nghi bếp núc hay giặt đồ trước khi hỏi chủ.' : 'Unclear kitchen or laundry setups.',
                 ],
                 [
                   isVi ? 'Quyền lợi chủ nhà' : 'For hosts',

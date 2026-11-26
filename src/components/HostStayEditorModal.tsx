@@ -34,17 +34,18 @@ export interface HostEditableStay {
   checkinInstructionsEn: string;
   checkinInstructionsVi: string;
   propertyType: 'apartment' | 'coliving' | 'boutique_hotel' | 'villa' | 'eco_lodge';
-  businessModel: 'booking_flow' | 'stay_direct';
+  businessModel: 'booking_flow';
   cancellationPolicy: 'flexible' | 'moderate' | 'strict';
   isInstantBook: boolean;
   workspaceSummaryEn: string;
   workspaceSummaryVi: string;
   workspacePhotoUrl: string;
+  hasWorkspace: boolean;
   hasErgonomicChair: boolean;
   hasExternalMonitor: boolean;
   hasCallBooth: boolean;
-  kitchenType: 'full' | 'kitchenette' | 'shared';
-  laundryType: 'in_unit' | 'building' | 'service';
+  kitchenType: 'full' | 'kitchenette' | 'shared' | 'none';
+  laundryType: 'in_unit' | 'building' | 'service' | 'none';
   petFriendly: boolean;
   wheelchairFriendly: boolean;
   heroImage: string;
@@ -106,6 +107,7 @@ export function HostStayEditorModal({
   const [isInstantBook, setIsInstantBook] = useState(stay.isInstantBook);
   const [workspaceSummaryVi, setWorkspaceSummaryVi] = useState(stay.workspaceSummaryVi);
   const [workspaceSummaryEn, setWorkspaceSummaryEn] = useState(stay.workspaceSummaryEn);
+  const [hasWorkspace, setHasWorkspace] = useState(stay.hasWorkspace);
   const [hasErgonomicChair, setHasErgonomicChair] = useState(stay.hasErgonomicChair);
   const [hasExternalMonitor, setHasExternalMonitor] = useState(stay.hasExternalMonitor);
   const [hasCallBooth, setHasCallBooth] = useState(stay.hasCallBooth);
@@ -295,6 +297,7 @@ export function HostStayEditorModal({
           isInstantBook,
           workspaceSummaryVi,
           workspaceSummaryEn,
+          hasWorkspace,
           hasErgonomicChair,
           hasExternalMonitor,
           hasCallBooth,
@@ -962,6 +965,7 @@ export function HostStayEditorModal({
                       <option value="full">{isVi ? 'Bếp riêng đầy đủ' : 'Full kitchen'}</option>
                       <option value="kitchenette">{isVi ? 'Bếp nhỏ gọn' : 'Kitchenette'}</option>
                       <option value="shared">{isVi ? 'Bếp chung' : 'Shared kitchen'}</option>
+                      <option value="none">{isVi ? 'Không có bếp' : 'No kitchen'}</option>
                     </select>
                   </div>
                   <div>
@@ -976,6 +980,7 @@ export function HostStayEditorModal({
                       <option value="in_unit">{isVi ? 'Máy giặt trong phòng' : 'In-unit washer'}</option>
                       <option value="building">{isVi ? 'Giặt sấy tòa nhà' : 'Building laundry'}</option>
                       <option value="service">{isVi ? 'Dịch vụ giặt ủi' : 'Laundry service'}</option>
+                      <option value="none">{isVi ? 'Không có máy giặt' : 'No laundry'}</option>
                     </select>
                   </div>
                 </div>
@@ -984,6 +989,10 @@ export function HostStayEditorModal({
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={isInstantBook} onChange={(e) => setIsInstantBook(e.target.checked)} className="accent-[#164E3F]" />
                     {isVi ? 'Đặt phòng tức thì' : 'Instant booking'}
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={hasWorkspace} onChange={(e) => setHasWorkspace(e.target.checked)} className="accent-[#164E3F]" />
+                    {isVi ? 'Bàn làm việc riêng' : 'Dedicated desk'}
                   </label>
                   <label className="flex items-center gap-2">
                     <input type="checkbox" checked={hasErgonomicChair} onChange={(e) => setHasErgonomicChair(e.target.checked)} className="accent-[#164E3F]" />

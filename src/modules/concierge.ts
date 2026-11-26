@@ -99,7 +99,7 @@ export async function runAiStayConcierge(params: {
       ? params.locale === 'vi'
         ? top[0].titleVi
         : top[0].titleEn
-      : 'Vietnam verified stays',
+      : 'Vietnam long-stay apartments & villas',
     nights,
     locale: params.locale,
   });

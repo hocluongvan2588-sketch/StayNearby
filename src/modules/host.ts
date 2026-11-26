@@ -80,12 +80,8 @@ export async function assertHostOwnsStay(user: SessionUser, stayId: string) {
 }
 
 export async function getHostConsoleData(user: SessionUser) {
-  const [walletRes, staysRes, roomsRes, appsRes, bookingsRes, referralsRes, blocksRes, notifRes] =
+  const [staysRes, roomsRes, appsRes, bookingsRes, blocksRes, notifRes] =
     await Promise.all([
-      dbQuery<{ balance_vnd: string | number; updated_at: string | Date }>(
-        'SELECT balance_vnd, updated_at FROM host_wallets WHERE host_id = $1',
-        [user.id]
-      ),
       dbQuery(
         `SELECT s.*, d.name_en AS destination_name_en, d.name_vi AS destination_name_vi,
                 r.id AS room_id, r.name_en AS room_name_en, r.name_vi AS room_name_vi, r.units_total,
@@ -134,15 +130,6 @@ export async function getHostConsoleData(user: SessionUser) {
          JOIN users u ON u.id = b.guest_id
          WHERE s.host_id = $1
          ORDER BY b.created_at DESC`,
-        [user.id]
-      ),
-      dbQuery(
-        `SELECT sr.*, s.title_en, s.title_vi, u.full_name AS member_name
-         FROM staydirect_referrals sr
-         JOIN stays s ON s.id = sr.stay_id
-         JOIN users u ON u.id = sr.member_id
-         WHERE s.host_id = $1
-         ORDER BY sr.created_at DESC`,
         [user.id]
       ),
       dbQuery(
@@ -200,7 +187,6 @@ export async function getHostConsoleData(user: SessionUser) {
 
   return {
     mediaStorage: getMediaStorageStatus(),
-    walletBalanceVnd: toNum(walletRes.rows[0]?.balance_vnd, 0),
     stays: staysRes.rows.map((s) => {
       const stayId = String(s.id);
       return {
@@ -225,7 +211,7 @@ export async function getHostConsoleData(user: SessionUser) {
           | 'boutique_hotel'
           | 'villa'
           | 'eco_lodge',
-        businessModel: s.business_model as 'booking_flow' | 'stay_direct',
+        businessModel: 'booking_flow' as const,
         status: String(s.status),
         isInstantBook: Boolean(s.is_instant_book),
         cancellationPolicy: String(s.cancellation_policy) as
@@ -237,17 +223,20 @@ export async function getHostConsoleData(user: SessionUser) {
         wifiJitterMs: toNum(s.wifi_jitter_ms),
         wifiTestedAt: new Date(String(s.wifi_tested_at)).toISOString(),
         verifiedAt: new Date(String(s.verified_at ?? s.wifi_tested_at)).toISOString(),
-        verificationTier: String(s.verification_tier ?? 'VIETNOMAD_CERTIFIED'),
+        verificationTier: String(s.verification_tier ?? 'SELF_DECLARED'),
+        isWifiVerified: Boolean(s.is_wifi_verified),
+        isWorkReady: Boolean(s.is_work_ready),
         speedtestProofUrl: s.speedtest_proof_url ? String(s.speedtest_proof_url) : '',
         workspaceVideoUrl: s.workspace_video_url ? String(s.workspace_video_url) : '',
         workspaceSummaryEn: String(s.workspace_summary_en),
         workspaceSummaryVi: String(s.workspace_summary_vi),
         workspacePhotoUrl: String(s.workspace_photo_url),
+        hasWorkspace: s.has_workspace !== undefined && s.has_workspace !== null ? Boolean(s.has_workspace) : true,
         hasErgonomicChair: Boolean(s.has_ergonomic_chair),
         hasExternalMonitor: Boolean(s.has_external_monitor),
         hasCallBooth: Boolean(s.has_call_booth),
-        kitchenType: String(s.kitchen_type) as 'full' | 'kitchenette' | 'shared',
-        laundryType: String(s.laundry_type) as 'in_unit' | 'building' | 'service',
+        kitchenType: String(s.kitchen_type) as 'full' | 'kitchenette' | 'shared' | 'none',
+        laundryType: String(s.laundry_type) as 'in_unit' | 'building' | 'service' | 'none',
         petFriendly: Boolean(s.pet_friendly),
         wheelchairFriendly: Boolean(s.wheelchair_friendly),
         heroImage: String(s.hero_image),
@@ -272,7 +261,6 @@ export async function getHostConsoleData(user: SessionUser) {
         wholesale21Vnd: toNum(s.wholesale_21_vnd),
         wholesale30Vnd: toNum(s.wholesale_30_vnd),
         extraNightVnd: toNum(s.extra_night_vnd),
-        directBookingUrl: s.direct_booking_url ? String(s.direct_booking_url) : '',
         rooms: roomsByStay.get(stayId) ?? [],
       };
     }),
@@ -282,7 +270,7 @@ export async function getHostConsoleData(user: SessionUser) {
       stayName: String(a.stay_name),
       destinationSlug: String(a.destination_slug),
       propertyType: String(a.property_type),
-      businessModel: String(a.business_model),
+      businessModel: 'booking_flow',
       measuredDownloadMbps: toNum(a.measured_download_mbps),
       status: String(a.status),
       reviewNote: String(a.review_note ?? ''),
@@ -325,15 +313,6 @@ export async function getHostConsoleData(user: SessionUser) {
         guestTotalVnd: toNum(b.guest_total_vnd),
       };
     }),
-    referrals: referralsRes.rows.map((r) => ({
-      id: String(r.id),
-      stayTitleEn: String(r.title_en),
-      memberName: String(r.member_name),
-      nights: toNum(r.nights),
-      retailTotalVnd: toNum(r.retail_total_vnd),
-      referralFeeVnd: toNum(r.referral_fee_vnd),
-      createdAt: new Date(String(r.created_at)).toISOString(),
-    })),
     availabilityLocks: blocksRes.rows.map((l) => ({
       id: String(l.id),
       roomId: String(l.room_id),
@@ -363,36 +342,31 @@ export async function submitHostApplication(
     stayName: string;
     destinationSlug: string;
     propertyType: string;
-    businessModel: 'booking_flow' | 'stay_direct';
-    measuredDownloadMbps: number;
-    hasKitchen: boolean;
-    hasLaundry: boolean;
-    hasWorkspace: boolean;
-    directBookingUrl?: string;
+    measuredDownloadMbps?: number;
+    hasKitchen?: boolean;
+    hasLaundry?: boolean;
+    hasWorkspace?: boolean;
+    hasErgonomicChair?: boolean;
+    hasExternalMonitor?: boolean;
+    kitchenType?: 'full' | 'kitchenette' | 'shared' | 'none';
+    laundryType?: 'in_unit' | 'building' | 'service' | 'none';
   }
 ) {
-  if (!input.hasKitchen || !input.hasLaundry || !input.hasWorkspace) {
-    throw new AppError(
-      'VALIDATION_ERROR',
-      'Listings require a kitchen, laundry, and a dedicated desk.'
-    );
-  }
-  if (input.businessModel === 'stay_direct' && !input.directBookingUrl?.startsWith('http')) {
-    throw new AppError(
-      'VALIDATION_ERROR',
-      'Direct Booking requires a valid HTTPS booking URL.'
-    );
-  }
-
   const id = crypto.randomUUID();
+  const hasKitchen = input.hasKitchen ?? (input.kitchenType ? input.kitchenType !== 'none' : false);
+  const hasLaundry = input.hasLaundry ?? (input.laundryType ? input.laundryType !== 'none' : false);
+  const hasWorkspace = input.hasWorkspace ?? false;
+  const declaredWifi = Math.max(0, Math.round(input.measuredDownloadMbps ?? 0));
+
   await dbTransaction(async (tx) => {
     await tx.query(
       `INSERT INTO host_applications (
         id, applicant_user_id, business_name, stay_name, destination_slug,
         property_type, business_model, application_fee_eur, application_fee_paid,
         measured_download_mbps, has_kitchen, has_laundry, has_workspace,
-        direct_booking_url, status, review_note
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,39,TRUE,$8,$9,$10,$11,$12,'submitted','€39 verification fee settled, queued for review')`,
+        has_ergonomic_chair, has_external_monitor, kitchen_type, laundry_type,
+        status, review_note
+      ) VALUES ($1,$2,$3,$4,$5,$6,'booking_flow',0,TRUE,$7,$8,$9,$10,$11,$12,$13,$14,'submitted','Free host listing application submitted for review')`,
       [
         id,
         user.id,
@@ -400,22 +374,20 @@ export async function submitHostApplication(
         input.stayName.trim(),
         input.destinationSlug,
         input.propertyType,
-        input.businessModel,
-        Math.max(10, Math.round(input.measuredDownloadMbps)),
-        input.hasKitchen,
-        input.hasLaundry,
-        input.hasWorkspace,
-        input.directBookingUrl?.trim() || null,
+        declaredWifi,
+        hasKitchen,
+        hasLaundry,
+        hasWorkspace,
+        Boolean(input.hasErgonomicChair),
+        Boolean(input.hasExternalMonitor),
+        input.kitchenType ?? (hasKitchen ? 'full' : 'none'),
+        input.laundryType ?? (hasLaundry ? 'in_unit' : 'none'),
       ]
     );
 
     if (user.role === 'nomad') {
       await tx.query(`UPDATE users SET role = 'host' WHERE id = $1`, [user.id]);
     }
-    await tx.query(
-      `INSERT INTO host_wallets (host_id, balance_vnd) VALUES ($1, 1270000) ON CONFLICT (host_id) DO NOTHING`,
-      [user.id]
-    );
   });
 
   return { applicationId: id, status: 'submitted' as const };
@@ -527,9 +499,7 @@ export async function removeMediaFromStay(
 }
 
 export interface UpdateHostStayFullInput {
-  // Pricing & Business model (compatible with legacy PATCH)
-  businessModel?: 'booking_flow' | 'stay_direct';
-  directBookingUrl?: string;
+  // Pricing (BookingFlow unified)
   wholesale7Vnd?: number;
   wholesale14Vnd?: number;
   wholesale21Vnd?: number;
@@ -543,7 +513,7 @@ export interface UpdateHostStayFullInput {
   workspacePhotoUrl?: string;
   galleryImages?: string[];
 
-  // Property Details & Workspace
+  // Property Details & Self-Declared Amenities
   titleEn?: string;
   titleVi?: string;
   subtitleEn?: string;
@@ -560,11 +530,12 @@ export interface UpdateHostStayFullInput {
   isInstantBook?: boolean;
   workspaceSummaryEn?: string;
   workspaceSummaryVi?: string;
+  hasWorkspace?: boolean;
   hasErgonomicChair?: boolean;
   hasExternalMonitor?: boolean;
   hasCallBooth?: boolean;
-  kitchenType?: 'full' | 'kitchenette' | 'shared';
-  laundryType?: 'in_unit' | 'building' | 'service';
+  kitchenType?: 'full' | 'kitchenette' | 'shared' | 'none';
+  laundryType?: 'in_unit' | 'building' | 'service' | 'none';
   petFriendly?: boolean;
   wheelchairFriendly?: boolean;
   amenities?: string[];
@@ -589,19 +560,6 @@ export async function updateHostStayConfiguration(
     if (!current) throw new AppError('NOT_FOUND', 'Stay not found.');
     if (String(current.host_id) !== user.id && user.role !== 'admin') {
       throw new AppError('FORBIDDEN', 'You do not own this property.');
-    }
-
-    const nextBusinessModel =
-      input.businessModel ?? (current.business_model as 'booking_flow' | 'stay_direct');
-    const nextDirectUrl =
-      input.directBookingUrl !== undefined
-        ? input.directBookingUrl.trim() || null
-        : current.direct_booking_url
-          ? String(current.direct_booking_url)
-          : null;
-
-    if (nextBusinessModel === 'stay_direct' && (!nextDirectUrl || !nextDirectUrl.startsWith('http'))) {
-      throw new AppError('VALIDATION_ERROR', 'Direct Booking requires a valid booking URL.');
     }
 
     const nextHero = input.heroImage?.trim() || String(current.hero_image);
@@ -635,40 +593,38 @@ export async function updateHostStayConfiguration(
 
     await tx.query(
       `UPDATE stays
-       SET business_model = $1,
-           direct_booking_url = $2,
-           title_en = $3,
-           title_vi = $4,
-           subtitle_en = $5,
-           subtitle_vi = $6,
-           description_en = $7,
-           description_vi = $8,
-           neighborhood_en = $9,
-           neighborhood_vi = $10,
-           exact_address = $11,
-           checkin_instructions_en = $12,
-           checkin_instructions_vi = $13,
-           property_type = $14,
-           cancellation_policy = $15,
-           is_instant_book = $16,
-           workspace_summary_en = $17,
-           workspace_summary_vi = $18,
-           workspace_photo_url = $19,
-           has_ergonomic_chair = $20,
-           has_external_monitor = $21,
-           has_call_booth = $22,
-           kitchen_type = $23,
-           laundry_type = $24,
-           pet_friendly = $25,
-           wheelchair_friendly = $26,
-           hero_image = $27,
-           gallery_images = $28::jsonb,
-           amenities = $29::jsonb,
-           nearby_coworking = $30::jsonb
-       WHERE id = $31`,
+       SET business_model = 'booking_flow',
+           title_en = $1,
+           title_vi = $2,
+           subtitle_en = $3,
+           subtitle_vi = $4,
+           description_en = $5,
+           description_vi = $6,
+           neighborhood_en = $7,
+           neighborhood_vi = $8,
+           exact_address = $9,
+           checkin_instructions_en = $10,
+           checkin_instructions_vi = $11,
+           property_type = $12,
+           cancellation_policy = $13,
+           is_instant_book = $14,
+           workspace_summary_en = $15,
+           workspace_summary_vi = $16,
+           workspace_photo_url = $17,
+           has_workspace = $18,
+           has_ergonomic_chair = $19,
+           has_external_monitor = $20,
+           has_call_booth = $21,
+           kitchen_type = $22,
+           laundry_type = $23,
+           pet_friendly = $24,
+           wheelchair_friendly = $25,
+           hero_image = $26,
+           gallery_images = $27::jsonb,
+           amenities = $28::jsonb,
+           nearby_coworking = $29::jsonb
+       WHERE id = $30`,
       [
-        nextBusinessModel,
-        nextDirectUrl,
         input.titleEn?.trim() || String(current.title_en),
         input.titleVi?.trim() || String(current.title_vi),
         input.subtitleEn?.trim() || String(current.subtitle_en),
@@ -686,6 +642,7 @@ export async function updateHostStayConfiguration(
         input.workspaceSummaryEn?.trim() || String(current.workspace_summary_en),
         input.workspaceSummaryVi?.trim() || String(current.workspace_summary_vi),
         nextWorkspacePhoto,
+        input.hasWorkspace ?? (current.has_workspace !== undefined && current.has_workspace !== null ? Boolean(current.has_workspace) : true),
         input.hasErgonomicChair ?? Boolean(current.has_ergonomic_chair),
         input.hasExternalMonitor ?? Boolean(current.has_external_monitor),
         input.hasCallBooth ?? Boolean(current.has_call_booth),
@@ -1016,10 +973,10 @@ export async function recordWifiSpeedTest(
          workspace_video_url = COALESCE($6, workspace_video_url)
      WHERE id = $7`,
     [
-      Math.max(10, Math.round(input.downloadMbps)),
-      Math.max(5, Math.round(input.uploadMbps)),
+      Math.max(0, Math.round(input.downloadMbps)),
+      Math.max(0, Math.round(input.uploadMbps)),
       Math.max(0, Math.round(input.jitterMs)),
-      input.note?.trim() || 'Live router speed check verified',
+      input.note?.trim() || 'Host-reported Internet speed updated',
       input.speedtestProofUrl?.trim() || null,
       input.workspaceVideoUrl?.trim() || null,
       stayId,
@@ -1101,23 +1058,4 @@ export async function toggleHostRoomBlock(
     }
     return { ok: true };
   });
-}
-
-export async function topUpHostAdWallet(user: SessionUser, amountUsd: number) {
-  if (![50, 100, 200].includes(amountUsd)) {
-    throw new AppError('VALIDATION_ERROR', 'Choose $50, $100, or $200 preset top-up.');
-  }
-  const vndToAdd = amountUsd * 25400;
-  await dbQuery(
-    `INSERT INTO host_wallets (host_id, balance_vnd, updated_at)
-     VALUES ($1, $2, NOW())
-     ON CONFLICT (host_id)
-     DO UPDATE SET balance_vnd = host_wallets.balance_vnd + $2, updated_at = NOW()`,
-    [user.id, vndToAdd]
-  );
-  const res = await dbQuery<{ balance_vnd: string | number }>(
-    'SELECT balance_vnd FROM host_wallets WHERE host_id = $1',
-    [user.id]
-  );
-  return { balanceVnd: toNum(res.rows[0]?.balance_vnd, vndToAdd) };
 }

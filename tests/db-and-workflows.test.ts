@@ -13,8 +13,8 @@ import {
   createStayBooking,
   refundWifiMismatch,
 } from '@/modules/bookings';
-import { submitHostApplication, topUpHostAdWallet } from '@/modules/host';
-import { reviewHostApplication } from '@/modules/admin';
+import { submitHostApplication } from '@/modules/host';
+import { reviewHostApplication, updateAdminStayVerification } from '@/modules/admin';
 import { buildConciergeWhatsappUrl } from '@/modules/notifications';
 
 let tempDir: string;
@@ -171,73 +171,73 @@ describe('VietNomad Stays PRD End-to-End PostgreSQL Workflows', () => {
     expect(cancelRes.refundAmountVnd).toBe(booking.quote.feeOnlineVnd);
   });
 
-  it('charges StayDirect™ 1% referral fee from prepaid host wallet and supports top-ups', async () => {
-    const freeNomad = await fetchSessionUserByEmail('nomad@vietnomad.demo');
-    const directStay = await getStayDetailBySlug('thao-dien-founders-coliving-saigon');
-    expect(directStay?.businessModel).toBe('stay_direct');
-    const room = directStay!.rooms[0];
-    const pkg = room.packages[0];
+  it('unifies all 10 stays on BookingFlow and supports optional Wi-Fi Verified & Work-Ready filters', async () => {
+    const allStays = await searchStays({ nights: 30 });
+    expect(allStays.length).toBe(10);
+    expect(allStays.every((s) => s.businessModel === 'booking_flow')).toBe(true);
 
-    const directHost = await fetchSessionUserByEmail('direct@vietnomad.demo');
+    const saigonColiving = await getStayDetailBySlug('thao-dien-founders-coliving-saigon');
+    const phuQuocVilla = await getStayDetailBySlug('phu-quoc-emerald-bay-work-villa');
+    expect(saigonColiving?.businessModel).toBe('booking_flow');
+    expect(phuQuocVilla?.businessModel).toBe('booking_flow');
+    expect(phuQuocVilla?.isWifiVerified).toBe(false);
+    expect(phuQuocVilla?.isWorkReady).toBe(false);
 
-    const beforeRes = await dbQuery<{ balance_vnd: string | number }>(
-      `SELECT balance_vnd FROM host_wallets WHERE host_id = $1`,
-      [directHost.id]
-    );
-    const beforeBal = Number(beforeRes.rows[0]?.balance_vnd ?? 0);
+    const verifiedOnly = await searchStays({ wifiVerifiedOnly: true });
+    expect(verifiedOnly.every((s) => s.isWifiVerified)).toBe(true);
+    expect(verifiedOnly.length).toBeLessThan(allStays.length);
 
-    const referral = await createStayBooking(freeNomad, {
-      stayId: directStay!.id,
-      roomId: room.id,
-      packageId: pkg.id,
-      checkIn: '2027-03-01',
-      nights: 14,
-      guestsCount: 1,
-    });
-
-    expect(referral.businessModel).toBe('stay_direct');
-    expect(referral.referralFeeChargedVnd).toBeGreaterThan(0);
-
-    const afterRes = await dbQuery<{ balance_vnd: string | number }>(
-      `SELECT balance_vnd FROM host_wallets WHERE host_id = $1`,
-      [directHost.id]
-    );
-    const afterBal = Number(afterRes.rows[0]?.balance_vnd ?? 0);
-    expect(afterBal).toBe(beforeBal - referral.referralFeeChargedVnd);
-
-    const topped = await topUpHostAdWallet(directHost, 100);
-    expect(topped.balanceVnd).toBe(afterBal + 2_540_000);
+    const workReadyOnly = await searchStays({ workReadyOnly: true });
+    expect(workReadyOnly.every((s) => s.isWorkReady)).toBe(true);
+    expect(workReadyOnly.length).toBeLessThan(allStays.length);
   });
 
-  it('submits a €39 stay application and publishes a new Stay with HOST_VERIFIED tier', async () => {
+  it('submits a free (€0) stay application without mandatory hardware gates and lets Admin toggle badges', async () => {
     const hostUser = await fetchSessionUserByEmail('host@vietnomad.demo');
     const adminUser = await fetchSessionUserByEmail('admin@vietnomad.demo');
 
     const app = await submitHostApplication(hostUser, {
       businessName: 'Saigon Canal Collective',
-      stayName: 'Ben Nghe River Desk House',
+      stayName: 'Ben Nghe River Loft',
       destinationSlug: 'ho-chi-minh-city',
-      propertyType: 'coliving',
-      businessModel: 'booking_flow',
-      measuredDownloadMbps: 220,
-      hasKitchen: true,
-      hasLaundry: true,
-      hasWorkspace: true,
+      propertyType: 'apartment',
+      measuredDownloadMbps: 120,
+      hasKitchen: false,
+      hasLaundry: false,
+      hasWorkspace: false,
+      kitchenType: 'none',
+      laundryType: 'none',
     });
 
     const reviewed = await reviewHostApplication(
       adminUser,
       app.applicationId,
       'approved',
-      'Verified desk + fiber line'
+      'Free listing approved for launch'
     );
     expect(reviewed.status).toBe('approved');
     expect(reviewed.createdStaySlug).toBeTruthy();
 
     const createdStay = await getStayDetailBySlug(reviewed.createdStaySlug!);
     expect(createdStay).not.toBeNull();
-    expect(createdStay!.wifiDownloadMbps).toBe(220);
-    expect(createdStay!.verificationTier).toBe('HOST_VERIFIED');
+    expect(createdStay!.businessModel).toBe('booking_flow');
+    expect(createdStay!.wifiDownloadMbps).toBe(120);
+    expect(createdStay!.verificationTier).toBe('SELF_DECLARED');
+    expect(createdStay!.isWifiVerified).toBe(false);
+    expect(createdStay!.isWorkReady).toBe(false);
+    expect(createdStay!.hasWorkspace).toBe(false);
+    expect(createdStay!.kitchenType).toBe('none');
+    expect(createdStay!.laundryType).toBe('none');
+
+    // Admin optionally grants Wi-Fi Verified badge later
+    await updateAdminStayVerification(adminUser, createdStay!.id, {
+      isWifiVerified: true,
+      isWorkReady: false,
+    });
+    const updatedStay = await getStayDetailBySlug(reviewed.createdStaySlug!);
+    expect(updatedStay!.isWifiVerified).toBe(true);
+    expect(updatedStay!.isWorkReady).toBe(false);
+    expect(updatedStay!.verificationTier).toBe('HOST_VERIFIED');
   });
 
   it('parses RFC 5545 iCal events & formats contextual WhatsApp Concierge links', () => {

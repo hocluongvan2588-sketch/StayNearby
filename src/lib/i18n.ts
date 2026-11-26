@@ -94,25 +94,41 @@ export function formatBookingStatusLabel(status: string, locale: Locale): string
     confirmed: { en: 'Dates locked', vi: 'Đã giữ phòng' },
     CHECKED_IN_COMPLETED: { en: 'Checked in', vi: 'Đã nhận phòng' },
     completed: { en: 'Checked in', vi: 'Đã nhận phòng' },
-    REFUNDED_WIFI_MISMATCH: { en: 'Wi-Fi fee refunded', vi: 'Đã hoàn phí Wi-Fi' },
+    REFUNDED_WIFI_MISMATCH: { en: 'Admin fee refunded', vi: 'Đã hoàn phí giữ chỗ' },
     cancelled: { en: 'Cancelled', vi: 'Đã hủy' },
-    direct_referral: { en: 'Sent to host website', vi: 'Đã mở trang chủ nhà' },
   };
   return map[status]?.[locale] ?? status;
 }
 
 export function formatVerificationTierLabel(tier: string, locale: Locale): string {
   if (tier === 'VIETNOMAD_CERTIFIED') {
-    return locale === 'vi' ? 'VietNomad đã kiểm tra' : 'VietNomad Verified';
+    return locale === 'vi' ? 'Đã xác minh Wi-Fi' : 'Wi-Fi Verified';
   }
-  return locale === 'vi' ? 'Chủ nhà gửi thông số' : 'Host Submitted';
+  return locale === 'vi' ? 'Chủ nhà tự khai báo' : 'Host Reported';
 }
 
-export function formatBusinessModelLabel(model: string, locale: Locale): string {
-  if (model === 'stay_direct') {
-    return locale === 'vi' ? 'Đặt trực tiếp chủ nhà' : 'Direct Booking';
-  }
+export function formatBusinessModelLabel(_model: string, locale: Locale): string {
   return locale === 'vi' ? 'Đặt qua VietNomad' : 'Book on VietNomad';
+}
+
+export function formatKitchenTypeLabel(kitchen: string, locale: Locale): string {
+  const map: Record<string, { en: string; vi: string }> = {
+    full: { en: 'Full kitchen', vi: 'Bếp riêng đầy đủ' },
+    kitchenette: { en: 'Kitchenette', vi: 'Bếp nhỏ gọn' },
+    shared: { en: 'Shared kitchen', vi: 'Bếp chung' },
+    none: { en: 'No kitchen', vi: 'Không có bếp' },
+  };
+  return map[kitchen]?.[locale] ?? kitchen;
+}
+
+export function formatLaundryTypeLabel(laundry: string, locale: Locale): string {
+  const map: Record<string, { en: string; vi: string }> = {
+    in_unit: { en: 'In-unit washer', vi: 'Máy giặt riêng' },
+    building: { en: 'Building laundry', vi: 'Giặt sấy chung' },
+    service: { en: 'Laundry service', vi: 'Dịch vụ giặt ủi' },
+    none: { en: 'No laundry', vi: 'Không có máy giặt' },
+  };
+  return map[laundry]?.[locale] ?? laundry;
 }
 
 export function formatCancellationPolicyLabel(policy: string, locale: Locale): string {

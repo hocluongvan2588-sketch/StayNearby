@@ -39,12 +39,13 @@ interface AdminConsoleData {
     wifiUploadMbps: number;
     wifiJitterMs: number;
     verificationTier: string;
+    isWifiVerified: boolean;
+    isWorkReady: boolean;
     verifiedAt: string;
     speedtestProofUrl: string;
     workspaceVideoUrl: string;
     icalUrl: string;
     icalSyncStatus: string;
-    walletBalanceVnd: number;
   }>;
   crmUsers: Array<{
     id: string;
@@ -120,7 +121,9 @@ export function AdminConsoleClient({ data }: { data: AdminConsoleData }) {
     stayId: string,
     payload: {
       status?: 'live' | 'limited' | 'paused';
-      verificationTier?: 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+      verificationTier?: 'SELF_DECLARED' | 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+      isWifiVerified?: boolean;
+      isWorkReady?: boolean;
     }
   ) {
     const res = await fetch(`/api/admin/stays/${stayId}`, {
@@ -130,7 +133,7 @@ export function AdminConsoleClient({ data }: { data: AdminConsoleData }) {
     });
     const json = await res.json();
     if (json.ok) {
-      setNotice(isVi ? 'Đã cập nhật trạng thái chỗ ở.' : 'Updated stay settings.');
+      setNotice(isVi ? 'Đã cập nhật trạng thái & badge chỗ ở.' : 'Updated stay settings & badges.');
       window.location.reload();
     }
   }
@@ -316,18 +319,48 @@ export function AdminConsoleClient({ data }: { data: AdminConsoleData }) {
                     </div>
                   </td>
                   <td className="py-3 pr-4">
-                    <select
-                      value={s.verificationTier}
-                      onChange={(e) =>
-                        handleStayPatch(s.id, {
-                          verificationTier: e.target.value as 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED',
-                        })
-                      }
-                      className="rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-2 py-1 text-xs font-semibold"
-                    >
-                      <option value="VIETNOMAD_CERTIFIED">{formatVerificationTierLabel('VIETNOMAD_CERTIFIED', locale)}</option>
-                      <option value="HOST_VERIFIED">{formatVerificationTierLabel('HOST_VERIFIED', locale)}</option>
-                    </select>
+                    <div className="flex flex-col gap-1.5">
+                      <select
+                        value={s.verificationTier}
+                        onChange={(e) =>
+                          handleStayPatch(s.id, {
+                            verificationTier: e.target.value as
+                              | 'SELF_DECLARED'
+                              | 'HOST_VERIFIED'
+                              | 'VIETNOMAD_CERTIFIED',
+                          })
+                        }
+                        className="rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-2 py-1 text-xs font-semibold"
+                      >
+                        <option value="SELF_DECLARED">{formatVerificationTierLabel('SELF_DECLARED', locale)}</option>
+                        <option value="HOST_VERIFIED">{formatVerificationTierLabel('HOST_VERIFIED', locale)}</option>
+                        <option value="VIETNOMAD_CERTIFIED">{formatVerificationTierLabel('VIETNOMAD_CERTIFIED', locale)}</option>
+                      </select>
+                      <div className="flex flex-wrap gap-2.5 text-[11px] font-medium">
+                        <label className="flex cursor-pointer items-center gap-1 text-[#164E3F]">
+                          <input
+                            type="checkbox"
+                            checked={s.isWifiVerified}
+                            onChange={(e) =>
+                              handleStayPatch(s.id, { isWifiVerified: e.target.checked })
+                            }
+                            className="accent-[#164E3F]"
+                          />
+                          Wi-Fi Verified
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-1 text-[#A67C2E]">
+                          <input
+                            type="checkbox"
+                            checked={s.isWorkReady}
+                            onChange={(e) =>
+                              handleStayPatch(s.id, { isWorkReady: e.target.checked })
+                            }
+                            className="accent-[#A67C2E]"
+                          />
+                          Work-Ready
+                        </label>
+                      </div>
+                    </div>
                   </td>
                   <td className="py-3">
                     <select

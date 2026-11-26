@@ -19,7 +19,10 @@ export default async function StaysPage({
   const checkIn = pick('checkIn') || addDaysIso(getTodayIsoVietnam(), 7);
   const nights = Math.max(7, Number(pick('nights') || '30') || 30);
   const minWifi = pick('minWifi');
-  const model = (pick('model') || 'all') as 'booking_flow' | 'stay_direct' | 'all';
+  const wifiVerified = pick('wifiVerified') === '1';
+  const workReady = pick('workReady') === '1';
+  const workspace = pick('workspace') === '1';
+  const chair = pick('chair') === '1';
   const monitor = pick('monitor') === '1';
   const booth = pick('booth') === '1';
   const kitchen = pick('kitchen') === '1';
@@ -37,7 +40,10 @@ export default async function StaysPage({
       checkIn,
       nights,
       minWifiMbps: minWifi ? Number(minWifi) : undefined,
-      businessModel: model,
+      wifiVerifiedOnly: wifiVerified,
+      workReadyOnly: workReady,
+      hasWorkspace: workspace,
+      hasErgonomicChair: chair,
       hasMonitor: monitor,
       hasCallBooth: booth,
       fullKitchen: kitchen,
@@ -67,7 +73,10 @@ export default async function StaysPage({
         checkIn,
         nights,
         minWifi,
-        model,
+        wifiVerified,
+        workReady,
+        workspace,
+        chair,
         monitor,
         booth,
         kitchen,

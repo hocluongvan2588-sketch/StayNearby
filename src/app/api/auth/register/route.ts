@@ -39,13 +39,6 @@ export async function POST(req: Request) {
       [id, email, passwordHash, parsed.data.fullName.trim(), role, parsed.data.nationality?.trim() || 'International']
     );
 
-    if (role === 'host') {
-      await dbQuery(
-        'INSERT INTO host_wallets (host_id, balance_vnd) VALUES ($1, 0) ON CONFLICT DO NOTHING',
-        [id]
-      );
-    }
-
     const res = NextResponse.json(
       { ok: true, user: { id, email, fullName: parsed.data.fullName.trim(), role } },
       { status: 201 }

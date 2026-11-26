@@ -56,10 +56,11 @@ interface MemberDashboardData {
     wifiUploadMbps: number;
     wifiJitterMs: number;
     verificationTier: string;
+    isWifiVerified: boolean;
+    isWorkReady: boolean;
     speedtestProofUrl: string | null;
     workspaceVideoUrl: string | null;
     hostWhatsapp: string;
-    directBookingUrl: string | null;
     exactAddress: string | null;
     checkinInstructionsEn: string | null;
     checkinInstructionsVi: string | null;
@@ -219,7 +220,7 @@ export function MemberDashboardClient({
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-            {isVi ? 'Đơn đặt phòng và chứng nhận Wi-Fi' : 'Your stays and Wi-Fi certificates'}
+            {isVi ? 'Đơn đặt phòng và thông tin nhận phòng' : 'Your stays & check-in details'}
           </h2>
           <Link href="/stays" className="text-sm font-semibold text-[#164E3F] hover:underline">
             {isVi ? 'Tìm thêm chỗ ở' : 'Find another stay'}
@@ -290,7 +291,6 @@ export function MemberDashboardClient({
                       </div>
                     </div>
 
-                    {b.businessModel === 'booking_flow' && (
                       <div className="grid gap-2 rounded-2xl bg-[#FAF8F3] p-3 text-xs sm:grid-cols-3">
                         <div>
                           <span className="text-[#53635D]">
@@ -327,7 +327,6 @@ export function MemberDashboardClient({
                           <strong>{formatMoneyFromVnd(b.guestTotalVnd, currency)}</strong>
                         </div>
                       </div>
-                    )}
 
                     {b.status === 'PENDING_PAYMENT' && (
                       <div className="space-y-3 rounded-2xl border border-[#A67C2E]/35 bg-[#FAF8F3] p-3.5 text-xs">
@@ -395,8 +394,8 @@ export function MemberDashboardClient({
                           <div className="flex items-center gap-1.5 font-semibold text-[#164E3F]">
                             <KeyRound className="h-4 w-4" />
                             {isVi
-                              ? 'Địa chỉ nhận phòng và chứng nhận Wi-Fi'
-                              : 'Address, check-in guide, and Wi-Fi certificate'}
+                              ? 'Địa chỉ nhận phòng & thông tin chỗ ở'
+                              : 'Address & check-in guide'}
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {b.speedtestProofUrl && (
@@ -407,7 +406,13 @@ export function MemberDashboardClient({
                                 className="inline-flex items-center gap-1 rounded-lg bg-[#E7F1EC] px-2.5 py-1 font-semibold text-[#164E3F]"
                               >
                                 <ShieldCheck className="h-3.5 w-3.5" />
-                                {isVi ? 'Xem chứng nhận Wi-Fi' : 'View Wi-Fi certificate'}
+                                {b.isWifiVerified
+                                  ? isVi
+                                    ? 'Chứng nhận Wi-Fi'
+                                    : 'Wi-Fi certificate'
+                                  : isVi
+                                    ? 'Hồ sơ Wi-Fi'
+                                    : 'Wi-Fi profile'}
                                 <ExternalLink className="h-3 w-3" />
                               </a>
                             )}
@@ -429,13 +434,6 @@ export function MemberDashboardClient({
                         <p className="text-[#53635D]">
                           {isVi ? b.checkinInstructionsVi : b.checkinInstructionsEn}
                         </p>
-                      </div>
-                    )}
-
-                    {b.status === 'direct_referral' && b.directBookingUrl && (
-                      <div className="rounded-2xl bg-[#FAEDE5] p-3 text-xs text-[#C25E28]">
-                        {isVi ? 'Trang đặt phòng chủ nhà:' : 'Host booking link:'}{' '}
-                        <span className="font-semibold underline">{b.directBookingUrl}</span>
                       </div>
                     )}
 

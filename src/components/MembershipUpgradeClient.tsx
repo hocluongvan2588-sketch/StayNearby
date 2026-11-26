@@ -114,7 +114,7 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
           </thead>
           <tbody className="divide-y divide-[#E5DFD3]">
             {[
-              [isVi ? 'Đặt phòng qua VietNomad và đặt trực tiếp chủ nhà' : 'Book on VietNomad and Direct Host Booking', true, true],
+              [isVi ? 'Đặt phòng thống nhất qua BookingFlow (phí 12% giữ chỗ)' : 'Unified BookingFlow reservations (12% online deposit)', true, true],
               [isVi ? 'Hoàn 4% tiền thưởng cho mỗi đơn đặt phòng' : 'Earn 4% reward credit on VietNomad stays', false, true],
               [isVi ? 'Xuất hóa đơn miễn VAT khi có mã số thuế' : 'VAT-free business invoicing with Tax ID', false, true],
               [isVi ? 'Nhận thông báo sớm chỗ ở giảm giá theo tháng' : 'Early access to monthly price drops', false, true],

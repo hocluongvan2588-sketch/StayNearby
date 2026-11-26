@@ -1,26 +1,22 @@
-# PRD: Chuyển đổi mô hình Thanh toán Giữ chỗ 12%, Cam kết hoàn tiền & Tối ưu vận hành Web
+# PRD: Chuyển đổi mô hình Thanh toán Giữ chỗ 12% & Thống nhất BookingFlow
 
 **Dự án:** VietNomad Stays (`stay-nearby.vercel.app`)  
-**Mục tiêu:** Chuyển từ thu tiền trọn gói sang thu **12% phí giữ chỗ & kiểm định (`Fee_online`)** qua cổng thanh toán online; phần tiền thuê phòng (`Pay_at_checkin = P_host`) khách thanh toán trực tiếp cho chủ nhà khi nhận phòng — kèm **Cam kết hoàn tiền 100% phí giữ chỗ** nếu Wi-Fi hoặc góc làm việc thực tế không khớp báo cáo kiểm định.
+**Mục tiêu:** Thống nhất 100% danh sách chỗ ở trên **BookingFlow**: thu **12% phí giữ chỗ (`Fee_online`)** qua cổng thanh toán online để khóa phòng; phần tiền thuê phòng (`Pay_at_checkin = P_host`) khách thanh toán trực tiếp cho chủ nhà khi nhận phòng (0% hoa hồng chủ nhà). Miễn phí hoàn toàn cho chủ nhà đăng chỗ ở (`€0`), tự khai tiện nghi và tùy chọn gắn badge `Wi-Fi Verified` / `Work-Ready`.
 
-## 1. Core Pricing & Checkout Logic (Phương án A: `P_host + 12%`)
+## 1. Core Pricing & Checkout Logic (Unified BookingFlow: `P_host + 12%`)
 - `P_host`: 100% giá thuê gốc (net) của chủ nhà cho gói 7 / 14 / 21 / 30 đêm (+ đêm lẻ). Chủ nhà nhận đủ 100% khoản này (0% hoa hồng).
-- `Fee_online = Math.round(P_host * 0.12)`: Phí Đặt chỗ & Bảo chứng Kiểm định 12% (bắt buộc thanh toán trực tuyến qua cổng thanh toán để giữ phòng, mở khóa địa chỉ và nhận chứng nhận Wi-Fi).
-- `Pay_at_checkin = P_host`: Khách thanh toán trực tiếp 100% giá thuê gốc cho chủ nhà khi check-in sau khi kiểm tra thực tế chỗ ở.
+- `Fee_online = Math.round(P_host * 0.12)`: Phí dịch vụ giữ chỗ 12% (bắt buộc thanh toán trực tuyến qua cổng thanh toán VietQR hoặc Stripe để giữ phòng và mở khóa địa chỉ thật).
+- `Pay_at_checkin = P_host`: Khách thanh toán trực tiếp 100% giá thuê gốc cho chủ nhà khi check-in.
 - `Total_stay = P_host + Fee_online`: Tổng giá trị trọn gói hiển thị xuyên suốt trên toàn bộ 9 loại tiền tệ.
 - Trạng thái đơn: `PENDING_PAYMENT` → `RESERVED_LOCKED` → `CHECKED_IN_COMPLETED` / `REFUNDED_WIFI_MISMATCH`.
 
-## 2. Automated Notifications & Quick Contact
-- Gửi thông báo đa kênh tự động ngay khi đơn đạt `RESERVED_LOCKED`:
-  - **Guest Confirmation:** Báo cáo kiểm định Wi-Fi (Download/Upload/Jitter + Speedtest proof), tóm tắt đã trả 12% & số tiền trả tại check-in, địa chỉ & hướng dẫn check-in, liên hệ WhatsApp/Zalo.
-  - **Host Alert:** Thông báo đơn đã cọc 12% khóa lịch và nhắc số tiền thu trực tiếp tại check-in.
-  - **Admin Internal Alert:** Cảnh báo đội vận hành xác nhận Zalo với chủ nhà trong 30 phút.
-- Nút **Chat with Local Concierge (WhatsApp)** tại AI Concierge & Trang chi tiết phòng.
+## 2. Free Host Onboarding, Self-Declared Amenities & Optional Badges
+- Gỡ bỏ phí đăng ký `€39` và bỏ rào cản bắt buộc kiểm định Wi-Fi / bàn làm việc / bếp / máy giặt khi đăng phòng.
+- Gỡ bỏ kênh `StayDirect` (chuyển hướng ngoài & phí 1% ví quảng cáo); toàn bộ 10 chỗ ở mẫu hoạt động thống nhất trên BookingFlow.
+- Chủ nhà tự khai: tốc độ Wi-Fi ước tính, bàn làm việc (`has_workspace`), ghế công thái học (`has_ergonomic_chair`), màn hình rời (`has_external_monitor`), bếp (`full | kitchenette | shared | none`), giặt sấy (`in_unit | building | service | none`).
+- Badge tùy chọn do Admin bật/tắt (`is_wifi_verified`, `is_work_ready`) cùng tier `SELF_DECLARED | HOST_VERIFIED | VIETNOMAD_CERTIFIED` và bộ lọc tương ứng trên trang tìm kiếm.
 
-## 3. UI/UX Copywriting, Mobile Web & Production Cleanup
-- Cập nhật Hero, 4 trust bullets, StayCard split breakdown (`Pay $X today · $Y due at check-in`), Booking Summary Widget, bảng so sánh, FAQ & Host Onboarding.
-- Ẩn liên kết Demo khỏi Footer công khai; chỉ bật demo switcher khi `NEXT_PUBLIC_ENABLE_DEMO=true` hoặc tại route ẩn `/admin/demo`.
-
-## 4. Verification Fields & iCal Calendar Sync
-- Trường kiểm định trên `stays`: `wifi_download_mbps`, `wifi_upload_mbps`, `wifi_jitter_ms`, `speedtest_proof_url`, `workspace_video_url`, `verified_at`, `verification_tier` (`HOST_VERIFIED | VIETNOMAD_CERTIFIED`).
-- Trường iCal trên `stay_rooms`: `ical_url`, `ical_last_synced_at`, `ical_sync_status` kèm cron `/api/cron/ical-sync` (cấu hình daily `0 2 * * *` trong `vercel.json` để tương thích Vercel Hobby plan; có thể nâng tần suất mỗi 2–4 giờ qua Vercel Pro hoặc external scheduler).
+## 3. Automated Notifications & iCal Calendar Sync
+- Gửi thông báo đa kênh tự động ngay khi đơn đạt `RESERVED_LOCKED`: Guest Confirmation, Host Alert, và Admin Internal Alert.
+- Nút **Ask on WhatsApp** tại Smart Stay Finder & Trang chi tiết phòng.
+- Trường iCal trên `stay_rooms`: `ical_url`, `ical_last_synced_at`, `ical_sync_status` kèm cron `/api/cron/ical-sync`.

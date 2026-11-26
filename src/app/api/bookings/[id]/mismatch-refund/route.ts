@@ -5,7 +5,7 @@ import { errJson, okJson } from '@/lib/http';
 import { refundWifiMismatch } from '@/modules/bookings';
 
 const schema = z.object({
-  reason: z.string().min(5).max(500).default('Wi-Fi speed below verified certificate at check-in'),
+  reason: z.string().min(5).max(500).default('Admin approved booking fee refund'),
 });
 
 export async function POST(
@@ -18,7 +18,7 @@ export async function POST(
     const raw = await req.json().catch(() => ({}));
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
-      throw new AppError('VALIDATION_ERROR', 'Please describe the Wi-Fi or workspace mismatch.');
+      throw new AppError('VALIDATION_ERROR', 'Please describe the reason for the fee refund.');
     }
     const result = await refundWifiMismatch(actor, id, parsed.data.reason);
     return okJson({ refund: result });

@@ -97,10 +97,10 @@ export default async function DestinationDetailPage({
       </div>
 
       <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
-        <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+          <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
           {isVi
-            ? `${stays.length} chỗ ở sẵn sàng làm việc tại ${dest.nameVi}`
-            : `${stays.length} Live Work-Ready Stays in ${dest.nameEn}`}
+            ? `${stays.length} chỗ ở dài ngày đang mở tại ${dest.nameVi}`
+            : `${stays.length} Available Long-Stay Homes in ${dest.nameEn}`}
         </h2>
         <Link
           href={`/stays?destination=${dest.slug}`}

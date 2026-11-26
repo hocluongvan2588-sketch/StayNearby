@@ -122,8 +122,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       stay_id: string;
       host_id: string;
       status: string;
-      business_model: 'booking_flow' | 'stay_direct';
-      direct_booking_url: string | null;
+      business_model: 'booking_flow';
       cancellation_policy: 'flexible' | 'moderate' | 'strict';
       room_id: string;
       max_guests: number;
@@ -139,7 +138,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       compare_30_vnd: string | number | null;
       extra_night_vnd: string | number;
     }>(
-      `SELECT s.id AS stay_id, s.host_id, s.status, s.business_model, s.direct_booking_url,
+      `SELECT s.id AS stay_id, s.host_id, s.status, s.business_model,
               s.cancellation_policy,
               r.id AS room_id, r.max_guests, r.units_total,
               p.id AS pkg_id, p.is_listed, p.valid_from, p.valid_to,
@@ -205,7 +204,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         extraNightVnd: toNum(meta.extra_night_vnd),
       },
       nights: input.nights,
-      businessModel: meta.business_model,
+      businessModel: 'booking_flow',
       isPremiumMember: freshUser.membership_tier === 'premium',
       applyVatFree: input.applyVatFree,
       vatTaxId: freshUser.vat_tax_id,
@@ -216,81 +215,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
     const bookingId = crypto.randomUUID();
     const bookingCode = `VN-${crypto.randomInt(100000, 999999)}`;
 
-    if (meta.business_model === 'stay_direct') {
-      const referralFeeVnd = Math.max(5000, Math.round(quote.totalStayVnd * 0.01));
-      const walletRes = await tx.query<{ balance_vnd: string | number }>(
-        'SELECT balance_vnd FROM host_wallets WHERE host_id = $1 FOR UPDATE',
-        [meta.host_id]
-      );
-      const balance = toNum(walletRes.rows[0]?.balance_vnd, 0);
-      if (balance < referralFeeVnd) {
-        throw new AppError(
-          'INSUFFICIENT_WALLET',
-          'Host direct-booking balance is low. Please try again later or book directly on VietNomad.'
-        );
-      }
-
-      await tx.query(
-        'UPDATE host_wallets SET balance_vnd = balance_vnd - $1, updated_at = NOW() WHERE host_id = $2',
-        [referralFeeVnd, meta.host_id]
-      );
-
-      const destinationUrl = meta.direct_booking_url || 'https://example.vn/direct-booking';
-      await tx.query(
-        `INSERT INTO staydirect_referrals (
-          id, stay_id, package_id, member_id, nights, retail_total_vnd, referral_fee_vnd, destination_url
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [
-          crypto.randomUUID(),
-          meta.stay_id,
-          meta.pkg_id,
-          user.id,
-          input.nights,
-          quote.totalStayVnd,
-          referralFeeVnd,
-          destinationUrl,
-        ]
-      );
-
-      await tx.query(
-        `INSERT INTO bookings (
-          id, booking_code, stay_id, room_id, package_id, guest_id, business_model,
-          status, check_in, check_out, nights, guests_count, wholesale_total_vnd,
-          service_fee_vnd, vat_discount_vnd, reward_credit_used_vnd, guest_total_vnd,
-          booking_fee_online_vnd, pay_at_checkin_vnd,
-          reward_credit_earned_vnd, cancellation_policy, guest_note
-        ) VALUES ($1,$2,$3,$4,$5,$6,'stay_direct','direct_referral',$7,$8,$9,$10,$11,0,0,0,$12,0,$11,0,$13,$14)`,
-        [
-          bookingId,
-          bookingCode,
-          meta.stay_id,
-          meta.room_id,
-          meta.pkg_id,
-          user.id,
-          input.checkIn,
-          checkOut,
-          input.nights,
-          input.guestsCount,
-          quote.payAtCheckinVnd,
-          quote.totalStayVnd,
-          meta.cancellation_policy,
-          (input.guestNote ?? '').trim(),
-        ]
-      );
-
-      return {
-        bookingId,
-        bookingCode,
-        status: 'direct_referral' as const,
-        businessModel: 'stay_direct' as const,
-        directReferralUrl: destinationUrl,
-        referralFeeChargedVnd: referralFeeVnd,
-        paymentIntentId: null,
-        quote,
-      };
-    }
-
-    // BookingFlow: mandatory 12% Booking & Verification Fee collected online; 100% of host net rate (P_host) paid directly at check-in
+    // Unified BookingFlow: 12% Booking & Service Fee collected online; 100% of host rate paid directly at check-in
     const unitsTotal = toNum(meta.units_total, 1);
     const paymentIntentId = `pi_vn_${crypto.randomBytes(8).toString('hex')}`;
 
@@ -356,13 +281,11 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       await dispatchBookingLockedNotifications(tx, bookingId);
     }
 
-    return {
+      return {
       bookingId,
       bookingCode,
       status: initialStatus,
       businessModel: 'booking_flow' as const,
-      directReferralUrl: null,
-      referralFeeChargedVnd: 0,
       paymentIntentId,
       quote,
     };
@@ -541,7 +464,7 @@ export async function refundWifiMismatch(
       throw new AppError('FORBIDDEN', 'Only VietNomad admins can approve an administrative fee refund.');
     }
     if (b.status !== 'RESERVED_LOCKED' && b.status !== 'confirmed') {
-      throw new AppError('CONFLICT', 'Wi-Fi mismatch refund applies to active locked reservations.');
+      throw new AppError('CONFLICT', 'Administrative fee refund applies to active locked reservations.');
     }
 
     const feePaid = toNum(b.booking_fee_online_vnd);
@@ -573,7 +496,7 @@ export async function refundWifiMismatch(
     }
 
     const cleanReason =
-      reason.trim() || 'Check-in Wi-Fi speed or workspace did not match verified certificate';
+      reason.trim() || 'Administrative booking fee refund approved';
 
     await tx.query(
       `UPDATE bookings
@@ -722,8 +645,9 @@ export async function getMemberDashboard(userId: string) {
               s.slug AS stay_slug, s.title_en, s.title_vi, s.hero_image,
               s.exact_address, s.checkin_instructions_en, s.checkin_instructions_vi,
               s.wifi_download_mbps, s.wifi_upload_mbps, s.wifi_jitter_ms,
-              s.verification_tier, s.speedtest_proof_url, s.workspace_video_url,
-              s.host_whatsapp, s.direct_booking_url,
+              s.verification_tier, s.is_wifi_verified, s.is_work_ready,
+              s.speedtest_proof_url, s.workspace_video_url,
+              s.host_whatsapp,
               d.name_en AS destination_name_en, d.name_vi AS destination_name_vi,
               r.name_en AS room_name_en, r.name_vi AS room_name_vi
        FROM bookings b
@@ -839,11 +763,12 @@ export async function getMemberDashboard(userId: string) {
         wifiDownloadMbps: toNum(b.wifi_download_mbps),
         wifiUploadMbps: toNum(b.wifi_upload_mbps),
         wifiJitterMs: toNum(b.wifi_jitter_ms),
-        verificationTier: String(b.verification_tier ?? 'VIETNOMAD_CERTIFIED'),
+        verificationTier: String(b.verification_tier ?? 'SELF_DECLARED'),
+        isWifiVerified: Boolean(b.is_wifi_verified),
+        isWorkReady: Boolean(b.is_work_ready),
         speedtestProofUrl: b.speedtest_proof_url ? String(b.speedtest_proof_url) : null,
         workspaceVideoUrl: b.workspace_video_url ? String(b.workspace_video_url) : null,
         hostWhatsapp: String(b.host_whatsapp ?? '+84901234567'),
-        directBookingUrl: b.direct_booking_url ? String(b.direct_booking_url) : null,
         exactAddress: unlockAddress ? String(b.exact_address) : null,
         checkinInstructionsEn: unlockAddress ? String(b.checkin_instructions_en) : null,
         checkinInstructionsVi: unlockAddress ? String(b.checkin_instructions_vi) : null,
@@ -852,7 +777,6 @@ export async function getMemberDashboard(userId: string) {
       };
     }),
     savedStays: savedRes.rows.map((s) => {
-      const bm = String(s.business_model);
       const raw30 = toNum(s.wholesale_30_vnd);
       return {
         id: String(s.id),
@@ -861,10 +785,10 @@ export async function getMemberDashboard(userId: string) {
         titleVi: String(s.title_vi),
         heroImage: String(s.hero_image),
         wifiDownloadMbps: toNum(s.wifi_download_mbps),
-        businessModel: bm,
+        businessModel: 'booking_flow',
         destinationNameEn: String(s.destination_name_en),
         destinationNameVi: String(s.destination_name_vi),
-        monthDisplayVnd: bm === 'booking_flow' ? Math.round(raw30 * 1.12) : raw30,
+        monthDisplayVnd: Math.round(raw30 * 1.12),
       };
     }),
     rsvps: rsvpsRes.rows.map((e) => ({

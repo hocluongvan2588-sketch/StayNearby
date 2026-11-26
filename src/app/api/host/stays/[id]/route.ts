@@ -10,8 +10,6 @@ const coworkingSchema = z.object({
 });
 
 const schema = z.object({
-  businessModel: z.enum(['booking_flow', 'stay_direct']).optional(),
-  directBookingUrl: z.string().optional(),
   wholesale7Vnd: z.number().positive().optional(),
   wholesale14Vnd: z.number().positive().optional(),
   wholesale21Vnd: z.number().positive().optional(),
@@ -42,11 +40,12 @@ const schema = z.object({
   isInstantBook: z.boolean().optional(),
   workspaceSummaryEn: z.string().min(4).max(1500).optional(),
   workspaceSummaryVi: z.string().min(4).max(1500).optional(),
+  hasWorkspace: z.boolean().optional(),
   hasErgonomicChair: z.boolean().optional(),
   hasExternalMonitor: z.boolean().optional(),
   hasCallBooth: z.boolean().optional(),
-  kitchenType: z.enum(['full', 'kitchenette', 'shared']).optional(),
-  laundryType: z.enum(['in_unit', 'building', 'service']).optional(),
+  kitchenType: z.enum(['full', 'kitchenette', 'shared', 'none']).optional(),
+  laundryType: z.enum(['in_unit', 'building', 'service', 'none']).optional(),
   petFriendly: z.boolean().optional(),
   wheelchairFriendly: z.boolean().optional(),
   amenities: z.array(z.string().min(1).max(80)).max(30).optional(),

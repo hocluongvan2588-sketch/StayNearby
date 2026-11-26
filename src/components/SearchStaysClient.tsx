@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, SlidersHorizontal, Wifi } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ShieldCheck, SlidersHorizontal, Wifi } from 'lucide-react';
 import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
 import type { DestinationSummary, LifestyleItem, StayCardItem } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
@@ -14,7 +14,10 @@ export interface SearchFilterState {
   checkIn: string;
   nights: number;
   minWifi: string;
-  model: string;
+  wifiVerified: boolean;
+  workReady: boolean;
+  workspace: boolean;
+  chair: boolean;
   monitor: boolean;
   booth: boolean;
   kitchen: boolean;
@@ -50,7 +53,10 @@ export function SearchStaysClient({
     if (merged.checkIn) sp.set('checkIn', merged.checkIn);
     if (merged.nights) sp.set('nights', String(merged.nights));
     if (merged.minWifi) sp.set('minWifi', merged.minWifi);
-    if (merged.model && merged.model !== 'all') sp.set('model', merged.model);
+    if (merged.wifiVerified) sp.set('wifiVerified', '1');
+    if (merged.workReady) sp.set('workReady', '1');
+    if (merged.workspace) sp.set('workspace', '1');
+    if (merged.chair) sp.set('chair', '1');
     if (merged.monitor) sp.set('monitor', '1');
     if (merged.booth) sp.set('booth', '1');
     if (merged.kitchen) sp.set('kitchen', '1');
@@ -65,7 +71,7 @@ export function SearchStaysClient({
       <div className="mb-8 flex flex-col justify-between gap-4 border-b border-[#E5DFD3] pb-6 md:flex-row md:items-end">
         <div>
           <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
-            {isVi ? 'Phòng đang mở đặt' : 'Live availability'}
+            {isVi ? 'Phòng đang mở đặt qua BookingFlow' : 'Live BookingFlow availability'}
           </span>
           <h1 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E] sm:text-4xl">
             {isVi
@@ -74,8 +80,8 @@ export function SearchStaysClient({
           </h1>
           <p className="mt-1 text-sm text-[#53635D]">
             {isVi
-              ? `Nhận phòng ngày ${filters.checkIn}. Tất cả chỗ ở đều có Wi-Fi đo thật, bàn làm việc và bếp.`
-              : `Check-in ${filters.checkIn}. Includes verified Wi-Fi, a dedicated desk, and kitchen access.`}
+              ? `Nhận phòng ngày ${filters.checkIn}. Lọc linh hoạt theo tốc độ Wi-Fi, tiện nghi làm việc & sinh hoạt, hoặc badge kiểm định tùy chọn.`
+              : `Check-in ${filters.checkIn}. Filter freely by Wi-Fi speed, home amenities, workspace setup, or optional verified badges.`}
           </p>
         </div>
 
@@ -109,7 +115,7 @@ export function SearchStaysClient({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[248px_1fr] lg:items-start">
+      <div className="grid gap-6 lg:grid-cols-[260px_1fr] lg:items-start">
         <aside className="space-y-6 rounded-3xl border border-[#E5DFD3] bg-white p-5">
           <div className="flex items-center justify-between border-b border-[#E5DFD3] pb-3">
             <span className="flex items-center gap-2 text-sm font-bold text-[#17221E]">
@@ -195,7 +201,7 @@ export function SearchStaysClient({
           <div className="space-y-1.5">
             <label className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-[#53635D]">
               <Wifi className="h-3.5 w-3.5 text-[#164E3F]" />
-              {isVi ? 'Wi-Fi tối thiểu' : 'Min Wi-Fi speed'}
+              {isVi ? 'Wi-Fi tối thiểu (chủ nhà khai)' : 'Min reported Wi-Fi'}
             </label>
             <select
               value={filters.minWifi}
@@ -203,32 +209,41 @@ export function SearchStaysClient({
               className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 text-sm font-medium"
             >
               <option value="">{isVi ? 'Tất cả tốc độ' : 'Any speed'}</option>
+              <option value="50">50+ Mbps</option>
               <option value="150">150+ Mbps</option>
               <option value="300">300+ Mbps</option>
               <option value="450">450+ Mbps</option>
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-[#53635D]">
-              {isVi ? 'Hình thức đặt phòng' : 'Booking method'}
-            </label>
-            <select
-              value={filters.model}
-              onChange={(e) => pushFilters({ model: e.target.value })}
-              className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 text-sm font-medium"
-            >
-              <option value="all">{isVi ? 'Tất cả' : 'All booking methods'}</option>
-              <option value="booking_flow">{isVi ? 'Đặt qua VietNomad (giữ chỗ 12%)' : 'Book on VietNomad (12% fee)'}</option>
-              <option value="stay_direct">{isVi ? 'Đặt trực tiếp chủ nhà (0% phí sàn)' : 'Direct Host Booking (0% fee)'}</option>
-            </select>
+          <div className="space-y-2 border-t border-[#E5DFD3] pt-3">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#164E3F]">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              {isVi ? 'Badge kiểm định (tùy chọn)' : 'Optional Badges'}
+            </div>
+            {[
+              { key: 'wifiVerified', val: filters.wifiVerified, label: isVi ? 'Wi-Fi Verified (đã test)' : 'Wi-Fi Verified badge' },
+              { key: 'workReady', val: filters.workReady, label: isVi ? 'Work-Ready (chuẩn làm việc)' : 'Work-Ready badge' },
+            ].map((item) => (
+              <label key={item.key} className="flex cursor-pointer items-center gap-2 text-sm text-[#17221E]">
+                <input
+                  type="checkbox"
+                  checked={item.val}
+                  onChange={(e) => pushFilters({ [item.key]: e.target.checked })}
+                  className="h-4 w-4 rounded accent-[#164E3F]"
+                />
+                <span>{item.label}</span>
+              </label>
+            ))}
           </div>
 
           <div className="space-y-2 border-t border-[#E5DFD3] pt-3">
             <div className="text-xs font-semibold uppercase tracking-wider text-[#53635D]">
-              {isVi ? 'Tiện nghi' : 'Amenities'}
+              {isVi ? 'Tiện nghi làm việc & sinh hoạt' : 'Workspace & Living'}
             </div>
             {[
+              { key: 'workspace', val: filters.workspace, label: isVi ? 'Có bàn làm việc riêng' : 'Dedicated desk' },
+              { key: 'chair', val: filters.chair, label: isVi ? 'Ghế công thái học' : 'Ergonomic chair' },
               { key: 'monitor', val: filters.monitor, label: isVi ? 'Có màn hình 4K rời' : 'External 4K monitor' },
               { key: 'booth', val: filters.booth, label: isVi ? 'Có phòng gọi điện riêng' : 'Call booths available' },
               { key: 'kitchen', val: filters.kitchen, label: isVi ? 'Bếp riêng đầy đủ' : 'Full private kitchen' },
@@ -256,7 +271,7 @@ export function SearchStaysClient({
               </h2>
               <p className="mt-2 text-sm text-[#53635D]">
                 {isVi
-                  ? 'Hãy bỏ bớt tiêu chí như màn hình rời hoặc đổi ngày nhận phòng để xem thêm lựa chọn.'
+                  ? 'Hãy bỏ bớt tiêu chí hoặc đổi ngày nhận phòng để xem thêm lựa chọn.'
                   : 'Try unchecking a filter or changing your check-in date to see more stays.'}
               </p>
               <Link

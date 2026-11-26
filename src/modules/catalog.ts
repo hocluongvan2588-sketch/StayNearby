@@ -25,14 +25,17 @@ export interface StayCardItem {
   neighborhoodEn: string;
   neighborhoodVi: string;
   propertyType: string;
-  businessModel: 'booking_flow' | 'stay_direct';
+  businessModel: 'booking_flow';
   isInstantBook: boolean;
   cancellationPolicy: 'flexible' | 'moderate' | 'strict';
   wifiDownloadMbps: number;
   wifiUploadMbps: number;
   wifiJitterMs: number;
-  verificationTier: 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+  verificationTier: 'SELF_DECLARED' | 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+  isWifiVerified: boolean;
+  isWorkReady: boolean;
   verifiedAt: string;
+  hasWorkspace: boolean;
   hasErgonomicChair: boolean;
   hasExternalMonitor: boolean;
   hasCallBooth: boolean;
@@ -138,7 +141,6 @@ export interface StayDetail extends StayCardItem {
   descriptionEn: string;
   descriptionVi: string;
   registrationCode: string;
-  directBookingUrl: string | null;
   wifiTestedAt: string;
   wifiTesterNote: string;
   speedtestProofUrl: string | null;
@@ -168,7 +170,6 @@ function parseJsonArray<T>(raw: unknown): T[] {
 }
 
 function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]): StayCardItem {
-  const businessModel = row.business_model as 'booking_flow' | 'stay_direct';
   const pkgInput = {
     wholesale7Vnd: toNum(row.wholesale_7_vnd),
     wholesale14Vnd: toNum(row.wholesale_14_vnd),
@@ -178,14 +179,12 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
     extraNightVnd: toNum(row.extra_night_vnd),
   };
 
-  const q7 = calculateStayQuote({ pkg: pkgInput, nights: 7, businessModel });
-  const q30 = calculateStayQuote({ pkg: pkgInput, nights: 30, businessModel });
+  const q7 = calculateStayQuote({ pkg: pkgInput, nights: 7, businessModel: 'booking_flow' });
+  const q30 = calculateStayQuote({ pkg: pkgInput, nights: 30, businessModel: 'booking_flow' });
 
   const compareDisplay =
     pkgInput.compare30Vnd && pkgInput.compare30Vnd > pkgInput.wholesale30Vnd
-      ? businessModel === 'booking_flow'
-        ? Math.round(pkgInput.compare30Vnd * 1.12)
-        : pkgInput.compare30Vnd
+      ? Math.round(pkgInput.compare30Vnd * 1.12)
       : null;
 
   const dealSavingsPct =
@@ -194,6 +193,25 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
       : 0;
 
   const coworking = parseJsonArray<CoworkingSpot>(row.nearby_coworking);
+  const rawTier = String(row.verification_tier ?? 'SELF_DECLARED');
+  const verificationTier: StayCardItem['verificationTier'] =
+    rawTier === 'VIETNOMAD_CERTIFIED'
+      ? 'VIETNOMAD_CERTIFIED'
+      : rawTier === 'HOST_VERIFIED'
+        ? 'HOST_VERIFIED'
+        : 'SELF_DECLARED';
+  const isWifiVerified =
+    row.is_wifi_verified !== undefined && row.is_wifi_verified !== null
+      ? Boolean(row.is_wifi_verified)
+      : verificationTier === 'VIETNOMAD_CERTIFIED';
+  const hasWorkspace =
+    row.has_workspace !== undefined && row.has_workspace !== null
+      ? Boolean(row.has_workspace)
+      : true;
+  const isWorkReady =
+    row.is_work_ready !== undefined && row.is_work_ready !== null
+      ? Boolean(row.is_work_ready)
+      : isWifiVerified && hasWorkspace;
 
   return {
     id: String(row.id),
@@ -208,17 +226,17 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
     neighborhoodEn: String(row.neighborhood_en),
     neighborhoodVi: String(row.neighborhood_vi),
     propertyType: String(row.property_type),
-    businessModel,
+    businessModel: 'booking_flow',
     isInstantBook: Boolean(row.is_instant_book),
     cancellationPolicy: row.cancellation_policy as 'flexible' | 'moderate' | 'strict',
     wifiDownloadMbps: toNum(row.wifi_download_mbps),
     wifiUploadMbps: toNum(row.wifi_upload_mbps),
     wifiJitterMs: toNum(row.wifi_jitter_ms),
-    verificationTier:
-      row.verification_tier === 'HOST_VERIFIED'
-        ? 'HOST_VERIFIED'
-        : 'VIETNOMAD_CERTIFIED',
+    verificationTier,
+    isWifiVerified,
+    isWorkReady,
     verifiedAt: new Date(String(row.verified_at ?? row.wifi_tested_at ?? Date.now())).toISOString(),
+    hasWorkspace,
     hasErgonomicChair: Boolean(row.has_ergonomic_chair),
     hasExternalMonitor: Boolean(row.has_external_monitor),
     hasCallBooth: Boolean(row.has_call_booth),
@@ -310,12 +328,15 @@ export interface SearchStaysFilter {
   checkIn?: string;
   nights?: number;
   minWifiMbps?: number;
-  businessModel?: 'booking_flow' | 'stay_direct' | 'all';
+  hasWorkspace?: boolean;
+  hasErgonomicChair?: boolean;
   hasMonitor?: boolean;
   hasCallBooth?: boolean;
   fullKitchen?: boolean;
   inUnitLaundry?: boolean;
   petFriendly?: boolean;
+  wifiVerifiedOnly?: boolean;
+  workReadyOnly?: boolean;
   maxMonthlyVnd?: number;
   sort?: 'wifi_desc' | 'price_asc' | 'savings_desc' | 'rating_desc';
 }
@@ -390,8 +411,11 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
   if (filters.minWifiMbps && filters.minWifiMbps > 0) {
     items = items.filter((s) => s.wifiDownloadMbps >= filters.minWifiMbps!);
   }
-  if (filters.businessModel && filters.businessModel !== 'all') {
-    items = items.filter((s) => s.businessModel === filters.businessModel);
+  if (filters.hasWorkspace) {
+    items = items.filter((s) => s.hasWorkspace);
+  }
+  if (filters.hasErgonomicChair) {
+    items = items.filter((s) => s.hasErgonomicChair);
   }
   if (filters.hasMonitor) {
     items = items.filter((s) => s.hasExternalMonitor);
@@ -407,6 +431,12 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
   }
   if (filters.petFriendly) {
     items = items.filter((s) => s.petFriendly);
+  }
+  if (filters.wifiVerifiedOnly) {
+    items = items.filter((s) => s.isWifiVerified);
+  }
+  if (filters.workReadyOnly) {
+    items = items.filter((s) => s.isWorkReady);
   }
   if (filters.maxMonthlyVnd && filters.maxMonthlyVnd > 0) {
     items = items.filter((s) => s.monthDisplayVnd <= filters.maxMonthlyVnd!);
@@ -554,7 +584,6 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     descriptionEn: String(row.description_en),
     descriptionVi: String(row.description_vi),
     registrationCode: String(row.registration_code ?? ''),
-    directBookingUrl: row.direct_booking_url ? String(row.direct_booking_url) : null,
     wifiTestedAt: new Date(String(row.wifi_tested_at)).toISOString(),
     wifiTesterNote: String(row.wifi_tester_note),
     speedtestProofUrl: row.speedtest_proof_url ? String(row.speedtest_proof_url) : null,
