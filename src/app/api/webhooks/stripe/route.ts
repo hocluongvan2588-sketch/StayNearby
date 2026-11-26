@@ -1,7 +1,11 @@
 import { getConfig } from '@/lib/config';
 import { AppError } from '@/lib/errors';
 import { errJson, okJson } from '@/lib/http';
-import { finalizeTransactionPaid, verifyStripeWebhookSignature } from '@/modules/payments';
+import {
+  finalizeTransactionPaid,
+  markTransactionFailedOrExpired,
+  verifyStripeWebhookSignature,
+} from '@/modules/payments';
 
 export async function POST(req: Request) {
   try {
@@ -35,18 +39,31 @@ export async function POST(req: Request) {
       };
     };
 
-    if (event.type === 'checkout.session.completed') {
-      const session = event.data?.object;
-      if (session?.payment_status === 'paid') {
-        const transactionId = session.metadata?.transactionId || session.client_reference_id;
-        const referenceCode = session.metadata?.referenceCode;
-        await finalizeTransactionPaid({
-          transactionId,
-          referenceCode,
-          externalPaymentId: session.payment_intent || session.id,
-          paidAmountVnd: typeof session.amount_total === 'number' ? session.amount_total : undefined,
-        });
-      }
+    const session = event.data?.object;
+    const transactionId = session?.metadata?.transactionId || session?.client_reference_id;
+    const referenceCode = session?.metadata?.referenceCode;
+
+    if (event.type === 'checkout.session.completed' && session?.payment_status === 'paid') {
+      await finalizeTransactionPaid({
+        transactionId,
+        referenceCode,
+        externalPaymentId: session.payment_intent || session.id,
+        paidAmountVnd: typeof session.amount_total === 'number' ? session.amount_total : undefined,
+      });
+    } else if (event.type === 'checkout.session.expired') {
+      await markTransactionFailedOrExpired({
+        transactionId,
+        referenceCode,
+        nextStatus: 'expired',
+        reason: 'Stripe checkout session expired',
+      });
+    } else if (event.type === 'payment_intent.payment_failed') {
+      await markTransactionFailedOrExpired({
+        transactionId,
+        referenceCode,
+        nextStatus: 'failed',
+        reason: 'Stripe payment intent failed',
+      });
     }
 
     return okJson({ received: true });

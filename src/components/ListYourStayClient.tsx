@@ -14,7 +14,7 @@ export function ListYourStayClient({
   user: SessionUser | null;
   destinations: DestinationSummary[];
 }) {
-  const { locale } = usePreferences();
+  const { locale, serviceFeePct, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [businessName, setBusinessName] = useState('');
@@ -40,6 +40,11 @@ export function ListYourStayClient({
     setLoading(true);
     setError('');
     try {
+      const params = new URLSearchParams(window.location.search);
+      const utmSource = params.get('utm_source') || undefined;
+      const utmCampaign = params.get('utm_campaign') || undefined;
+      const sourceDetail = params.get('ref') || 'list_your_stay_web';
+
       const res = await fetch('/api/host/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -56,6 +61,9 @@ export function ListYourStayClient({
           laundryType,
           hasKitchen: kitchenType !== 'none',
           hasLaundry: laundryType !== 'none',
+          sourceDetail,
+          utmSource,
+          utmCampaign,
         }),
       });
       const json = await res.json();
@@ -74,17 +82,19 @@ export function ListYourStayClient({
       <div className="grid gap-8 rounded-3xl border border-[#E5DFD3] bg-[#0F392E] p-8 text-[#FAF8F3] lg:grid-cols-12 lg:items-center lacquer-shadow">
         <div className="space-y-4 lg:col-span-7">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-[#E6B87A]">
-            {isVi ? 'Đăng chỗ ở miễn phí (€0) · 0% hoa hồng chủ nhà' : 'Free host onboarding (€0) · 0% host commission'}
+            {isVi
+              ? `Đăng chỗ ở miễn phí (€0) · ${hostCommissionPct}% hoa hồng chủ nhà`
+              : `Free to list (€0) · ${hostCommissionPct}% host commission`}
           </span>
           <h1 className="font-serif-display text-4xl font-semibold leading-tight sm:text-5xl">
             {isVi
-              ? 'Đón khách lưu trú dài ngày, nhận trọn 100% tiền thuê.'
-              : 'Welcome weekly & monthly guests with 0% host commission.'}
+              ? 'Đón khách lưu trú dài ngày và giữ trọn tiền thuê nhà.'
+              : 'Host weekly & monthly guests with 0% host commission.'}
           </h1>
           <p className="text-sm text-[#DCECE5]">
             {isVi
-              ? 'Đăng ký hoàn toàn miễn phí — không thu phí khởi tạo, không bắt buộc kiểm tra Wi-Fi hay thiết bị đầu vào. Bạn tự khai tiện nghi và tùy chọn yêu cầu badge Wi-Fi Verified / Work-Ready bất cứ lúc nào.'
-              : 'Free to join — zero onboarding fees and zero mandatory Wi-Fi or hardware gates. Self-declare your property amenities and optionally request Wi-Fi Verified or Work-Ready badges later.'}
+              ? 'Đăng ký hoàn toàn miễn phí, không thu phí khởi tạo và không bắt buộc thiết bị hay kiểm định đầu vào. Bạn tự khai tiện nghi thực tế và có thể đăng ký thêm badge Wi-Fi Verified hoặc Work-Ready bất cứ lúc nào.'
+              : 'Free to join with no onboarding fees and no mandatory Wi-Fi or hardware requirements. Declare your property amenities directly, and apply for optional Wi-Fi Verified or Work-Ready badges whenever you are ready.'}
           </p>
         </div>
 
@@ -92,23 +102,25 @@ export function ListYourStayClient({
           <div className="rounded-2xl bg-white/10 p-4">
             <Zap className="mb-2 h-5 w-5 text-[#E6B87A]" />
             <div className="font-semibold">
-              {isVi ? 'BookingFlow · 0% hoa hồng chủ nhà' : 'BookingFlow · 0% host commission'}
+              {isVi
+                ? `Thu 100% tiền thuê (${hostCommissionPct}% hoa hồng)`
+                : `Collect 100% of rent (${hostCommissionPct}% commission)`}
             </div>
             <p className="mt-1 text-xs text-[#CDE0D9]">
               {isVi
-                ? 'Khách đóng 12% phí giữ chỗ online để khóa lịch, và trả 100% tiền phòng trực tiếp cho bạn khi nhận phòng. Đồng bộ lịch iCal tự động từ Airbnb và Booking.com.'
-                : 'Guests pay a 12% booking fee online to lock dates and pay 100% of rent directly to you at check-in. Syncs iCal with Airbnb & Booking.com.'}
+                ? `Khách trả ${serviceFeePct}% phí dịch vụ online để xác nhận đặt phòng, và thanh toán toàn bộ tiền thuê trực tiếp cho bạn khi nhận phòng. Hỗ trợ đồng bộ lịch iCal với Airbnb và Booking.com.`
+                : `Guests pay the ${serviceFeePct}% service fee online to confirm, then pay rent directly to you at check-in. Supports 2-way iCal sync with Airbnb and Booking.com.`}
             </p>
           </div>
           <div className="rounded-2xl bg-white/10 p-4">
             <Sparkles className="mb-2 h-5 w-5 text-[#E6B87A]" />
             <div className="font-semibold">
-              {isVi ? 'Badge kiểm định tùy chọn' : 'Optional Trust Badges'}
+              {isVi ? 'Badge kiểm định tùy chọn' : 'Optional Badges'}
             </div>
             <p className="mt-1 text-xs text-[#CDE0D9]">
               {isVi
-                ? 'Không bắt buộc bàn làm việc hay tốc độ tối thiểu để đăng phòng. Nếu muốn nổi bật, bạn có thể xin cấp badge Wi-Fi Verified hoặc Work-Ready.'
-                : 'No desk or minimum speed required to list. Request optional Wi-Fi Verified or Work-Ready badges whenever your setup qualifies.'}
+                ? 'Không bắt buộc bàn làm việc hay tốc độ tối thiểu để đăng chỗ ở. Nếu chỗ ở đạt chuẩn, bạn có thể xin cấp badge Wi-Fi Verified hoặc Work-Ready để nổi bật hơn.'
+                : 'No desk or minimum speed required to list. Request optional Wi-Fi Verified or Work-Ready badges anytime your property qualifies.'}
             </p>
           </div>
         </div>
@@ -117,39 +129,39 @@ export function ListYourStayClient({
       <div className="grid gap-8 lg:grid-cols-12">
         <div className="h-fit space-y-5 rounded-3xl border border-[#E5DFD3] bg-white p-7 lg:col-span-5">
           <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-            {isVi ? 'Cách VietNomad Stays hoạt động' : 'How listing works'}
+            {isVi ? 'Quy trình cho thuê' : 'How listing works'}
           </h2>
           <ul className="space-y-3 text-sm text-[#53635D]">
             <li className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#164E3F]" />
               <span>
                 {isVi
-                  ? 'Miễn phí 100% đăng ký và quản lý chỗ ở — không thu phí xét duyệt.'
-                  : '100% free to list — zero onboarding fees and zero commission on your rent.'}
+                  ? 'Miễn phí hoàn toàn khi đăng và quản lý chỗ ở, không phí xét duyệt.'
+                  : 'Free to list and manage properties, with zero approval fees.'}
               </span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#164E3F]" />
               <span>
                 {isVi
-                  ? 'Chủ nhà tự mô tả trung thực không gian sống: tốc độ Wi-Fi dự kiến, bàn làm việc, bếp và máy giặt để khách lọc đúng nhu cầu.'
-                  : 'Self-declare amenities (desk, chair, monitor, kitchen, laundry, reported Wi-Fi) so guests can filter for what matters to them.'}
+                  ? 'Tự khai thông tin bếp, máy giặt, bàn làm việc và tốc độ Wi-Fi để khách tìm đúng nhu cầu.'
+                  : 'List your real amenities (kitchen, laundry, workspace, reported Wi-Fi) so guests can filter accurately.'}
               </span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#164E3F]" />
               <span>
                 {isVi
-                  ? 'Hỗ trợ đầy đủ các gói 7, 14, 21, 30 đêm và quản lý ảnh, phòng, lịch iCal ngay trong Host Portal.'
-                  : 'Manage 7/14/21/30-night pricing, multi-room types, photo galleries, and iCal sync in your Host Studio.'}
+                  ? 'Thiết lập giá gói 7, 14, 21, 30 đêm, loại phòng, hình ảnh và đồng bộ lịch iCal ngay trong Kênh chủ nhà.'
+                  : 'Set 7/14/21/30-night package rates, room types, photos, and iCal sync in your Host Console.'}
               </span>
             </li>
           </ul>
           <div className="rounded-2xl bg-[#FAF8F3] p-4 text-xs text-[#53635D]">
             <ShieldCheck className="mr-1 inline h-4 w-4 text-[#164E3F]" />
             {isVi
-              ? 'Sau khi duyệt hồ sơ cơ bản, chỗ ở sẽ hiển thị trực tiếp và Admin có thể cấp thêm badge Wi-Fi Verified hoặc Work-Ready nếu đủ điều kiện.'
-              : 'Once published, you can request optional Wi-Fi Verified or Work-Ready badges anytime via Admin verification.'}
+              ? 'Sau khi hồ sơ được duyệt, chỗ ở sẽ hiển thị cho khách đặt phòng và bạn có thể gửi yêu cầu cấp badge Wi-Fi Verified hoặc Work-Ready.'
+              : 'Once approved, your listing goes live to guests and you can apply for optional Wi-Fi Verified or Work-Ready badges anytime.'}
           </div>
         </div>
 
@@ -158,18 +170,29 @@ export function ListYourStayClient({
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-lg font-bold text-[#164E3F]">
                 <CheckCircle2 className="h-6 w-6" />
-                {isVi ? 'Đã gửi hồ sơ đăng chỗ ở miễn phí!' : 'Listing application submitted!'}
+                {isVi ? 'Đã gửi hồ sơ đăng chỗ ở' : 'Listing application submitted'}
               </div>
               <p className="text-sm text-[#53635D]">
                 {isVi ? 'Mã hồ sơ:' : 'Application ID:'}{' '}
                 <span className="font-mono font-semibold text-[#17221E]">{submittedId}</span>
               </p>
+              <p className="rounded-xl bg-[#FAF8F3] p-3 text-xs leading-relaxed text-[#53635D]">
+                {isVi
+                  ? 'Hồ sơ của bạn đã được chuyển đến đội ngũ xét duyệt đối tác. Chỗ ở và quyền truy cập Kênh chủ nhà sẽ mở sau khi được duyệt.'
+                  : 'Your application has been sent to our Partner Operations team for review. Your listing and Host Console access will activate once approved.'}
+              </p>
               <div className="flex flex-wrap gap-3">
-                <Link href="/host" className="rounded-xl bg-[#164E3F] px-5 py-2.5 text-sm font-semibold text-white">
-                  {isVi ? 'Mở trang quản lý nhà' : 'Open Host Studio'}
-                </Link>
-                <Link href="/admin" className="rounded-xl border border-[#E5DFD3] px-5 py-2.5 text-sm font-semibold text-[#17221E]">
-                  {isVi ? 'Xem hàng đợi duyệt' : 'View review queue'}
+                {user && (user.role === 'host' || user.role === 'admin') ? (
+                  <Link href="/host" className="rounded-xl bg-[#164E3F] px-5 py-2.5 text-sm font-semibold text-white">
+                    {isVi ? 'Mở Kênh chủ nhà' : 'Open Host Console'}
+                  </Link>
+                ) : (
+                  <Link href="/dashboard" className="rounded-xl bg-[#164E3F] px-5 py-2.5 text-sm font-semibold text-white">
+                    {isVi ? 'Về Tài khoản của tôi' : 'Back to Dashboard'}
+                  </Link>
+                )}
+                <Link href="/stays" className="rounded-xl border border-[#E5DFD3] px-5 py-2.5 text-sm font-semibold text-[#17221E]">
+                  {isVi ? 'Khám phá chỗ ở' : 'Browse stays'}
                 </Link>
               </div>
             </div>

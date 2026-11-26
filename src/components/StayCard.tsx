@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import {
   formatKitchenTypeLabel,
-  formatMoneyFromVnd,
   formatPropertyTypeLabel,
   formatVerificationTierLabel,
 } from '@/lib/i18n';
@@ -32,7 +31,7 @@ export function StayCard({
   initialSaved?: boolean;
   isAuthenticated?: boolean;
 }) {
-  const { locale, currency } = usePreferences();
+  const { locale, serviceFeePct, formatMoney } = usePreferences();
   const [saved, setSaved] = useState(initialSaved);
   const [saving, setSaving] = useState(false);
 
@@ -119,7 +118,7 @@ export function StayCard({
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-medium text-white">
           <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
             <Zap className="h-3 w-3 text-[#F2D399]" />
-            {isVi ? 'Giữ phòng BookingFlow' : 'BookingFlow · 12% deposit'}
+            {isVi ? `Phí ${serviceFeePct}% online` : `${serviceFeePct}% fee online`}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 backdrop-blur-sm">
             <Star className="h-3 w-3 text-[#F4C15D]" fill="#F4C15D" />
@@ -182,7 +181,7 @@ export function StayCard({
               {isVi ? 'Gói từ 7 đêm' : '7 nights from'}
             </span>
             <span className="font-serif-display text-base font-bold text-[#17221E]">
-              {formatMoneyFromVnd(stay.weekDisplayVnd, currency)}
+              {formatMoney(stay.weekDisplayVnd)}
             </span>
           </div>
           <p className="mt-1.5 border-t border-[#E5DFD3]/80 pt-1.5 text-xs font-medium text-[#164E3F]">
@@ -190,7 +189,7 @@ export function StayCard({
               <>
                 Trả{' '}
                 <span className="font-bold text-[#0F392E]">
-                  {formatMoneyFromVnd(stay.weekFeeOnlineVnd, currency)}
+                  {formatMoney(stay.weekFeeOnlineVnd)}
                 </span>{' '}
                 giữ chỗ hôm nay
               </>
@@ -198,7 +197,7 @@ export function StayCard({
               <>
                 Pay{' '}
                 <span className="font-bold text-[#0F392E]">
-                  {formatMoneyFromVnd(stay.weekFeeOnlineVnd, currency)}
+                  {formatMoney(stay.weekFeeOnlineVnd)}
                 </span>{' '}
                 to reserve today
               </>

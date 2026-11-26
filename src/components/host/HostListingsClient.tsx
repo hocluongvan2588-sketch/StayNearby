@@ -16,7 +16,6 @@ import {
   Trash2,
 } from 'lucide-react';
 import {
-  formatMoneyFromVnd,
   formatPropertyTypeLabel,
   formatVndExact,
 } from '@/lib/i18n';
@@ -38,7 +37,7 @@ export function HostListingsClient({
   initialStays: HostStaySummary[];
   initialDrafts: HostDraftSummary[];
 }) {
-  const { locale, currency } = usePreferences();
+  const { locale, formatMoney } = usePreferences();
   const isVi = locale === 'vi';
 
   const [stays, setStays] = useState<HostStaySummary[]>(initialStays);
@@ -283,7 +282,7 @@ export function HostListingsClient({
                     </p>
                     <p className="mt-2 text-xs font-semibold text-[#164E3F]">
                       {baseNightly > 0
-                        ? `${formatMoneyFromVnd(baseNightly, currency)} / ${isVi ? 'đêm' : 'night'}`
+                        ? `${formatMoney(baseNightly)} / ${isVi ? 'đêm' : 'night'}`
                         : isVi
                           ? 'Chưa cài đặt phòng'
                           : 'No rooms yet'}

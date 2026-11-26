@@ -45,7 +45,7 @@ export function HostListingWizardClient({
   initialPayload: Record<string, unknown>;
 }) {
   const router = useRouter();
-  const { locale } = usePreferences();
+  const { locale, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [draftId, setDraftId] = useState<string | null>(initialDraftId);
@@ -363,7 +363,7 @@ export function HostListingWizardClient({
             </p>
             <div>
               <label className="mb-1 block font-semibold text-[#17221E]">
-                {isVi ? 'Tốc độ tải xuống ước tính (Mbps — tùy chọn)' : 'Estimated download speed (Mbps — optional)'}
+                {isVi ? 'Tốc độ tải xuống ước tính (Mbps, tùy chọn)' : 'Estimated download speed (Mbps, optional)'}
               </label>
               <input
                 type="number"
@@ -406,7 +406,7 @@ export function HostListingWizardClient({
         {step === 5 && (
           <div className="space-y-4">
             <h1 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? '5. Giá tham khảo (0% hoa hồng chủ nhà)' : '5. Target Rate (0% Host Commission)'}
+              {isVi ? `5. Giá tham khảo (${hostCommissionPct}% hoa hồng chủ nhà)` : `5. Target Rate (${hostCommissionPct}% Host Commission)`}
             </h1>
             <div>
               <label className="mb-1 block font-semibold text-[#17221E]">
@@ -444,8 +444,8 @@ export function HostListingWizardClient({
               </div>
               <div className="text-[#164E3F] font-semibold">
                 {isVi
-                  ? '0% hoa hồng chủ nhà — thu trực tiếp 100% giá phòng khi khách nhận phòng.'
-                  : '0% host commission — collect 100% of your room rate directly at check-in.'}
+                  ? `${hostCommissionPct}% hoa hồng chủ nhà. Thu trực tiếp 100% tiền thuê khi khách nhận phòng.`
+                  : `${hostCommissionPct}% host commission. Collect 100% of your room rate at check-in.`}
               </div>
             </div>
           </div>

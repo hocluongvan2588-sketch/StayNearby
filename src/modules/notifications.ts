@@ -10,11 +10,13 @@ export function buildConciergeWhatsappUrl(params: {
   nights?: number;
   bookingCode?: string;
   phoneOverride?: string;
+  serviceFeePct?: number;
   locale?: 'en' | 'vi';
 }): string {
   const { conciergeWhatsapp } = getConfig();
   const digits = (params.phoneOverride || conciergeWhatsapp).replace(/[^0-9]/g, '');
   const isVi = params.locale === 'vi';
+  const feePct = Math.round(params.serviceFeePct ?? 12);
 
   const parts = isVi
     ? [
@@ -31,7 +33,7 @@ export function buildConciergeWhatsappUrl(params: {
         params.checkIn ? `Check-in: ${params.checkIn}.` : '',
         params.nights ? `Stay length: ${params.nights} nights.` : '',
         params.bookingCode ? `Booking Code: ${params.bookingCode}.` : '',
-        'Could you confirm availability before I pay the 12% booking fee?',
+        `Could you confirm availability before I pay the ${feePct}% booking fee?`,
       ];
 
   const text = encodeURIComponent(parts.filter(Boolean).join(' '));
@@ -97,6 +99,7 @@ export async function dispatchBookingLockedNotifications(
     speedtest_proof_url: string | null;
     host_whatsapp: string;
     room_name: string;
+    applied_service_fee_rate: string | number | null;
     guest_name: string;
     guest_email: string;
     host_name: string;
@@ -104,6 +107,7 @@ export async function dispatchBookingLockedNotifications(
   }>(
     `SELECT b.id, b.booking_code, b.check_in, b.check_out, b.nights, b.guests_count,
             b.booking_fee_online_vnd, b.pay_at_checkin_vnd, b.guest_total_vnd,
+            b.applied_service_fee_rate,
             s.title_en AS stay_title, s.exact_address, s.checkin_instructions_en,
             s.wifi_download_mbps, s.wifi_upload_mbps, s.wifi_jitter_ms,
             s.verification_tier, s.speedtest_proof_url, s.host_whatsapp,
@@ -134,6 +138,7 @@ export async function dispatchBookingLockedNotifications(
   const feeOnlineVnd = toNum(row.booking_fee_online_vnd);
   const payAtCheckinVnd = toNum(row.pay_at_checkin_vnd);
   const totalVnd = toNum(row.guest_total_vnd);
+  const feeRatePct = Math.round(toNum(row.applied_service_fee_rate, 0.12) * 100);
 
   const hostWhatsappLink = buildConciergeWhatsappUrl({
     stayTitle: row.stay_title,
@@ -143,6 +148,8 @@ export async function dispatchBookingLockedNotifications(
     phoneOverride: row.host_whatsapp,
   });
 
+  const nightsNum = toNum(row.nights);
+  const nightsText = `${nightsNum} ${nightsNum === 1 ? 'night' : 'nights'}`;
   const guestSubject = `[${row.booking_code}] Confirmed: ${row.stay_title}`;
   const guestPayload = {
     bookingCode: row.booking_code,
@@ -150,8 +157,9 @@ export async function dispatchBookingLockedNotifications(
     roomName: row.room_name,
     checkIn,
     checkOut,
-    nights: toNum(row.nights),
-    paidOnline12PctVnd: feeOnlineVnd,
+    nights: nightsNum,
+    serviceFeeRatePct: feeRatePct,
+    paidOnlineFeeVnd: feeOnlineVnd,
     dueAtCheckinHostVnd: payAtCheckinVnd,
     totalStayVnd: totalVnd,
     exactAddress: row.exact_address,
@@ -167,17 +175,18 @@ export async function dispatchBookingLockedNotifications(
       speedtestProofUrl: row.speedtest_proof_url,
     },
     guaranteeNote:
-      'Confirmed on VietNomad Stays. Standard property cancellation policy applies.',
+      'Confirmed on VietNomad Stays. Property cancellation policy applies.',
   };
 
   const guestStatus = await maybeSendResendEmail(
     row.guest_email,
     guestSubject,
     `<h2>${guestSubject}</h2>
-     <p>Paid online (12% booking fee): <strong>${formatVndExact(feeOnlineVnd)}</strong></p>
+     <p>Paid online (${feeRatePct}% service fee): <strong>${formatVndExact(feeOnlineVnd)}</strong></p>
      <p>Due at check-in (pay directly to host): <strong>${formatVndExact(payAtCheckinVnd)}</strong></p>
+     <p>Dates: ${checkIn} to ${checkOut} (${nightsText})</p>
      <p>Address: ${row.exact_address}</p>
-     <p>Reported Wi-Fi: ${row.wifi_download_mbps} Mbps down / ${row.wifi_upload_mbps} Mbps up (${row.wifi_jitter_ms}ms latency)</p>`
+     <p>Wi-Fi info: ${row.wifi_download_mbps} Mbps down / ${row.wifi_upload_mbps} Mbps up (${row.wifi_jitter_ms}ms latency)</p>`
   );
 
   const hostSubject = `[New Booking ${row.booking_code}] ${row.guest_name}, collect ${formatVndExact(payAtCheckinVnd)} at check-in`;
@@ -188,19 +197,19 @@ export async function dispatchBookingLockedNotifications(
     roomName: row.room_name,
     checkIn,
     checkOut,
-    nights: toNum(row.nights),
-    deposit12Locked: true,
+    nights: nightsNum,
+    depositLocked: true,
     collectAtCheckinVnd: payAtCheckinVnd,
     pledgeNote:
-      'Guest paid the 12% booking fee online. Dates are locked; collect 100% of rent directly at check-in.',
+      `Guest paid the ${feeRatePct}% service fee online. Dates are reserved; collect 100% of rent directly at check-in.`,
   };
 
   const hostStatus = await maybeSendResendEmail(
     row.host_email,
     hostSubject,
     `<h2>${hostSubject}</h2>
-     <p>Guest: ${row.guest_name} (${checkIn} to ${checkOut}, ${row.nights} nights)</p>
-     <p>12% booking fee settled online. Please hold the room and collect <strong>${formatVndExact(payAtCheckinVnd)}</strong> directly at check-in.</p>`
+     <p>Guest: ${row.guest_name} (${checkIn} to ${checkOut}, ${nightsText})</p>
+     <p>${feeRatePct}% service fee settled online. Please prepare the room and collect <strong>${formatVndExact(payAtCheckinVnd)}</strong> directly at check-in.</p>`
   );
 
   const adminSubject = `[Admin Alert] Booking ${row.booking_code} locked, message ${row.host_name} on Zalo within 30 minutes`;

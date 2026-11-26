@@ -15,6 +15,14 @@ const schema = z.object({
   useRewardCredit: z.boolean().optional(),
   guestNote: z.string().max(500).optional(),
   checkoutMode: z.enum(['intent', 'instant']).optional(),
+  promotionCode: z.string().max(40).optional(),
+  attributionSessionKey: z.string().max(120).optional(),
+  utmSource: z.string().max(80).optional(),
+  utmMedium: z.string().max(80).optional(),
+  utmCampaign: z.string().max(100).optional(),
+  utmContent: z.string().max(100).optional(),
+  utmTerm: z.string().max(100).optional(),
+  landingPath: z.string().max(240).optional(),
 });
 
 export async function POST(req: Request) {

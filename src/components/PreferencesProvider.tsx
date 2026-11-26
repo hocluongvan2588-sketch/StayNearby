@@ -1,15 +1,48 @@
 'use client';
 
-import { createContext, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { CurrencyCode, Locale } from '@/lib/i18n';
+import {
+  CURRENCY_MAP,
+  formatMoneyFromVnd,
+  type CurrencyCode,
+  type Locale,
+} from '@/lib/i18n';
 import type { StayCardItem } from '@/modules/catalog';
+
+export type FxRatesMap = Record<string, number>;
+
+export interface ClientPlatformConfig {
+  serviceFeeRate: number;
+  hostCommissionRate: number;
+  vatDiscountRate: number;
+  premiumRewardRate: number;
+  defaultMinNights: number;
+  fxRates: FxRatesMap;
+}
+
+const DEFAULT_PLATFORM_CONFIG: ClientPlatformConfig = {
+  serviceFeeRate: 0.12,
+  hostCommissionRate: 0,
+  vatDiscountRate: 0.05,
+  premiumRewardRate: 0.04,
+  defaultMinNights: 7,
+  fxRates: Object.fromEntries(
+    Object.values(CURRENCY_MAP).map((m) => [m.code, m.vndPerUnit])
+  ),
+};
 
 interface PreferencesContextValue {
   locale: Locale;
   currency: CurrencyCode;
   setLocale: (loc: Locale) => Promise<void>;
   setCurrency: (cur: CurrencyCode) => Promise<void>;
+  platformConfig: ClientPlatformConfig;
+  serviceFeePct: number;
+  hostCommissionPct: number;
+  vatDiscountPct: number;
+  premiumRewardPct: number;
+  formatMoney: (amountVnd: number, opts?: { showVndHint?: boolean }) => string;
   compareList: StayCardItem[];
   toggleCompare: (stay: StayCardItem) => void;
   clearCompare: () => void;
@@ -20,10 +53,12 @@ const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 export function PreferencesProvider({
   initialLocale,
   initialCurrency,
+  platformConfig = DEFAULT_PLATFORM_CONFIG,
   children,
 }: {
   initialLocale: Locale;
   initialCurrency: CurrencyCode;
+  platformConfig?: ClientPlatformConfig;
   children: React.ReactNode;
 }) {
   const router = useRouter();
@@ -64,6 +99,15 @@ export function PreferencesProvider({
     setCompareList([]);
   }
 
+  const formatMoney = useCallback(
+    (amountVnd: number, opts?: { showVndHint?: boolean }) =>
+      formatMoneyFromVnd(amountVnd, currency, {
+        ...opts,
+        fxRates: platformConfig.fxRates,
+      }),
+    [currency, platformConfig.fxRates]
+  );
+
   return (
     <PreferencesContext.Provider
       value={{
@@ -71,6 +115,12 @@ export function PreferencesProvider({
         currency,
         setLocale,
         setCurrency,
+        platformConfig,
+        serviceFeePct: Math.round(platformConfig.serviceFeeRate * 100),
+        hostCommissionPct: Math.round(platformConfig.hostCommissionRate * 100),
+        vatDiscountPct: Math.round(platformConfig.vatDiscountRate * 100),
+        premiumRewardPct: Math.round(platformConfig.premiumRewardRate * 100),
+        formatMoney,
         compareList,
         toggleCompare,
         clearCompare,

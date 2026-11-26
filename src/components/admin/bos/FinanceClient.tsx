@@ -34,7 +34,7 @@ export function FinanceTransactionsView({ initialData }: { initialData: FinanceO
     <div>
       <PageHeader
         title="Transactions & Platform Revenue"
-        subtitle="Real-time separation of GMV, 12% Guest Platform Fee Revenue, Host Payable, and Contribution Profit."
+        subtitle="Real-time separation of GMV, Guest Platform Service Fee Revenue, Host Payable, and Contribution Profit."
         actions={
           <a
             href="/api/admin/finance?scope=export_csv"
@@ -208,7 +208,7 @@ export function HostPayoutsView({ initialPayouts }: { initialPayouts: PayoutsLis
     <div>
       <PageHeader
         title="Host Payouts & Check-in Statements"
-        subtitle="Track host settlement obligations (0% host commission under BookingFlow) and direct-at-checkin statements."
+        subtitle="Track host settlement obligations (0% host commission) and check-in payment statements."
       />
 
       <div className="overflow-hidden rounded-lg border border-[#E5DFD3] bg-white">

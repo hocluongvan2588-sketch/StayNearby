@@ -3,6 +3,7 @@ import { hashPassword } from '@/lib/auth/password';
 import { isValidUuid } from '@/lib/dates';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { safeRevalidateAll } from '@/lib/revalidate-safe';
 import {
   logAdminAudit,
   maskEmail,
@@ -317,6 +318,10 @@ export async function listHostLeads(
     next_follow_up_at: string | null;
     kyc_status: string;
     notes: string;
+    application_id: string | null;
+    source_detail: string | null;
+    utm_source: string | null;
+    utm_campaign: string | null;
     created_at: string;
     updated_at: string;
   }>(
@@ -331,7 +336,11 @@ export async function listHostLeads(
   return res.rows.map((l) => ({
     id: String(l.id),
     linkedUserId: l.linked_user_id ? String(l.linked_user_id) : null,
+    applicationId: l.application_id ? String(l.application_id) : null,
     source: String(l.source),
+    sourceDetail: l.source_detail ? String(l.source_detail) : null,
+    utmSource: l.utm_source ? String(l.utm_source) : null,
+    utmCampaign: l.utm_campaign ? String(l.utm_campaign) : null,
     businessName: String(l.business_name),
     contactName: String(l.contact_name),
     email: actor.hasPiiAccess ? String(l.email) : maskEmail(String(l.email)),
@@ -917,6 +926,7 @@ export async function createLocalPartner(
     after: { businessName: input.businessName, category: input.category },
   });
 
+  safeRevalidateAll(['/destinations']);
   return { id };
 }
 
@@ -962,5 +972,6 @@ export async function updateLocalPartner(
     after: input,
   });
 
+  safeRevalidateAll(['/destinations']);
   return { ok: true };
 }

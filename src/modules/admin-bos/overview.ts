@@ -107,7 +107,8 @@ export async function getOverviewDashboardData(
         COUNT(*) FILTER (WHERE event_name = 'checkout_start') AS checkout_starts,
         COUNT(*) FILTER (WHERE event_name = 'booking_completed') AS completed
        FROM attribution_events
-       WHERE created_at >= NOW() - ($1 || ' days')::interval`,
+       WHERE COALESCE(is_internal, FALSE) = FALSE
+         AND created_at >= NOW() - ($1 || ' days')::interval`,
       [String(days)]
     ),
     dbQuery<{

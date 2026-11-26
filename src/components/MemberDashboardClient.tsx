@@ -9,10 +9,16 @@ import {
   CreditCard,
   ExternalLink,
   KeyRound,
+  LifeBuoy,
   MapPin,
   MessageCircle,
+  Paperclip,
+  Plus,
+  RefreshCcw,
+  Send,
   ShieldCheck,
   Sparkles,
+  Tag,
   Wallet,
   Wifi,
 } from 'lucide-react';
@@ -20,14 +26,19 @@ import type { SessionUser } from '@/lib/auth/session';
 import {
   formatBookingStatusLabel,
   formatCancellationPolicyLabel,
-  formatMoneyFromVnd,
+  formatCountNoun,
+  formatNightsLabel,
+  formatPaymentAxisStatusLabel,
+  formatRefundAxisStatusLabel,
+  formatStayAxisStatusLabel,
 } from '@/lib/i18n';
 import { GatewayCheckoutPanel } from './GatewayCheckoutPanel';
 import { usePreferences } from './PreferencesProvider';
 
-interface MemberDashboardData {
+export interface MemberDashboardData {
   bookings: Array<{
     id: string;
+    stayId: string;
     bookingCode: string;
     staySlug: string;
     titleEn: string;
@@ -39,11 +50,25 @@ interface MemberDashboardData {
     roomNameVi: string;
     businessModel: string;
     status: string;
+    bookingStatus: string;
+    stayStatus: string;
+    paymentStatus: string;
+    payoutStatus: string;
+    refundStatus: string;
+    appliedServiceFeeRate: number;
+    promotionCode: string | null;
+    promotionDiscountVnd: number;
+    promotionFundingSource: string | null;
     checkIn: string;
     checkOut: string;
     nights: number;
+    guestsCount: number;
+    wholesaleTotalVnd: number;
+    serviceFeeVnd: number;
     feeOnlineVnd: number;
     payAtCheckinVnd: number;
+    vatDiscountVnd: number;
+    rewardCreditUsedVnd: number;
     guestTotalVnd: number;
     rewardCreditEarnedVnd: number;
     paymentIntentId: string | null;
@@ -71,6 +96,43 @@ interface MemberDashboardData {
       status: string;
       createdAt: string;
     }>;
+    refundRequests: Array<{
+      id: string;
+      refundType: string;
+      amountVnd: number;
+      status: string;
+      reason: string;
+      decisionNote: string;
+      createdAt: string;
+      processedAt: string | null;
+    }>;
+  }>;
+  supportTickets: Array<{
+    id: string;
+    ticketCode: string;
+    category: string;
+    issueSubCategory: string;
+    priority: string;
+    status: string;
+    bookingId: string | null;
+    bookingCode: string | null;
+    stayId: string | null;
+    stayTitleEn: string | null;
+    stayTitleVi: string | null;
+    subject: string;
+    description: string;
+    resolutionSummary: string;
+    attachments: string[];
+    messages: Array<{
+      id: string;
+      senderName: string;
+      senderRole: string;
+      body: string;
+      attachments: string[];
+      createdAt: string;
+    }>;
+    createdAt: string;
+    updatedAt: string;
   }>;
   savedStays: Array<{
     id: string;
@@ -102,13 +164,142 @@ export function MemberDashboardClient({
   user: SessionUser;
   data: MemberDashboardData;
 }) {
-  const { locale, currency } = usePreferences();
+  const { locale, formatMoney, premiumRewardPct } = usePreferences();
   const isVi = locale === 'vi';
   const [busyId, setBusyId] = useState<string | null>(null);
   const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
 
-  async function handleCancel(bookingId: string) {
+  // Unified Support Center state
+  const [tickets, setTickets] = useState(data.supportTickets);
+  const [ticketFormOpen, setTicketFormOpen] = useState(false);
+  const [ticketCategory, setTicketCategory] = useState<
+    'booking' | 'property_wifi' | 'payment' | 'general'
+  >('property_wifi');
+  const [ticketSubCategory, setTicketSubCategory] = useState('wifi_speed_mismatch');
+  const [ticketBookingId, setTicketBookingId] = useState('');
+  const [ticketSubject, setTicketSubject] = useState('');
+  const [ticketDescription, setTicketDescription] = useState('');
+  const [ticketAttachmentInput, setTicketAttachmentInput] = useState('');
+  const [ticketAttachments, setTicketAttachments] = useState<string[]>([]);
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [ticketError, setTicketError] = useState('');
+  const [expandedTicketId, setExpandedTicketId] = useState<string | null>(
+    data.supportTickets[0]?.id ?? null
+  );
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [replyBusyId, setReplyBusyId] = useState<string | null>(null);
+
+  async function refreshTickets(selectId?: string) {
+    const res = await fetch('/api/support/tickets');
+    const json = await res.json().catch(() => null);
+    if (res.ok && json?.ok && Array.isArray(json.tickets)) {
+      setTickets(json.tickets);
+      if (selectId) setExpandedTicketId(selectId);
+    }
+  }
+
+  function openSupportForBooking(bookingId: string, bookingCode: string, stayTitle: string) {
+    setTicketFormOpen(true);
+    setTicketBookingId(bookingId);
+    setTicketCategory('property_wifi');
+    setTicketSubCategory('wifi_speed_mismatch');
+    setTicketSubject(
+      isVi ? `Hỗ trợ đơn ${bookingCode} (${stayTitle})` : `Support for ${bookingCode} (${stayTitle})`
+    );
+    setTicketError('');
+    const el = document.getElementById('support-center');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function addAttachmentUrl() {
+    const trimmed = ticketAttachmentInput.trim();
+    if (!trimmed) return;
+    if (
+      !trimmed.startsWith('https://') &&
+      !trimmed.startsWith('http://') &&
+      !trimmed.startsWith('/api/uploads/') &&
+      !trimmed.startsWith('/images/')
+    ) {
+      setTicketError(
+        isVi
+          ? 'Link đính kèm phải bắt đầu bằng https:// hoặc /api/uploads/.'
+          : 'Attachment link must start with https:// or /api/uploads/.'
+      );
+      return;
+    }
+    if (ticketAttachments.length < 5 && !ticketAttachments.includes(trimmed)) {
+      setTicketAttachments((prev) => [...prev, trimmed]);
+      setTicketAttachmentInput('');
+      setTicketError('');
+    }
+  }
+
+  async function handleCreateTicket(e: React.FormEvent) {
+    e.preventDefault();
+    setTicketSubmitting(true);
+    setTicketError('');
+    try {
+      const res = await fetch('/api/support/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: ticketCategory,
+          issueSubCategory: ticketSubCategory,
+          bookingId: ticketBookingId || null,
+          subject: ticketSubject,
+          description: ticketDescription,
+          attachments: ticketAttachments,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        setTicketError(
+          json.error?.message ?? (isVi ? 'Không thể tạo phiếu hỗ trợ.' : 'Could not create ticket.')
+        );
+        return;
+      }
+      setTicketSubject('');
+      setTicketDescription('');
+      setTicketAttachments([]);
+      setTicketAttachmentInput('');
+      setTicketFormOpen(false);
+      await refreshTickets(json.ticket?.id);
+    } finally {
+      setTicketSubmitting(false);
+    }
+  }
+
+  async function handleReplyTicket(e: React.FormEvent, ticketId: string) {
+    e.preventDefault();
+    const body = (replyDrafts[ticketId] ?? '').trim();
+    if (body.length < 2) return;
+    setReplyBusyId(ticketId);
+    try {
+      const res = await fetch(`/api/support/tickets/${ticketId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body }),
+      });
+      const json = await res.json();
+      if (res.ok && json.ok) {
+        setReplyDrafts((prev) => ({ ...prev, [ticketId]: '' }));
+        await refreshTickets(ticketId);
+      } else {
+        setNotice(json?.error?.message ?? (isVi ? 'Không thể gửi tin nhắn.' : 'Failed to send reply.'));
+      }
+    } finally {
+      setReplyBusyId(null);
+    }
+  }
+
+  async function handleCancel(bookingId: string, bookingCode: string) {
+    const confirmMsg = isVi
+      ? `Hủy đặt phòng ${bookingCode}? Ngày ở sẽ được mở lại và việc hoàn tiền áp dụng theo chính sách hủy của chỗ ở.`
+      : `Cancel booking ${bookingCode}? Your dates will be released and eligible refunds follow the property’s cancellation policy.`;
+    if (typeof window !== 'undefined' && !window.confirm(confirmMsg)) {
+      return;
+    }
     setBusyId(bookingId);
     setNotice('');
     try {
@@ -120,8 +311,8 @@ export function MemberDashboardClient({
         const out = json.outcome;
         setNotice(
           isVi
-            ? `Đã hủy đặt phòng. Hoàn tiền mặt: ${formatMoneyFromVnd(out.refundAmountVnd, currency)}, tiền thưởng hoàn lại: ${formatMoneyFromVnd(out.creditIssuedVnd, currency)}.`
-            : `Booking cancelled. Cash refund: ${formatMoneyFromVnd(out.refundAmountVnd, currency)}, account credit: ${formatMoneyFromVnd(out.creditIssuedVnd, currency)}.`
+            ? `Đã hủy đặt phòng. Hoàn tiền mặt: ${formatMoney(out.refundAmountVnd)}, tiền thưởng hoàn lại: ${formatMoney(out.creditIssuedVnd)}.`
+            : `Booking cancelled. Cash refund: ${formatMoney(out.refundAmountVnd)}, account credit: ${formatMoney(out.creditIssuedVnd)}.`
         );
         window.location.reload();
       }
@@ -140,6 +331,32 @@ export function MemberDashboardClient({
       cancelled: 'bg-[#FAEDE5] text-[#C25E28]',
     };
     return map[status] ?? 'bg-[#F2EDE3] text-[#17221E]';
+  }
+
+  function refundTimelineText(status: string) {
+    if (status === 'completed' || status === 'refunded' || status === 'approved') {
+      return isVi
+        ? 'Đã duyệt hoàn tiền (3 đến 5 ngày làm việc qua phương thức thanh toán gốc)'
+        : 'Approved / Completed (3–5 business days to original payment method)';
+    }
+    if (status === 'pending_review' || status === 'requested' || status === 'partial_refunded') {
+      return isVi ? 'Đang kiểm tra bởi bộ phận Tài chính (1–2 ngày làm việc)' : 'Under Finance review (1–2 business days)';
+    }
+    if (status === 'rejected') {
+      return isVi ? 'Từ chối theo chính sách hủy phòng' : 'Declined per cancellation policy';
+    }
+    return isVi ? 'Không phát sinh' : 'None';
+  }
+
+  function formatSupportStatusLabel(status: string) {
+    const map: Record<string, { en: string; vi: string }> = {
+      open: { en: 'Open', vi: 'Đang mở' },
+      in_progress: { en: 'In progress', vi: 'Đang xử lý' },
+      waiting_user: { en: 'Waiting for you', vi: 'Chờ phản hồi' },
+      resolved: { en: 'Resolved', vi: 'Đã giải quyết' },
+      closed: { en: 'Closed', vi: 'Đã đóng' },
+    };
+    return map[status]?.[locale] ?? status.replace('_', ' ');
   }
 
   return (
@@ -169,7 +386,9 @@ export function MemberDashboardClient({
                 href="/membership"
                 className="rounded-full border border-[#A67C2E]/40 px-3 py-1 text-xs font-semibold text-[#A67C2E] hover:bg-[#FAF8F3]"
               >
-                {isVi ? 'Nâng cấp thẻ hội viên (Hoàn 4%)' : 'Upgrade to Nomad Pass (4% back)'}
+                {isVi
+                  ? `Nâng cấp thẻ hội viên (Hoàn ${premiumRewardPct}%)`
+                  : `Upgrade to Nomad Pass (${premiumRewardPct}% back)`}
               </Link>
             )}
           </div>
@@ -189,7 +408,7 @@ export function MemberDashboardClient({
               {isVi ? 'Số dư tiền thưởng' : 'Reward credit'}
             </div>
             <div className="font-serif-display text-2xl font-bold text-[#164E3F]">
-              {formatMoneyFromVnd(user.rewardCreditVnd, currency)}
+              {formatMoney(user.rewardCreditVnd)}
             </div>
           </div>
           {user.role === 'host' && (
@@ -197,7 +416,7 @@ export function MemberDashboardClient({
               href="/host"
               className="flex items-center rounded-2xl bg-[#164E3F] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0F392E]"
             >
-              {isVi ? 'Vào trang quản lý nhà' : 'Open Host Portal'}
+              {isVi ? 'Mở Kênh chủ nhà' : 'Open Host Console'}
             </Link>
           )}
           {user.role === 'admin' && (
@@ -205,7 +424,7 @@ export function MemberDashboardClient({
               href="/admin"
               className="flex items-center rounded-2xl bg-[#C25E28] px-5 py-3 text-sm font-semibold text-white hover:bg-[#ad5020]"
             >
-              {isVi ? 'Vào trang kiểm duyệt' : 'Open Admin Portal'}
+              {isVi ? 'Mở Trang quản trị' : 'Open Admin'}
             </Link>
           )}
         </div>
@@ -234,8 +453,9 @@ export function MemberDashboardClient({
         ) : (
           <div className="grid gap-5">
             {data.bookings.map((b) => {
-              const isActive =
-                b.status === 'RESERVED_LOCKED' || b.status === 'confirmed';
+              const isActive = b.status === 'RESERVED_LOCKED' || b.status === 'confirmed';
+              const bookingFeePct = Math.round((b.appliedServiceFeeRate || 0.12) * 100);
+              const relatedTickets = tickets.filter((t) => t.bookingId === b.id);
               const hostDigits = b.hostWhatsapp.replace(/\D/g, '') || '84901234567';
               const hostWhatsappUrl = `https://wa.me/${hostDigits}?text=${encodeURIComponent(
                 `Hi! Regarding booking ${b.bookingCode} (${b.titleEn}, check-in ${b.checkIn}).`
@@ -262,7 +482,7 @@ export function MemberDashboardClient({
                             {b.bookingCode}
                           </span>
                           <span className={`rounded-full px-2.5 py-0.5 ${renderStatusBadge(b.status)}`}>
-                            {formatBookingStatusLabel(b.status, locale)}
+                            {formatBookingStatusLabel(b.status, locale, bookingFeePct)}
                           </span>
                           <span className="text-[#53635D]">
                             <Wifi className="mr-1 inline h-3.5 w-3.5 text-[#164E3F]" />
@@ -283,58 +503,99 @@ export function MemberDashboardClient({
 
                       <div className="text-right">
                         <div className="text-lg font-bold text-[#17221E]">
-                          {formatMoneyFromVnd(b.guestTotalVnd, currency)}
+                          {formatMoney(b.guestTotalVnd)}
                         </div>
                         <div className="text-xs text-[#53635D]">
-                          {b.nights} {isVi ? 'đêm' : 'nights'}, {b.checkIn} {isVi ? 'đến' : 'to'} {b.checkOut}
+                          {formatNightsLabel(b.nights, locale)} · {b.checkIn} {isVi ? 'đến' : 'to'} {b.checkOut}
                         </div>
                       </div>
                     </div>
 
-                      <div className="grid gap-2 rounded-2xl bg-[#FAF8F3] p-3 text-xs sm:grid-cols-3">
-                        <div>
-                          <span className="text-[#53635D]">
-                            {b.status === 'PENDING_PAYMENT'
-                              ? isVi
-                                ? 'Cần trả online (12%):'
-                                : 'Due online (12% fee):'
-                              : isVi
-                                ? 'Đã trả online (12%):'
-                                : 'Paid online (12% fee):'}
-                          </span>{' '}
-                          <strong className="text-[#164E3F]">
-                            {formatMoneyFromVnd(b.feeOnlineVnd, currency)}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-[#53635D]">
-                            {b.status === 'CHECKED_IN_COMPLETED'
-                              ? isVi
-                                ? 'Đã trả chủ nhà:'
-                                : 'Paid to host:'
-                              : isVi
-                                ? 'Trả chủ nhà khi nhận phòng:'
-                                : 'Pay host at check-in:'}
-                          </span>{' '}
-                          <strong className="text-[#17221E]">
-                            {formatMoneyFromVnd(b.payAtCheckinVnd, currency)}
-                          </strong>
-                        </div>
-                        <div>
-                          <span className="text-[#53635D]">
-                            {isVi ? 'Tổng chi phí:' : 'Total cost:'}
-                          </span>{' '}
-                          <strong>{formatMoneyFromVnd(b.guestTotalVnd, currency)}</strong>
+                    {/* 5-Axis Independent Lifecycle Strip (Read-Only from Backend State) */}
+                    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3]/70 p-3 text-[11px] sm:grid-cols-5">
+                      <div>
+                        <div className="text-[#53635D]">{isVi ? 'Trạng thái đơn' : 'Booking'}</div>
+                        <div className="font-semibold text-[#17221E]">
+                          {formatBookingStatusLabel(b.bookingStatus, locale, bookingFeePct)}
                         </div>
                       </div>
+                      <div>
+                        <div className="text-[#53635D]">{isVi ? 'Lưu trú' : 'Stay'}</div>
+                        <div className="font-semibold text-[#17221E]">
+                          {formatStayAxisStatusLabel(b.stayStatus, locale)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#53635D]">{isVi ? 'Thanh toán' : 'Payment'}</div>
+                        <div className="font-semibold text-[#164E3F]">
+                          {formatPaymentAxisStatusLabel(b.paymentStatus, locale)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#53635D]">{isVi ? 'Hoàn tiền' : 'Refund'}</div>
+                        <div className="font-semibold text-[#C25E28]">
+                          {formatRefundAxisStatusLabel(b.refundStatus, locale)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[#53635D]">{isVi ? 'Yêu cầu hỗ trợ' : 'Support'}</div>
+                        <div className="font-semibold text-[#17221E]">
+                          {relatedTickets.length > 0
+                            ? `${relatedTickets.length} (${formatSupportStatusLabel(relatedTickets[0].status)})`
+                            : isVi
+                              ? 'Không có'
+                              : 'None'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 rounded-2xl bg-[#FAF8F3] p-3 text-xs sm:grid-cols-4">
+                      <div>
+                        <span className="text-[#53635D]">
+                          {b.status === 'PENDING_PAYMENT'
+                            ? isVi
+                              ? `Cần trả online (${bookingFeePct}%):`
+                              : `Due online (${bookingFeePct}%):`
+                            : isVi
+                              ? `Đã trả online (${bookingFeePct}%):`
+                              : `Paid online (${bookingFeePct}%):`}
+                        </span>{' '}
+                        <strong className="text-[#164E3F]">{formatMoney(b.feeOnlineVnd)}</strong>
+                      </div>
+                      <div>
+                        <span className="text-[#53635D]">
+                          {b.status === 'CHECKED_IN_COMPLETED'
+                            ? isVi
+                              ? 'Đã trả chủ nhà:'
+                              : 'Paid to host:'
+                            : isVi
+                              ? 'Trả chủ nhà khi nhận phòng:'
+                              : 'Pay host at check-in:'}
+                        </span>{' '}
+                        <strong className="text-[#17221E]">{formatMoney(b.payAtCheckinVnd)}</strong>
+                      </div>
+                      {b.promotionDiscountVnd > 0 && (
+                        <div>
+                          <span className="inline-flex items-center gap-1 text-[#164E3F]">
+                            <Tag className="h-3 w-3" />
+                            {b.promotionCode}:
+                          </span>{' '}
+                          <strong className="text-[#164E3F]">-{formatMoney(b.promotionDiscountVnd)}</strong>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-[#53635D]">{isVi ? 'Tổng chi phí:' : 'Total cost:'}</span>{' '}
+                        <strong>{formatMoney(b.guestTotalVnd)}</strong>
+                      </div>
+                    </div>
 
                     {b.status === 'PENDING_PAYMENT' && (
                       <div className="space-y-3 rounded-2xl border border-[#A67C2E]/35 bg-[#FAF8F3] p-3.5 text-xs">
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <span className="text-[#17221E]">
                             {isVi
-                              ? 'Trả phí giữ chỗ 12% để khóa lịch phòng và mở khóa địa chỉ thật.'
-                              : 'Pay the 12% booking fee to lock your dates and unlock the address.'}
+                              ? `Thanh toán ${bookingFeePct}% phí dịch vụ online để xác nhận đặt phòng và xem địa chỉ cụ thể.`
+                              : `Pay the ${bookingFeePct}% service fee online to confirm your booking and view the exact address.`}
                           </span>
                           <div className="flex gap-2">
                             <button
@@ -351,13 +612,13 @@ export function MemberDashboardClient({
                                   ? 'Ẩn thanh toán'
                                   : 'Hide payment'
                                 : isVi
-                                  ? `Thanh toán ${formatMoneyFromVnd(b.feeOnlineVnd, currency)}`
-                                  : `Pay ${formatMoneyFromVnd(b.feeOnlineVnd, currency)}`}
+                                  ? `Thanh toán ${formatMoney(b.feeOnlineVnd)}`
+                                  : `Pay ${formatMoney(b.feeOnlineVnd)}`}
                             </button>
                             <button
                               type="button"
                               disabled={busyId === b.id}
-                              onClick={() => handleCancel(b.id)}
+                              onClick={() => handleCancel(b.id, b.bookingCode)}
                               className="rounded-xl border border-[#E5DFD3] px-3 py-2 font-semibold text-[#53635D]"
                             >
                               {isVi ? 'Hủy' : 'Cancel'}
@@ -437,18 +698,55 @@ export function MemberDashboardClient({
                       </div>
                     )}
 
-                    {b.status === 'REFUNDED_WIFI_MISMATCH' && (
-                      <div className="rounded-2xl bg-[#FAEDE5] p-3 text-xs text-[#C25E28]">
-                        <strong>{isVi ? 'Đã hoàn phí giữ chỗ:' : 'Booking fee refunded:'}</strong>{' '}
-                        {formatMoneyFromVnd(b.refundAmountVnd, currency)} ({b.mismatchReason})
-                      </div>
-                    )}
-
-                    {b.status === 'cancelled' && (
-                      <div className="rounded-2xl bg-[#F2EDE3] p-3 text-xs text-[#17221E]">
-                        {isVi
-                          ? `Hoàn tiền mặt: ${formatMoneyFromVnd(b.refundAmountVnd, currency)}, tiền thưởng hoàn lại: ${formatMoneyFromVnd(b.creditIssuedVnd, currency)}`
-                          : `Cash refund: ${formatMoneyFromVnd(b.refundAmountVnd, currency)}, account credit: ${formatMoneyFromVnd(b.creditIssuedVnd, currency)}`}
+                    {/* Verified Refund History & Expected Timeline (Read-Only from DB) */}
+                    {(b.refundRequests.length > 0 ||
+                      b.refundAmountVnd > 0 ||
+                      b.creditIssuedVnd > 0 ||
+                      b.refundStatus !== 'none') && (
+                      <div className="space-y-2 rounded-2xl border border-[#C25E28]/25 bg-[#FAEDE5]/60 p-3.5 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-2 font-semibold text-[#C25E28]">
+                          <span className="inline-flex items-center gap-1.5">
+                            <RefreshCcw className="h-3.5 w-3.5" />
+                            {isVi ? 'Trạng thái & Lịch sử hoàn tiền' : 'Refund Status & History'}
+                          </span>
+                          <span>{formatRefundAxisStatusLabel(b.refundStatus, locale)}</span>
+                        </div>
+                        {(b.refundAmountVnd > 0 || b.creditIssuedVnd > 0) && (
+                          <div className="text-[#17221E]">
+                            {isVi
+                              ? `Số tiền hoàn đã ghi nhận: ${formatMoney(b.refundAmountVnd)} · Tiền thưởng hoàn lại: ${formatMoney(b.creditIssuedVnd)}`
+                              : `Verified refund: ${formatMoney(b.refundAmountVnd)} · Account credit restored: ${formatMoney(b.creditIssuedVnd)}`}
+                          </div>
+                        )}
+                        <div className="text-[11px] text-[#53635D]">
+                          {refundTimelineText(b.refundStatus)}
+                        </div>
+                        {b.refundRequests.map((rf) => (
+                          <div
+                            key={rf.id}
+                            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/80 px-3 py-2 text-[11px]"
+                          >
+                            <div>
+                              <span className="font-semibold text-[#17221E]">
+                                {formatMoney(rf.amountVnd)}
+                              </span>{' '}
+                              <span className="text-[#53635D]">— {rf.reason || rf.refundType}</span>
+                              {rf.decisionNote && (
+                                <div className="text-[#53635D]">{rf.decisionNote}</div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <span className="font-semibold uppercase text-[#C25E28]">
+                                {rf.status.replace('_', ' ')}
+                              </span>
+                              <div className="text-[10px] text-[#53635D]">
+                                {rf.processedAt
+                                  ? `${isVi ? 'Xử lý:' : 'Processed:'} ${rf.processedAt.slice(0, 10)}`
+                                  : `${isVi ? 'Tạo:' : 'Created:'} ${rf.createdAt.slice(0, 10)}`}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
 
@@ -463,8 +761,22 @@ export function MemberDashboardClient({
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
+                            onClick={() =>
+                              openSupportForBooking(
+                                b.id,
+                                b.bookingCode,
+                                isVi ? b.titleVi : b.titleEn
+                              )
+                            }
+                            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-[#164E3F]/30 bg-[#E7F1EC] px-3.5 py-1.5 text-xs font-semibold text-[#164E3F] hover:bg-[#d7e9e0]"
+                          >
+                            <LifeBuoy className="h-3.5 w-3.5" />
+                            {isVi ? 'Báo sự cố / Hỗ trợ' : 'Report Issue / Support'}
+                          </button>
+                          <button
+                            type="button"
                             disabled={busyId === b.id}
-                            onClick={() => handleCancel(b.id)}
+                            onClick={() => handleCancel(b.id, b.bookingCode)}
                             className="min-h-[36px] rounded-xl border border-[#C25E28]/40 px-3.5 py-1.5 text-xs font-semibold text-[#C25E28] hover:bg-[#FAEDE5]"
                           >
                             {busyId === b.id
@@ -476,6 +788,24 @@ export function MemberDashboardClient({
                         </div>
                       </div>
                     )}
+                    {!isActive && (
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openSupportForBooking(
+                              b.id,
+                              b.bookingCode,
+                              isVi ? b.titleVi : b.titleEn
+                            )
+                          }
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5DFD3] px-3 py-1.5 text-xs font-semibold text-[#164E3F] hover:bg-[#FAF8F3]"
+                        >
+                          <LifeBuoy className="h-3.5 w-3.5" />
+                          {isVi ? 'Mở phiếu hỗ trợ cho đơn này' : 'Get support for this booking'}
+                        </button>
+                      </div>
+                    )}
 
                     {b.notifications.length > 0 && (
                       <div className="border-t border-[#E5DFD3] pt-2 text-[11px] text-[#53635D]">
@@ -484,6 +814,375 @@ export function MemberDashboardClient({
                       </div>
                     )}
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Unified Interactive Support Center (support_tickets & support_ticket_messages) */}
+      <section id="support-center" className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-serif-display flex items-center gap-2 text-xl font-semibold text-[#17221E]">
+              <LifeBuoy className="h-5 w-5 text-[#164E3F]" />
+              {isVi ? 'Trung tâm hỗ trợ & Xử lý sự cố' : 'Support Center & Issue Resolution'}
+            </h3>
+            <p className="text-xs text-[#53635D]">
+              {isVi
+                ? 'Gửi yêu cầu về Wi-Fi, nhận phòng, thay đổi đơn hoặc hoàn tiền trực tiếp tới đội ngũ VietNomad.'
+                : 'Report Wi-Fi, property, booking, or refund inquiries directly to VietNomad Support.'}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-[#53635D]">
+              {formatCountNoun(tickets.length, 'ticket', 'tickets', 'phiếu', locale)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setTicketFormOpen((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#164E3F] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#0F392E]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {ticketFormOpen
+                ? isVi
+                  ? 'Đóng biểu mẫu'
+                  : 'Close form'
+                : isVi
+                  ? 'Tạo phiếu hỗ trợ'
+                  : 'New Support Ticket'}
+            </button>
+          </div>
+        </div>
+
+        {ticketFormOpen && (
+          <form
+            onSubmit={handleCreateTicket}
+            className="space-y-3 rounded-2xl border border-[#CBE1D6] bg-[#FAF8F3] p-4 text-xs"
+          >
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <label className="mb-1 block font-semibold text-[#17221E]">
+                  {isVi ? 'Danh mục' : 'Category'}
+                </label>
+                <select
+                  value={ticketCategory}
+                  onChange={(e) =>
+                    setTicketCategory(
+                      e.target.value as 'booking' | 'property_wifi' | 'payment' | 'general'
+                    )
+                  }
+                  className="h-9 w-full rounded-xl border border-[#E5DFD3] bg-white px-2.5"
+                >
+                  <option value="property_wifi">
+                    {isVi ? 'Wi-Fi / Chất lượng chỗ ở' : 'Property & Wi-Fi Issue'}
+                  </option>
+                  <option value="booking">
+                    {isVi ? 'Đặt phòng / Nhận phòng' : 'Booking / Check-in'}
+                  </option>
+                  <option value="payment">
+                    {isVi ? 'Thanh toán / Hoàn tiền' : 'Payment / Refund Inquiry'}
+                  </option>
+                  <option value="general">{isVi ? 'Câu hỏi chung' : 'General Support'}</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block font-semibold text-[#17221E]">
+                  {isVi ? 'Chi tiết vấn đề' : 'Issue Type'}
+                </label>
+                <select
+                  value={ticketSubCategory}
+                  onChange={(e) => setTicketSubCategory(e.target.value)}
+                  className="h-9 w-full rounded-xl border border-[#E5DFD3] bg-white px-2.5"
+                >
+                  <option value="wifi_speed_mismatch">
+                    {isVi ? 'Tốc độ / Ổn định Wi-Fi' : 'Wi-Fi Speed / Stability'}
+                  </option>
+                  <option value="property_condition">
+                    {isVi ? 'Tiện nghi / Vệ sinh phòng' : 'Amenity / Property Condition'}
+                  </option>
+                  <option value="checkin_access">
+                    {isVi ? 'Hướng dẫn nhận phòng' : 'Check-in Access'}
+                  </option>
+                  <option value="booking_modification">
+                    {isVi ? 'Thay đổi ngày / Hủy đơn' : 'Dates / Cancellation'}
+                  </option>
+                  <option value="refund_inquiry">
+                    {isVi ? 'Tra soát hoàn tiền' : 'Refund Status Inquiry'}
+                  </option>
+                  <option value="general_question">
+                    {isVi ? 'Tư vấn chung' : 'General Question'}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block font-semibold text-[#17221E]">
+                  {isVi ? 'Đơn liên quan (tùy chọn)' : 'Related Booking (optional)'}
+                </label>
+                <select
+                  value={ticketBookingId}
+                  onChange={(e) => setTicketBookingId(e.target.value)}
+                  className="h-9 w-full rounded-xl border border-[#E5DFD3] bg-white px-2.5"
+                >
+                  <option value="">{isVi ? 'Không chọn đơn cụ thể' : 'No specific booking'}</option>
+                  {data.bookings.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.bookingCode} · {isVi ? b.titleVi : b.titleEn}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block font-semibold text-[#17221E]">
+                {isVi ? 'Tiêu đề' : 'Subject'}
+              </label>
+              <input
+                type="text"
+                required
+                minLength={4}
+                maxLength={200}
+                value={ticketSubject}
+                onChange={(e) => setTicketSubject(e.target.value)}
+                placeholder={
+                  isVi
+                    ? 'Ví dụ: Wi-Fi thực tế chậm hơn mô tả hoặc cần hỗ trợ nhận phòng'
+                    : 'e.g. Wi-Fi slower than verified rating or check-in assistance'
+                }
+                className="h-9 w-full rounded-xl border border-[#E5DFD3] bg-white px-3"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block font-semibold text-[#17221E]">
+                {isVi ? 'Mô tả chi tiết' : 'Description'}
+              </label>
+              <textarea
+                required
+                minLength={6}
+                maxLength={3000}
+                rows={3}
+                value={ticketDescription}
+                onChange={(e) => setTicketDescription(e.target.value)}
+                placeholder={
+                  isVi
+                    ? 'Mô tả vấn đề bạn đang gặp phải và mong muốn hỗ trợ (đổi phòng, kiểm tra kỹ thuật, hoàn phí)...'
+                    : 'Describe what happened and how we can help (speedtest results, check-in help, refund review)...'
+                }
+                className="w-full rounded-xl border border-[#E5DFD3] bg-white p-3"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block font-semibold text-[#17221E]">
+                <Paperclip className="mr-1 inline h-3.5 w-3.5" />
+                {isVi ? 'Link ảnh / Speedtest minh chứng (tùy chọn)' : 'Evidence / Screenshot URLs (optional)'}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={ticketAttachmentInput}
+                  onChange={(e) => setTicketAttachmentInput(e.target.value)}
+                  placeholder="https://... or /api/uploads/..."
+                  className="h-8 flex-1 rounded-xl border border-[#E5DFD3] bg-white px-3"
+                />
+                <button
+                  type="button"
+                  onClick={addAttachmentUrl}
+                  className="h-8 rounded-xl border border-[#E5DFD3] bg-white px-3 font-semibold text-[#17221E] hover:bg-[#F2EDE3]"
+                >
+                  {isVi ? 'Thêm link' : 'Attach'}
+                </button>
+              </div>
+              {ticketAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {ticketAttachments.map((url, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] text-[#164E3F]"
+                    >
+                      <span className="max-w-[200px] truncate">{url}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setTicketAttachments((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        className="font-bold text-[#C25E28]"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {ticketError && (
+              <div className="rounded-xl bg-[#FAEDE5] p-2.5 text-[#C25E28]">{ticketError}</div>
+            )}
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={ticketSubmitting}
+                className="rounded-xl bg-[#164E3F] px-4 py-2 font-semibold text-white hover:bg-[#0F392E] disabled:opacity-60"
+              >
+                {ticketSubmitting
+                  ? isVi
+                    ? 'Đang gửi...'
+                    : 'Submitting...'
+                  : isVi
+                    ? 'Gửi yêu cầu hỗ trợ'
+                    : 'Submit Support Ticket'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {tickets.length === 0 ? (
+          <p className="text-sm text-[#53635D]">
+            {isVi
+              ? 'Chưa có phiếu hỗ trợ nào. Bấm "Tạo phiếu hỗ trợ" bất cứ khi nào bạn cần.'
+              : 'No support tickets yet. Click "New Support Ticket" anytime you need assistance.'}
+          </p>
+        ) : (
+          <div className="space-y-3 text-xs">
+            {tickets.map((t) => {
+              const isExpanded = expandedTicketId === t.id;
+              return (
+                <div
+                  key={t.id}
+                  className="overflow-hidden rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3]"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setExpandedTicketId(isExpanded ? null : t.id)}
+                    className="flex w-full flex-wrap items-center justify-between gap-2 p-3.5 text-left hover:bg-[#F2EDE3]/60"
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono font-bold text-[#164E3F]">{t.ticketCode}</span>
+                        <span className="font-semibold text-[#17221E]">{t.subject}</span>
+                        {t.bookingCode && (
+                          <span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-[#53635D]">
+                            {t.bookingCode}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-[#53635D]">
+                        {t.category.replace('_', ' ')}
+                        {t.issueSubCategory ? ` · ${t.issueSubCategory.replace(/_/g, ' ')}` : ''} ·{' '}
+                        {t.messages.length}{' '}
+                        {isVi ? 'tin nhắn' : t.messages.length === 1 ? 'message' : 'messages'}
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-[#E7F1EC] px-2.5 py-0.5 font-semibold text-[#164E3F]">
+                      {formatSupportStatusLabel(t.status)}
+                    </span>
+                  </button>
+
+                  {isExpanded && (
+                    <div className="space-y-3 border-t border-[#E5DFD3] bg-white p-4">
+                      {t.attachments.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {t.attachments.map((url, idx) => (
+                            <a
+                              key={idx}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-1 text-[11px] font-medium text-[#164E3F] underline"
+                            >
+                              <Paperclip className="h-3 w-3" />
+                              {isVi ? `Minh chứng #${idx + 1}` : `Attachment #${idx + 1}`}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+
+                      {t.resolutionSummary && (
+                        <div className="rounded-xl border border-[#CBE1D6] bg-[#E7F1EC] p-2.5 text-[11px] text-[#164E3F]">
+                          <strong>{isVi ? 'Kết quả xử lý:' : 'Resolution:'}</strong>{' '}
+                          {t.resolutionSummary}
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        {(t.messages.length > 0
+                          ? t.messages
+                          : [
+                              {
+                                id: `${t.id}-init`,
+                                senderName: user.fullName,
+                                senderRole: user.role,
+                                body: t.description,
+                                attachments: t.attachments,
+                                createdAt: t.createdAt,
+                              },
+                            ]
+                        ).map((m) => {
+                          const isStaff = m.senderRole !== 'nomad' && m.senderName !== user.fullName;
+                          return (
+                            <div
+                              key={m.id}
+                              className={`rounded-xl p-3 text-xs ${
+                                isStaff
+                                  ? 'border border-[#CBE1D6] bg-[#E7F1EC]/70'
+                                  : 'border border-[#E5DFD3] bg-[#FAF8F3]'
+                              }`}
+                            >
+                              <div className="mb-1 flex items-center justify-between text-[11px]">
+                                <span className="font-semibold text-[#17221E]">
+                                  {isStaff ? `VietNomad Support (${m.senderName})` : m.senderName}
+                                </span>
+                                <span className="text-[#53635D]">
+                                  {m.createdAt.slice(0, 16).replace('T', ' ')}
+                                </span>
+                              </div>
+                              <div className="whitespace-pre-wrap text-[#17221E]">{m.body}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {t.status !== 'closed' && (
+                        <form
+                          onSubmit={(e) => handleReplyTicket(e, t.id)}
+                          className="flex flex-col gap-2 sm:flex-row"
+                        >
+                          <input
+                            type="text"
+                            minLength={2}
+                            maxLength={3000}
+                            value={replyDrafts[t.id] ?? ''}
+                            onChange={(e) =>
+                              setReplyDrafts((prev) => ({ ...prev, [t.id]: e.target.value }))
+                            }
+                            placeholder={
+                              isVi
+                                ? 'Nhập phản hồi hoặc thông tin bổ sung cho bộ phận hỗ trợ...'
+                                : 'Write a reply to VietNomad Support...'
+                            }
+                            className="h-9 flex-1 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3"
+                          />
+                          <button
+                            type="submit"
+                            disabled={replyBusyId === t.id || !(replyDrafts[t.id] ?? '').trim()}
+                            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#164E3F] px-4 font-semibold text-white hover:bg-[#0F392E] disabled:opacity-60"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            {replyBusyId === t.id
+                              ? '...'
+                              : isVi
+                                ? 'Gửi'
+                                : 'Send reply'}
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -516,7 +1215,7 @@ export function MemberDashboardClient({
                     </div>
                   </div>
                   <div className="text-sm font-bold text-[#164E3F]">
-                    {formatMoneyFromVnd(s.monthDisplayVnd, currency)}/{isVi ? 'tháng' : 'mo'}
+                    {formatMoney(s.monthDisplayVnd)}/{isVi ? 'tháng' : 'mo'}
                   </div>
                 </Link>
               ))}
@@ -530,19 +1229,19 @@ export function MemberDashboardClient({
             {isVi ? 'Sự kiện đã đăng ký' : 'Your meetup RSVPs'}
           </h3>
           {data.rsvps.length === 0 ? (
-            <div className="space-y-2 text-sm text-[#53635D]">
-              <p>{isVi ? 'Bạn chưa đăng ký sự kiện nào.' : 'No meetup RSVPs yet.'}</p>
-              <Link href="/community" className="inline-block font-semibold text-[#164E3F] hover:underline">
-                {isVi ? 'Xem lịch sự kiện cộng đồng' : 'Browse upcoming meetups'}
+            <p className="text-sm text-[#53635D]">
+              {isVi ? 'Chưa đăng ký sự kiện nào. Xem lịch cộng đồng ngay.' : 'No upcoming meetup RSVPs yet.'}{' '}
+              <Link href="/community" className="font-semibold text-[#164E3F] hover:underline">
+                {isVi ? 'Xem sự kiện' : 'Browse meetups'}
               </Link>
-            </div>
+            </p>
           ) : (
             <div className="space-y-3">
-              {data.rsvps.map((ev) => (
-                <div key={ev.id} className="rounded-2xl bg-[#FAF8F3] p-3">
-                  <div className="font-semibold text-[#17221E]">{isVi ? ev.titleVi : ev.titleEn}</div>
+              {data.rsvps.map((e) => (
+                <div key={e.id} className="rounded-2xl bg-[#FAF8F3] p-3 text-sm">
+                  <div className="font-semibold text-[#17221E]">{isVi ? e.titleVi : e.titleEn}</div>
                   <div className="text-xs text-[#53635D]">
-                    {ev.eventDate}, {isVi ? ev.venueVi : ev.venueEn}
+                    {isVi ? e.cityVi : e.cityEn}, {e.eventDate} ({isVi ? e.venueVi : e.venueEn})
                   </div>
                 </div>
               ))}

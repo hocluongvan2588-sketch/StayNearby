@@ -16,7 +16,7 @@ import {
   Star,
   TrendingUp,
 } from 'lucide-react';
-import { formatBookingStatusLabel, formatMoneyFromVnd, formatVndExact } from '@/lib/i18n';
+import { formatBookingStatusLabel, formatVndExact } from '@/lib/i18n';
 import { usePreferences } from '@/components/PreferencesProvider';
 import {
   ReservationSideDrawer,
@@ -33,7 +33,7 @@ export function HostOverviewClient({
   hostName: string;
   initialData: HostOverviewPayload;
 }) {
-  const { locale, currency } = usePreferences();
+  const { locale, formatMoney } = usePreferences();
   const isVi = locale === 'vi';
 
   const [data, setData] = useState<HostOverviewPayload>(initialData);
@@ -352,7 +352,7 @@ export function HostOverviewClient({
             <TrendingUp className="h-4 w-4 text-[#164E3F]" strokeWidth={1.75} />
           </div>
           <div className="mt-2 text-xl font-semibold text-[#17221E] sm:text-2xl">
-            {formatMoneyFromVnd(data.kpis.periodRevenueVnd, currency)}
+            {formatMoney(data.kpis.periodRevenueVnd)}
           </div>
           <div className="mt-1 text-[11px] text-[#53635D]">
             {formatVndExact(data.kpis.periodRevenueVnd)}
@@ -517,7 +517,7 @@ export function HostOverviewClient({
                   </div>
                   <div className="shrink-0 text-right">
                     <div className="text-xs font-semibold text-[#17221E]">
-                      {formatMoneyFromVnd(b.payAtCheckinVnd, currency)}
+                      {formatMoney(b.payAtCheckinVnd)}
                     </div>
                     <div className="text-[11px] text-[#53635D]">
                       {formatBookingStatusLabel(b.status, locale)}

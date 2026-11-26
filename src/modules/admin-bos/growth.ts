@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { isValidUuid } from '@/lib/dates';
 import { dbQuery, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { safeRevalidateAll } from '@/lib/revalidate-safe';
 import { logAdminAudit, type AdminActorContext } from '@/modules/admin-rbac';
 
 export async function listAdminDestinations() {
@@ -147,6 +148,7 @@ export async function createNeighborhood(
     after: input,
   });
 
+  safeRevalidateAll(['/destinations']);
   return { id };
 }
 
@@ -291,6 +293,7 @@ export async function createAdminPlace(
     after: { name: input.name, category: input.category },
   });
 
+  safeRevalidateAll(['/destinations']);
   return { id, slug };
 }
 
@@ -333,6 +336,7 @@ export async function updateAdminPlace(
     after: input,
   });
 
+  safeRevalidateAll(['/destinations']);
   return { ok: true };
 }
 
@@ -346,6 +350,7 @@ export async function deleteAdminPlace(actor: AdminActorContext, placeId: string
     entityType: 'place',
     entityId: placeId,
   });
+  safeRevalidateAll(['/destinations']);
   return { ok: true };
 }
 
@@ -400,7 +405,14 @@ export async function createOrUpdateCmsContent(
   actor: AdminActorContext,
   input: {
     id?: string;
-    contentType: 'article' | 'landing_page' | 'destination_guide';
+    contentType:
+      | 'article'
+      | 'landing_page'
+      | 'destination_guide'
+      | 'faq'
+      | 'announcement'
+      | 'hero_banner'
+      | 'community_story';
     category: string;
     slug: string;
     titleEn: string;
@@ -413,6 +425,8 @@ export async function createOrUpdateCmsContent(
     canonicalUrl?: string;
     redirectTo?: string;
     robotsIndex?: boolean;
+    publishStartAt?: string | null;
+    publishEndAt?: string | null;
     status: 'draft' | 'published' | 'archived';
   }
 ) {
@@ -426,10 +440,11 @@ export async function createOrUpdateCmsContent(
     `INSERT INTO cms_contents (
       id, content_type, category, slug, title_en, title_vi, body_en, body_vi,
       destination_id, seo_title, seo_description, canonical_url, redirect_to,
-      robots_index, status, author_id, published_at, updated_at
+      robots_index, status, author_id, published_at, publish_start_at, publish_end_at, updated_at
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-      CASE WHEN $15 = 'published' THEN NOW() ELSE NULL END, NOW()
+      CASE WHEN $15 = 'published' THEN NOW() ELSE NULL END,
+      $17::timestamptz, $18::timestamptz, NOW()
     )
     ON CONFLICT (id) DO UPDATE SET
       content_type = EXCLUDED.content_type,
@@ -447,6 +462,8 @@ export async function createOrUpdateCmsContent(
       robots_index = EXCLUDED.robots_index,
       status = EXCLUDED.status,
       published_at = COALESCE(cms_contents.published_at, EXCLUDED.published_at),
+      publish_start_at = EXCLUDED.publish_start_at,
+      publish_end_at = EXCLUDED.publish_end_at,
       updated_at = NOW()`,
     [
       id,
@@ -465,6 +482,8 @@ export async function createOrUpdateCmsContent(
       input.robotsIndex ?? true,
       input.status,
       actor.user.id,
+      input.publishStartAt?.trim() || null,
+      input.publishEndAt?.trim() || null,
     ]
   );
 
@@ -477,6 +496,7 @@ export async function createOrUpdateCmsContent(
     after: { slug, status: input.status },
   });
 
+  safeRevalidateAll(['/', '/community', '/destinations', `/guides/${slug}`, '/sitemap.xml']);
   return { id, slug };
 }
 
@@ -502,7 +522,9 @@ export async function listCampaignsAndFunnel() {
               COUNT(DISTINCT ae.booking_id) FILTER (WHERE ae.event_name = 'booking_completed') AS bookings_count,
               COALESCE(SUM(b.service_fee_vnd) FILTER (WHERE b.payment_status = 'paid'), 0) AS revenue_vnd
        FROM marketing_campaigns mc
-       LEFT JOIN attribution_events ae ON ae.utm_campaign = mc.utm_campaign
+       LEFT JOIN attribution_events ae
+         ON ae.utm_campaign = mc.utm_campaign
+        AND COALESCE(ae.is_internal, FALSE) = FALSE
        LEFT JOIN bookings b ON b.id = ae.booking_id
        GROUP BY mc.id
        ORDER BY mc.created_at DESC`
@@ -520,7 +542,8 @@ export async function listCampaignsAndFunnel() {
         COUNT(*) FILTER (WHERE event_name = 'stay_view') AS stay_views,
         COUNT(*) FILTER (WHERE event_name = 'checkout_start') AS checkout_starts,
         COUNT(*) FILTER (WHERE event_name = 'booking_completed') AS booking_completed
-       FROM attribution_events`
+       FROM attribution_events
+       WHERE COALESCE(is_internal, FALSE) = FALSE`
     ),
   ]);
 
@@ -606,6 +629,10 @@ export async function listPromotions() {
     valid_from: string;
     valid_to: string;
     is_active: boolean;
+    is_public: boolean;
+    funding_source: string | null;
+    description_en: string | null;
+    description_vi: string | null;
   }>(`SELECT * FROM promotions ORDER BY created_at DESC`);
 
   return res.rows.map((p) => ({
@@ -620,6 +647,13 @@ export async function listPromotions() {
     validFrom: String(p.valid_from).slice(0, 10),
     validTo: String(p.valid_to).slice(0, 10),
     isActive: Boolean(p.is_active),
+    isPublic: p.is_public === undefined ? true : Boolean(p.is_public),
+    fundingSource:
+      p.funding_source === 'host' || p.funding_source === 'shared'
+        ? p.funding_source
+        : 'vietnomad',
+    descriptionEn: String(p.description_en ?? ''),
+    descriptionVi: String(p.description_vi ?? ''),
   }));
 }
 
@@ -634,15 +668,22 @@ export async function createPromotion(
     maxUses?: number | null;
     validFrom: string;
     validTo: string;
+    isPublic?: boolean;
+    fundingSource?: 'vietnomad' | 'host' | 'shared';
+    descriptionEn?: string;
+    descriptionVi?: string;
   }
 ) {
   const id = crypto.randomUUID();
   const code = input.code.trim().toUpperCase();
+  const isPublic = input.isPublic ?? true;
+  const fundingSource = input.fundingSource ?? 'vietnomad';
 
   await dbQuery(
     `INSERT INTO promotions (
-      id, code, name, discount_type, discount_value, min_nights, max_uses, valid_from, valid_to, is_active
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9::date,TRUE)`,
+      id, code, name, discount_type, discount_value, min_nights, max_uses,
+      valid_from, valid_to, is_active, is_public, funding_source, description_en, description_vi
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::date,$9::date,TRUE,$10,$11,$12,$13)`,
     [
       id,
       code,
@@ -653,6 +694,10 @@ export async function createPromotion(
       input.maxUses ?? null,
       input.validFrom,
       input.validTo,
+      isPublic,
+      fundingSource,
+      input.descriptionEn?.trim() ?? '',
+      input.descriptionVi?.trim() ?? '',
     ]
   );
 
@@ -662,9 +707,10 @@ export async function createPromotion(
     action: 'create',
     entityType: 'promotion',
     entityId: id,
-    after: { ...input, code },
+    after: { ...input, code, isPublic, fundingSource },
   });
 
+  safeRevalidateAll(['/deals', '/stays']);
   return { id, code };
 }
 
@@ -683,5 +729,6 @@ export async function togglePromotion(
     entityId: promoId,
     after: { isActive },
   });
+  safeRevalidateAll(['/deals', '/stays']);
   return { ok: true };
 }

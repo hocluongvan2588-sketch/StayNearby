@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { addDaysIso, enumerateStayNights, isValidIsoDate } from '@/lib/dates';
 import {
   SUPPORTED_CURRENCIES,
+  formatBookingStatusLabel,
+  formatBusinessModelLabel,
+  formatCmsTypeLabel,
+  formatCountNoun,
   formatMoneyFromVnd,
+  formatNightsLabel,
+  formatPlaceCategoryLabel,
   parseCurrency,
   parseLocale,
   pickText,
@@ -42,5 +48,23 @@ describe('Bilingual EN/VI, 9-Currency Conversion & Vietnam Date Helpers', () => 
     expect(nights[6]).toBe('2026-12-07');
     expect(isValidIsoDate('2026-12-01')).toBe(true);
     expect(isValidIsoDate('2026-02-31')).toBe(false);
+  });
+
+  it('formats plural nouns, booking statuses, CMS types, and place categories per Content Design System', () => {
+    expect(formatNightsLabel(1, 'en')).toBe('1 night');
+    expect(formatNightsLabel(7, 'en')).toBe('7 nights');
+    expect(formatNightsLabel(7, 'vi')).toBe('7 đêm');
+
+    expect(formatCountNoun(1, 'stay', 'stays', 'chỗ ở', 'en')).toBe('1 stay');
+    expect(formatCountNoun(5, 'stay', 'stays', 'chỗ ở', 'en')).toBe('5 stays');
+    expect(formatCountNoun(5, 'stay', 'stays', 'chỗ ở', 'vi')).toBe('5 chỗ ở');
+
+    expect(formatBookingStatusLabel('RESERVED_LOCKED', 'en')).toBe('Confirmed');
+    expect(formatBookingStatusLabel('RESERVED_LOCKED', 'vi')).toBe('Đã xác nhận');
+    expect(formatBusinessModelLabel('booking_flow', 'en')).toBe('Book on VietNomad');
+    expect(formatBusinessModelLabel('booking_flow', 'en')).not.toContain('BookingFlow');
+
+    expect(formatCmsTypeLabel('destination_guide', 'vi')).toBe('Cẩm nang thành phố');
+    expect(formatPlaceCategoryLabel('cafe_roastery', 'vi')).toBe('Quán cà phê');
   });
 });

@@ -3,6 +3,7 @@ import type { SessionUser } from '@/lib/auth/session';
 import { dbQuery, dbTransaction, type DbClient, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { logAdminAudit, type AdminActorContext } from './admin-rbac';
+import { safeRevalidateAll } from '@/lib/revalidate-safe';
 
 export interface PlatformFeeConfig {
   serviceFeeRate: number;
@@ -151,6 +152,7 @@ export async function updatePlatformFeeConfig(
       tx
     );
 
+    safeRevalidateAll(['/', '/stays', '/deals', '/membership']);
     return after;
   });
 }

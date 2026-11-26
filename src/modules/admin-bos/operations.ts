@@ -1,12 +1,15 @@
 import crypto from 'node:crypto';
-import { isValidUuid } from '@/lib/dates';
+import { addDaysIso, enumerateStayNights, isValidUuid } from '@/lib/dates';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { safeRevalidateAll } from '@/lib/revalidate-safe';
 import {
   logAdminAudit,
   maskEmail,
   type AdminActorContext,
 } from '@/modules/admin-rbac';
+import { releaseBookingPromotionTx } from '@/modules/bookings';
+import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
 import { triggerAutomationTask } from './shared';
 
 export type StayLifecycleStatus =
@@ -159,6 +162,7 @@ export async function moderateListing(
 
   return dbTransaction(async (tx) => {
     const curRes = await tx.query<{
+      host_id: string;
       status: string;
       is_featured: boolean;
       featured_rank: number;
@@ -166,7 +170,7 @@ export async function moderateListing(
       is_work_ready: boolean;
       verification_tier: string;
     }>(
-      `SELECT status, is_featured, featured_rank, is_wifi_verified, is_work_ready, verification_tier
+      `SELECT host_id, status, is_featured, featured_rank, is_wifi_verified, is_work_ready, verification_tier
        FROM stays WHERE id = $1 FOR UPDATE`,
       [stayId]
     );
@@ -223,6 +227,25 @@ export async function moderateListing(
           JSON.stringify(input),
         ]
       );
+      if (nextStatus === 'live') {
+        await tx.query(
+          `UPDATE users SET role = CASE WHEN role = 'nomad' THEN 'host' ELSE role END WHERE id = $1`,
+          [cur.host_id]
+        );
+        await advanceHostLeadMilestoneTx(tx, {
+          userId: cur.host_id,
+          targetStage: 'published',
+          summary: `Listing ${stayId.slice(0, 8)} published live`,
+          actorUserId: actor.user.id,
+        });
+      } else if (nextStatus === 'pending_review') {
+        await advanceHostLeadMilestoneTx(tx, {
+          userId: cur.host_id,
+          targetStage: 'under_review',
+          summary: `Listing ${stayId.slice(0, 8)} moved to under_review`,
+          actorUserId: actor.user.id,
+        });
+      }
     }
 
     await logAdminAudit(
@@ -240,6 +263,9 @@ export async function moderateListing(
     );
 
     return { ok: true, status: nextStatus };
+  }).then((res) => {
+    safeRevalidateAll(['/', '/stays', '/deals']);
+    return res;
   });
 }
 
@@ -501,7 +527,34 @@ export async function updateBookingByAdmin(
     let nextLegacy = cur.status;
     if (nextBookingStatus === 'cancelled') {
       nextLegacy = 'cancelled';
-      await tx.query('DELETE FROM booking_nights WHERE booking_id = $1', [bookingId]);
+      if (cur.booking_status !== 'cancelled') {
+        const bDatesRes = await tx.query<{ check_in: string | Date; check_out: string | Date }>(
+          'SELECT check_in, check_out FROM bookings WHERE id = $1',
+          [bookingId]
+        );
+        const bd = bDatesRes.rows[0];
+        if (bd) {
+          const ci =
+            bd.check_in instanceof Date
+              ? bd.check_in.toISOString().slice(0, 10)
+              : String(bd.check_in).slice(0, 10);
+          const co =
+            bd.check_out instanceof Date
+              ? bd.check_out.toISOString().slice(0, 10)
+              : String(bd.check_out).slice(0, 10);
+          if (co > ci && ci >= addDaysIso(ci, -365)) {
+            for (const dt of enumerateStayNights(ci, co)) {
+              await tx.query(
+                `UPDATE room_night_locks
+                 SET booked_units = GREATEST(0, booked_units - 1)
+                 WHERE room_id = $1 AND stay_date = $2::date`,
+                [cur.room_id, dt]
+              );
+            }
+          }
+        }
+        await releaseBookingPromotionTx(tx, bookingId);
+      }
     } else if (nextStayStatus === 'checked_out') {
       nextLegacy = 'CHECKED_IN_COMPLETED';
     } else if (nextBookingStatus === 'confirmed') {
@@ -692,6 +745,7 @@ export async function listSupportTickets(
     id: string;
     ticket_code: string;
     category: string;
+    issue_sub_category: string | null;
     priority: string;
     status: string;
     booking_code: string | null;
@@ -703,6 +757,7 @@ export async function listSupportTickets(
     subject: string;
     description: string;
     resolution_summary: string;
+    attachments: unknown;
     created_at: string;
     updated_at: string;
   }>(
@@ -721,28 +776,86 @@ export async function listSupportTickets(
     params
   );
 
-  return res.rows.map((t) => ({
-    id: String(t.id),
-    ticketCode: String(t.ticket_code),
-    category: String(t.category),
-    priority: String(t.priority),
-    status: String(t.status),
-    bookingCode: t.booking_code ? String(t.booking_code) : null,
-    stayTitle: t.stay_title ? String(t.stay_title) : null,
-    guestName: t.guest_name ? String(t.guest_name) : null,
-    guestEmail: t.guest_email
-      ? actor.hasPiiAccess
-        ? String(t.guest_email)
-        : maskEmail(String(t.guest_email))
-      : null,
-    assigneeName: t.assignee_name ? String(t.assignee_name) : null,
-    slaDueAt: t.sla_due_at ? new Date(String(t.sla_due_at)).toISOString() : null,
-    subject: String(t.subject),
-    description: String(t.description ?? ''),
-    resolutionSummary: String(t.resolution_summary ?? ''),
-    createdAt: new Date(String(t.created_at)).toISOString(),
-    updatedAt: new Date(String(t.updated_at)).toISOString(),
-  }));
+  const ticketIds = res.rows.map((r) => String(r.id));
+  const msgRes =
+    ticketIds.length > 0
+      ? await dbQuery<{
+          id: string;
+          ticket_id: string;
+          sender_name: string | null;
+          sender_role: string | null;
+          is_internal_note: boolean;
+          body: string;
+          attachments: unknown;
+          created_at: string;
+        }>(
+          `SELECT m.id, m.ticket_id, m.is_internal_note, m.body, m.attachments, m.created_at,
+                  u.full_name AS sender_name, u.role AS sender_role
+           FROM support_ticket_messages m
+           LEFT JOIN users u ON u.id = m.sender_id
+           WHERE m.ticket_id = ANY($1::uuid[])
+           ORDER BY m.created_at ASC`,
+          [ticketIds]
+        )
+      : { rows: [] };
+
+  const messagesByTicket = new Map<
+    string,
+    Array<{
+      id: string;
+      senderName: string;
+      senderRole: string;
+      isInternalNote: boolean;
+      body: string;
+      attachments: string[];
+      createdAt: string;
+    }>
+  >();
+
+  for (const m of msgRes.rows) {
+    const tid = String(m.ticket_id);
+    const list = messagesByTicket.get(tid) ?? [];
+    const att = Array.isArray(m.attachments) ? m.attachments.map(String) : [];
+    list.push({
+      id: String(m.id),
+      senderName: m.sender_name ? String(m.sender_name) : 'Staff',
+      senderRole: m.sender_role ? String(m.sender_role) : 'admin',
+      isInternalNote: Boolean(m.is_internal_note),
+      body: String(m.body),
+      attachments: att,
+      createdAt: new Date(String(m.created_at)).toISOString(),
+    });
+    messagesByTicket.set(tid, list);
+  }
+
+  return res.rows.map((t) => {
+    const att = Array.isArray(t.attachments) ? t.attachments.map(String) : [];
+    return {
+      id: String(t.id),
+      ticketCode: String(t.ticket_code),
+      category: String(t.category),
+      issueSubCategory: String(t.issue_sub_category ?? ''),
+      priority: String(t.priority),
+      status: String(t.status),
+      bookingCode: t.booking_code ? String(t.booking_code) : null,
+      stayTitle: t.stay_title ? String(t.stay_title) : null,
+      guestName: t.guest_name ? String(t.guest_name) : null,
+      guestEmail: t.guest_email
+        ? actor.hasPiiAccess
+          ? String(t.guest_email)
+          : maskEmail(String(t.guest_email))
+        : null,
+      assigneeName: t.assignee_name ? String(t.assignee_name) : null,
+      slaDueAt: t.sla_due_at ? new Date(String(t.sla_due_at)).toISOString() : null,
+      subject: String(t.subject),
+      description: String(t.description ?? ''),
+      resolutionSummary: String(t.resolution_summary ?? ''),
+      attachments: att,
+      messages: messagesByTicket.get(String(t.id)) ?? [],
+      createdAt: new Date(String(t.created_at)).toISOString(),
+      updatedAt: new Date(String(t.updated_at)).toISOString(),
+    };
+  });
 }
 
 export async function createSupportTicket(

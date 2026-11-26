@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Clock, Loader2, Shield, Star } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
-import type { Locale } from '@/lib/i18n';
+import { formatNightsLabel, type Locale } from '@/lib/i18n';
 import type { StayGuestReviewItem } from '@/modules/catalog';
 import type { HostHouseRules } from '@/modules/host';
 
@@ -115,7 +115,7 @@ export function StayGuestReviewsSection({
               {isVi ? 'Lưu trú tối thiểu' : 'Minimum stay'}
             </div>
             <div className="mt-1 font-semibold text-[#17221E]">
-              {defaultMinNights} {isVi ? 'đêm' : 'night(s)'}
+              {formatNightsLabel(defaultMinNights, locale)}
             </div>
           </div>
         </div>

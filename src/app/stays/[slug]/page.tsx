@@ -23,11 +23,13 @@ import {
   formatKitchenTypeLabel,
   formatLaundryTypeLabel,
   formatMoneyFromVnd,
+  formatPlaceCategoryLabel,
   formatVerificationTierLabel,
   formatVndExact,
 } from '@/lib/i18n';
 import { formatPropertyTypeLabel, getStayDetailBySlug } from '@/modules/catalog';
 import { buildConciergeWhatsappUrl } from '@/modules/notifications';
+import { getPlatformFeeConfig } from '@/modules/platform-settings';
 import { StayBookingWidget } from '@/components/StayBookingWidget';
 import { StayGuestReviewsSection } from '@/components/StayGuestReviewsSection';
 import { StayPhotoGallery } from '@/components/StayPhotoGallery';
@@ -40,19 +42,23 @@ export default async function StayDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [stay, prefs, user] = await Promise.all([
+  const [stay, prefs, user, feeConfig] = await Promise.all([
     getStayDetailBySlug(slug),
     getServerPreferences(),
     getCurrentUser(),
+    getPlatformFeeConfig(),
   ]);
 
   if (!stay) notFound();
   const isVi = prefs.locale === 'vi';
+  const serviceFeePct = Math.round(feeConfig.serviceFeeRate * 100);
+  const hostCommissionPct = Math.round(feeConfig.hostCommissionRate * 100);
   const defaultCheckIn = addDaysIso(getTodayIsoVietnam(), 7);
   const conciergeWhatsappUrl = buildConciergeWhatsappUrl({
     stayTitle: isVi ? stay.titleVi : stay.titleEn,
     checkIn: defaultCheckIn,
     nights: 30,
+    serviceFeePct,
     locale: prefs.locale,
   });
 
@@ -110,7 +116,9 @@ export default async function StayDetailPage({
           <p className="mt-1 flex items-center gap-1.5 text-sm text-[#53635D]">
             <MapPin className="h-4 w-4 text-[#C25E28]" />
             {isVi ? stay.neighborhoodVi : stay.neighborhoodEn}.{' '}
-            {isVi ? 'Địa chỉ cụ thể mở khóa ngay sau khi giữ phòng.' : 'Exact address unlocks right after booking.'}
+            {isVi
+              ? 'Địa chỉ cụ thể được gửi ngay sau khi xác nhận đặt phòng.'
+              : 'Exact address is shared once your booking is confirmed.'}
           </p>
         </div>
       </div>
@@ -212,18 +220,18 @@ export default async function StayDetailPage({
               <div className="space-y-1">
                 <div className="text-xs font-bold uppercase tracking-wider text-[#C25E28]">
                   {isVi
-                    ? 'BookingFlow · Trả 12% giữ chỗ online, 100% tiền phòng trả chủ nhà khi nhận phòng'
-                    : 'BookingFlow · Pay 12% online today, pay host rent at check-in'}
+                    ? `Thanh toán ${serviceFeePct}% online · Trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng`
+                    : `Pay ${serviceFeePct}% online today · Pay rent to host at check-in`}
                 </div>
                 <h3 className="font-serif-display text-xl font-semibold text-[#17221E]">
                   {isVi
-                    ? `Trả ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, prefs.currency)} hôm nay, trả ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, prefs.currency)} cho chủ nhà khi nhận phòng`
-                    : `Pay ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, prefs.currency)} today, pay ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, prefs.currency)} to host at check-in`}
+                    ? `Trả ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, prefs.currency, { fxRates: feeConfig.fxRates })} hôm nay, trả ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, prefs.currency, { fxRates: feeConfig.fxRates })} cho chủ nhà khi nhận phòng`
+                    : `Pay ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, prefs.currency, { fxRates: feeConfig.fxRates })} today, pay ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, prefs.currency, { fxRates: feeConfig.fxRates })} to host at check-in`}
                 </h3>
                 <p className="text-xs text-[#53635D]">
                   {isVi
-                    ? 'Bạn trực tiếp xem phòng khi nhận chìa khóa trước khi thanh toán tiền thuê nhà cho chủ nhà (0% hoa hồng chủ nhà).'
-                    : 'Inspect the residence at check-in before settling rent directly with your host (0% host commission).'}
+                    ? `Bạn xem phòng khi nhận chìa khóa trước khi thanh toán tiền thuê nhà cho chủ nhà (${hostCommissionPct}% hoa hồng chủ nhà).`
+                    : `Inspect the place at check-in before settling rent directly with your host (${hostCommissionPct}% host commission).`}
                 </p>
               </div>
               <a
@@ -339,8 +347,8 @@ export default async function StayDetailPage({
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-[#17221E]">
                     {isVi
-                      ? 'Địa điểm & Tiện ích địa phương quanh chỗ ở'
-                      : 'Local Discovery around this stay'}
+                      ? 'Địa điểm khám phá quanh chỗ ở'
+                      : 'Places to explore nearby'}
                   </h3>
                   <Link
                     href={`/destinations/${stay.destinationSlug}`}
@@ -357,7 +365,7 @@ export default async function StayDetailPage({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="rounded bg-[#E7F1EC] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#164E3F]">
-                          {pl.category.replace('_', ' ')}
+                          {formatPlaceCategoryLabel(pl.category, prefs.locale)}
                         </span>
                         <span className="text-xs font-semibold text-[#C25E28]">
                           {pl.distanceLabel || pl.openingHours}

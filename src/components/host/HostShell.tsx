@@ -52,7 +52,7 @@ export function HostShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname() ?? '/host';
-  const { locale, currency, setLocale, setCurrency } = usePreferences();
+  const { locale, currency, setLocale, setCurrency, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [collapsed, setCollapsed] = useState(false);
@@ -307,8 +307,8 @@ export function HostShell({
               </div>
               <div className="hidden text-[11px] text-[#53635D] sm:block">
                 {isVi
-                  ? 'BookingFlow · 0% hoa hồng chủ nhà'
-                  : 'BookingFlow · 0% host commission'}
+                  ? `Kênh chủ nhà · ${hostCommissionPct}% hoa hồng`
+                  : `Host Console · ${hostCommissionPct}% host commission`}
               </div>
             </div>
           </div>

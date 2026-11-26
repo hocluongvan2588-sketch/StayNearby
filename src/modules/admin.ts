@@ -3,6 +3,7 @@ import type { SessionUser } from '@/lib/auth/session';
 import { addDaysIso, getTodayIsoVietnam, isValidUuid } from '@/lib/dates';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
 
 export async function getAdminConsoleData() {
   const [appsRes, staysRes, crmRes, bookingsRes, notifRes] = await Promise.all([
@@ -174,6 +175,21 @@ export async function reviewHostApplication(
         `UPDATE host_applications SET status = 'rejected', review_note = $1 WHERE id = $2`,
         [reviewNote.trim() || 'Requirements incomplete', applicationId]
       );
+      await tx.query(
+        `INSERT INTO crm_activities (id, entity_type, entity_id, activity_type, summary, body, actor_user_id)
+         SELECT $1, 'host_lead', hl.id, 'note', $2, $3, $4
+         FROM host_leads hl
+         WHERE hl.application_id = $5 OR hl.linked_user_id = $6
+         LIMIT 1`,
+        [
+          crypto.randomUUID(),
+          `Host application rejected: ${app.stay_name}`,
+          reviewNote.trim() || 'Requirements incomplete',
+          _admin.id,
+          applicationId,
+          app.applicant_user_id,
+        ]
+      );
       return { status: 'rejected' as const, createdStaySlug: null };
     }
 
@@ -306,6 +322,21 @@ export async function reviewHostApplication(
        WHERE id = $3`,
       [reviewNote.trim() || 'Approved & published live', stayId, applicationId]
     );
+
+    await tx.query(
+      `UPDATE users
+       SET role = CASE WHEN role = 'nomad' THEN 'host' ELSE role END,
+           crm_stage = CASE WHEN crm_stage IN ('new', 'lead', 'onboarding') THEN 'active' ELSE crm_stage END
+       WHERE id = $1`,
+      [app.applicant_user_id]
+    );
+
+    await advanceHostLeadMilestoneTx(tx, {
+      userId: app.applicant_user_id,
+      targetStage: 'published',
+      summary: `Host application approved & stay published live (${slug})`,
+      actorUserId: _admin.id,
+    });
 
     await tx.query(
       `INSERT INTO admin_audit_logs (
