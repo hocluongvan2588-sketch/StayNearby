@@ -13,7 +13,12 @@ import {
   Wifi,
   Zap,
 } from 'lucide-react';
-import { formatMoneyFromVnd, formatPropertyTypeLabel } from '@/lib/i18n';
+import {
+  formatBusinessModelLabel,
+  formatMoneyFromVnd,
+  formatPropertyTypeLabel,
+  formatVerificationTierLabel,
+} from '@/lib/i18n';
 import type { StayCardItem } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
 
@@ -62,7 +67,6 @@ export function StayCard({
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-[#E5DFD3] bg-white transition duration-300 hover:-translate-y-0.5 hover:border-[#164E3F]/40 lacquer-shadow">
-      {/* Photo + Verified Wi-Fi & Model Badges */}
       <Link href={`/stays/${stay.slug}`} className="relative block aspect-[4/3] overflow-hidden bg-[#F2EDE3]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -72,7 +76,6 @@ export function StayCard({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/15" />
 
-        {/* Top Row: Tested Wi-Fi + Verification Tier + Save Deal */}
         <div className="absolute left-3 right-3 top-3 flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1 rounded-full bg-[#164E3F] px-2.5 py-1 text-xs font-semibold text-white shadow">
@@ -86,13 +89,7 @@ export function StayCard({
                   : 'bg-[#FAF8F3]/95 text-[#A67C2E] border border-[#A67C2E]/35'
               }`}
             >
-              {stay.verificationTier === 'VIETNOMAD_CERTIFIED'
-                ? isVi
-                  ? '✓ VietNomad Certified'
-                  : '✓ Verified by VietNomad'
-                : isVi
-                  ? '✓ Chủ nhà kiểm chứng'
-                  : '✓ Host Verified'}
+              {formatVerificationTierLabel(stay.verificationTier, locale)}
             </span>
             {stay.dealSavingsPct > 0 && (
               <span className="rounded-full bg-[#C25E28] px-2.5 py-1 text-xs font-semibold text-white shadow">
@@ -129,18 +126,17 @@ export function StayCard({
           </div>
         </div>
 
-        {/* Bottom Row: Instant Book / StayDirect + Google Rating */}
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-medium text-white">
           <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
             {stay.businessModel === 'booking_flow' ? (
               <>
                 <Zap className="h-3 w-3 text-[#F2D399]" />
-                {isVi ? 'Đặt ngay Instant' : 'Instant book'}
+                {isVi ? 'Giữ phòng ngay' : 'Instant booking'}
               </>
             ) : (
               <>
                 <CheckCircle2 className="h-3 w-3 text-[#9CE3C7]" />
-                StayDirect™ · 0% Markup
+                {formatBusinessModelLabel(stay.businessModel, locale)}
               </>
             )}
           </span>
@@ -151,7 +147,6 @@ export function StayCard({
         </div>
       </Link>
 
-      {/* Card Body */}
       <div className="flex flex-1 flex-col justify-between p-4">
         <div>
           <div className="mb-1 flex items-center justify-between text-xs text-[#53635D]">
@@ -172,11 +167,10 @@ export function StayCard({
             {isVi ? stay.subtitleVi : stay.subtitleEn}
           </p>
 
-          {/* Nomad Work-Ready Kit Pills */}
           <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-medium text-[#17221E]">
             {stay.hasExternalMonitor && (
               <span className="inline-flex items-center gap-1 rounded-md bg-[#E7F1EC] px-2 py-0.5 text-[#164E3F]">
-                <Monitor className="h-3 w-3" /> 4K Monitor
+                <Monitor className="h-3 w-3" /> {isVi ? 'Màn hình 4K' : '4K Monitor'}
               </span>
             )}
             <span className="inline-flex items-center gap-1 rounded-md bg-[#F2EDE3] px-2 py-0.5">
@@ -191,18 +185,17 @@ export function StayCard({
             </span>
             {stay.nearestCoworking && (
               <span className="rounded-md bg-[#F2EDE3] px-2 py-0.5 text-[#53635D]">
-                {stay.nearestCoworking.distanceKm} km → {stay.nearestCoworking.name}
+                {stay.nearestCoworking.distanceKm} km, {stay.nearestCoworking.name}
               </span>
             )}
           </div>
         </div>
 
-        {/* NomadStays Signature Upfront Weekly & Monthly Pricing Footer */}
         <div className="mt-4 border-t border-[#E5DFD3] pt-3">
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-[#FAF8F3] px-2.5 py-2">
               <div className="text-[11px] text-[#53635D]">
-                {isVi ? '1 tuần (7 đêm)' : '1 week'}
+                {isVi ? '1 tuần (7 đêm)' : '1 week (7 nights)'}
               </div>
               <div className="text-sm font-bold text-[#17221E]">
                 {formatMoneyFromVnd(stay.weekDisplayVnd, currency)}
@@ -215,7 +208,7 @@ export function StayCard({
             <div className="rounded-xl border border-[#164E3F]/20 bg-[#E7F1EC]/55 px-2.5 py-2">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-semibold text-[#164E3F]">
-                  {isVi ? '1 tháng (30 đêm)' : '1 month'}
+                  {isVi ? '1 tháng (30 đêm)' : '1 month (30 nights)'}
                 </span>
                 {stay.stayLongerSavingsPct > 0 && (
                   <span className="rounded bg-[#164E3F] px-1 text-[9px] font-bold text-white">
@@ -234,8 +227,7 @@ export function StayCard({
                 )}
               </div>
               <div className="text-[10px] text-[#164E3F]">
-                {formatMoneyFromVnd(stay.monthNightVnd, currency)}/{isVi ? 'đêm' : 'night'} ·{' '}
-                {isVi ? 'Trọn gói' : 'All-incl.'}
+                {formatMoneyFromVnd(stay.monthNightVnd, currency)}/{isVi ? 'đêm' : 'night'}
               </div>
             </div>
           </div>
@@ -243,14 +235,14 @@ export function StayCard({
           {stay.businessModel === 'booking_flow' ? (
             <div className="mt-2 rounded-lg bg-[#FAF8F3] px-2.5 py-1.5 text-[11px] font-medium text-[#164E3F]">
               {isVi
-                ? `Trả ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} hôm nay để giữ chỗ · ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} trả tại chỗ`
-                : `Pay ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} today to reserve · ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} due at check-in`}
+                ? `Trả ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} giữ chỗ hôm nay, trả ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} khi nhận phòng`
+                : `Pay ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} today, pay ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} at check-in`}
             </div>
           ) : (
             <div className="mt-2 rounded-lg bg-[#FAEDE5]/70 px-2.5 py-1.5 text-[11px] font-medium text-[#C25E28]">
               {isVi
-                ? 'StayDirect™ · Đặt trực tiếp với chủ nhà, 0% phí trung gian'
-                : 'StayDirect™ · Book directly with host, 0% platform markup'}
+                ? 'Đặt trực tiếp trên website chủ nhà, 0% phí nền tảng'
+                : 'Book directly on host website with 0% booking fee'}
             </div>
           )}
         </div>

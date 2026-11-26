@@ -211,13 +211,13 @@ export async function submitHostApplication(
   if (!input.hasKitchen || !input.hasLaundry || !input.hasWorkspace) {
     throw new AppError(
       'VALIDATION_ERROR',
-      'NomadStays quality baseline requires kitchen, laundry, and a dedicated workspace.'
+      'Listings require a kitchen, laundry, and a dedicated desk.'
     );
   }
   if (input.businessModel === 'stay_direct' && !input.directBookingUrl?.startsWith('http')) {
     throw new AppError(
       'VALIDATION_ERROR',
-      'StayDirect™ requires your direct HTTPS booking URL.'
+      'Direct Booking requires a valid HTTPS booking URL.'
     );
   }
 
@@ -229,7 +229,7 @@ export async function submitHostApplication(
         property_type, business_model, application_fee_eur, application_fee_paid,
         measured_download_mbps, has_kitchen, has_laundry, has_workspace,
         direct_booking_url, status, review_note
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,39,TRUE,$8,$9,$10,$11,$12,'submitted','Application fee €39 settled — queued for verification')`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,39,TRUE,$8,$9,$10,$11,$12,'submitted','€39 verification fee settled, queued for review')`,
       [
         id,
         user.id,
@@ -289,7 +289,7 @@ export async function updateHostStayConfiguration(
     }
 
     if (input.businessModel === 'stay_direct' && !input.directBookingUrl?.startsWith('http')) {
-      throw new AppError('VALIDATION_ERROR', 'StayDirect™ requires a valid booking URL.');
+      throw new AppError('VALIDATION_ERROR', 'Direct Booking requires a valid booking URL.');
     }
 
     await tx.query(

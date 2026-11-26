@@ -54,7 +54,7 @@ export default async function DestinationDetailPage({
             </span>
           </div>
           <h1 className="font-serif-display text-4xl font-semibold text-[#17221E]">
-            {isVi ? `Digital Nomad tại ${dest.nameVi}` : `Digital Nomad Stays in ${dest.nameEn}`}
+            {isVi ? `Chỗ ở làm việc từ xa tại ${dest.nameVi}` : `Remote work stays in ${dest.nameEn}`}
           </h1>
           <p className="text-sm leading-relaxed text-[#53635D]">
             {isVi ? dest.taglineVi : dest.taglineEn}

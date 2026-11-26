@@ -29,17 +29,17 @@ export default async function DealsPage() {
     <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="mb-10 max-w-3xl space-y-2">
         <span className="inline-block rounded-full bg-[#FAEDE5] px-3 py-1 text-xs font-semibold text-[#C25E28]">
-          {isVi ? 'Ưu đãi dài ngày theo tháng' : 'Monthly Nomad Deals'}
+          {isVi ? 'Giá tốt khi thuê 1 tháng' : 'Monthly Deals'}
         </span>
         <h1 className="font-serif-display text-4xl font-semibold text-[#17221E]">
           {isVi
-            ? 'Ở trọn 1 tháng tại Việt Nam — Xếp hạng theo mức tiết kiệm cao nhất'
-            : 'Month-long Vietnam bases — Biggest savings first'}
+            ? 'Thuê tròn 1 tháng tại Việt Nam, ưu đãi nhiều nhất xếp trước'
+            : 'Month-long stays across Vietnam, sorted by biggest savings'}
         </h1>
         <p className="text-sm text-[#53635D]">
           {isVi
-            ? 'Mọi chỗ ở đều hiển thị sẵn tổng giá trọn gói đã bao gồm thuế phí và Wi-Fi kiểm định tốc độ.'
-            : 'Every stay below has open 30-night inventory with all-inclusive totals and tested Wi-Fi speeds.'}
+            ? 'Tất cả chỗ ở dưới đây đang còn phòng cho gói 30 đêm, hiển thị sẵn tiền cọc 12% và phần trả chủ nhà khi nhận phòng.'
+            : 'All places below are open for 30-night stays, with tested Wi-Fi speeds and upfront payment totals.'}
         </p>
       </div>
 

@@ -9,10 +9,10 @@ export default function HiddenAdminDemoPage() {
     <div className="space-y-2 pt-6">
       <div className="mx-auto flex max-w-4xl items-center justify-between px-4 text-xs text-[#53635D] sm:px-6 lg:px-8">
         <span className="rounded-full bg-[#FAEDE5] px-3 py-1 font-semibold text-[#C25E28]">
-          Internal QA · Hidden Role Switcher (/admin/demo)
+          Demo Account Switcher (/admin/demo)
         </span>
         <Link href="/admin" className="font-semibold text-[#164E3F] hover:underline">
-          ← Admin Operations
+          Back to Admin Portal
         </Link>
       </div>
       <LoginClient

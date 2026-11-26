@@ -18,7 +18,11 @@ import {
   Wifi,
 } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
-import { formatMoneyFromVnd } from '@/lib/i18n';
+import {
+  formatBookingStatusLabel,
+  formatCancellationPolicyLabel,
+  formatMoneyFromVnd,
+} from '@/lib/i18n';
 import { usePreferences } from './PreferencesProvider';
 
 interface MemberDashboardData {
@@ -109,12 +113,12 @@ export function MemberDashboardClient({
       const res = await fetch(`/api/bookings/${bookingId}/pay`, { method: 'POST' });
       const json = await res.json();
       if (!json.ok) {
-        setNotice(json.error?.message ?? 'Payment failed.');
+        setNotice(json.error?.message ?? (isVi ? 'Thanh toán thất bại.' : 'Payment failed.'));
       } else {
         setNotice(
           isVi
-            ? `Đã thanh toán ${formatMoneyFromVnd(json.payment.feePaidOnlineVnd, currency)} và khóa phòng thành công!`
-            : `12% reservation fee paid (${formatMoneyFromVnd(json.payment.feePaidOnlineVnd, currency)}). Dates locked & Wi-Fi Certificate issued!`
+            ? `Đã thanh toán ${formatMoneyFromVnd(json.payment.feePaidOnlineVnd, currency)} và khóa phòng thành công.`
+            : `Paid ${formatMoneyFromVnd(json.payment.feePaidOnlineVnd, currency)}. Dates are locked and your Wi-Fi certificate is ready.`
         );
         window.location.reload();
       }
@@ -126,8 +130,8 @@ export function MemberDashboardClient({
   async function handleWifiMismatchRefund(bookingId: string) {
     const reason = window.prompt(
       isVi
-        ? 'Mô tả nhanh sự cố Wi-Fi hoặc bàn làm việc tại chỗ để hoàn 100% phí 12%:'
-        : 'Briefly describe the Wi-Fi speed or workspace mismatch to trigger your 100% fee refund:',
+        ? 'Mô tả ngắn sự cố Wi-Fi hoặc bàn làm việc để nhận hoàn lại 100% phí giữ chỗ:'
+        : 'Describe the Wi-Fi speed or desk issue to claim your 100% fee refund:',
       'On-site speedtest below certified Mbps at check-in'
     );
     if (!reason) return;
@@ -141,12 +145,12 @@ export function MemberDashboardClient({
       });
       const json = await res.json();
       if (!json.ok) {
-        setNotice(json.error?.message ?? 'Refund trigger failed.');
+        setNotice(json.error?.message ?? (isVi ? 'Không thể gửi yêu cầu hoàn tiền.' : 'Refund request failed.'));
       } else {
         setNotice(
           isVi
-            ? `Đã hoàn 100% phí giữ chỗ (${formatMoneyFromVnd(json.refund.refundAmountVnd, currency)}) theo cam kết Wi-Fi Guarantee.`
-            : `100% Booking Fee Refund processed (${formatMoneyFromVnd(json.refund.refundAmountVnd, currency)}) under Wi-Fi Guarantee.`
+            ? `Đã hoàn lại 100% phí giữ chỗ (${formatMoneyFromVnd(json.refund.refundAmountVnd, currency)}).`
+            : `100% booking fee refund processed (${formatMoneyFromVnd(json.refund.refundAmountVnd, currency)}).`
         );
         window.location.reload();
       }
@@ -162,13 +166,13 @@ export function MemberDashboardClient({
       const res = await fetch(`/api/bookings/${bookingId}/cancel`, { method: 'POST' });
       const json = await res.json();
       if (!json.ok) {
-        setNotice(json.error?.message ?? 'Could not cancel booking.');
+        setNotice(json.error?.message ?? (isVi ? 'Không thể hủy đặt phòng.' : 'Could not cancel booking.'));
       } else {
         const out = json.outcome;
         setNotice(
           isVi
-            ? `Đã hủy đặt phòng (${out.tier}). Hoàn tiền: ${formatMoneyFromVnd(out.refundAmountVnd, currency)}, Account Credit: ${formatMoneyFromVnd(out.creditIssuedVnd, currency)}.`
-            : `Cancelled (${out.tier}). Cash refund: ${formatMoneyFromVnd(out.refundAmountVnd, currency)}, Account Credit issued: ${formatMoneyFromVnd(out.creditIssuedVnd, currency)}.`
+            ? `Đã hủy đặt phòng. Hoàn tiền mặt: ${formatMoneyFromVnd(out.refundAmountVnd, currency)}, tiền thưởng hoàn lại: ${formatMoneyFromVnd(out.creditIssuedVnd, currency)}.`
+            : `Booking cancelled. Cash refund: ${formatMoneyFromVnd(out.refundAmountVnd, currency)}, account credit: ${formatMoneyFromVnd(out.creditIssuedVnd, currency)}.`
         );
         window.location.reload();
       }
@@ -191,23 +195,32 @@ export function MemberDashboardClient({
 
   return (
     <div className="mx-auto max-w-7xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
-      {/* Member Header & Wallet KPIs */}
       <div className="flex flex-col justify-between gap-6 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-8 md:flex-row md:items-center lacquer-shadow">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F] uppercase">
-              {user.role}
+            <span className="rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
+              {user.role === 'host'
+                ? isVi
+                  ? 'Chủ nhà'
+                  : 'Host'
+                : user.role === 'admin'
+                  ? isVi
+                    ? 'Quản trị viên'
+                    : 'Admin'
+                  : isVi
+                    ? 'Thành viên'
+                    : 'Member'}
             </span>
             {user.membershipTier === 'premium' ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#A67C2E] px-3 py-1 text-xs font-semibold text-white">
-                <Sparkles className="h-3.5 w-3.5" /> Nomad Pass Premium
+                <Sparkles className="h-3.5 w-3.5" /> {isVi ? 'Thẻ hội viên Premium' : 'Nomad Pass Premium'}
               </span>
             ) : (
               <Link
                 href="/membership"
                 className="rounded-full border border-[#A67C2E]/40 px-3 py-1 text-xs font-semibold text-[#A67C2E] hover:bg-[#FAF8F3]"
               >
-                {isVi ? 'Nâng cấp Premium (Hoàn 4%)' : 'Upgrade to Premium (4% Back)'}
+                {isVi ? 'Nâng cấp thẻ hội viên (Hoàn 4%)' : 'Upgrade to Nomad Pass (4% back)'}
               </Link>
             )}
           </div>
@@ -215,8 +228,8 @@ export function MemberDashboardClient({
             {user.fullName}
           </h1>
           <p className="text-xs text-[#53635D]">
-            {user.email} · {user.nationality}
-            {user.vatTaxId ? ` · VAT ID: ${user.vatTaxId}` : ''}
+            {user.email}, {user.nationality}
+            {user.vatTaxId ? `, ${isVi ? 'Mã số thuế:' : 'VAT ID:'} ${user.vatTaxId}` : ''}
           </p>
         </div>
 
@@ -224,7 +237,7 @@ export function MemberDashboardClient({
           <div className="rounded-2xl bg-[#FAF8F3] px-5 py-3">
             <div className="flex items-center gap-1.5 text-xs text-[#53635D]">
               <Wallet className="h-4 w-4 text-[#164E3F]" />
-              {isVi ? 'Ví Reward Credit' : 'Reward Credit Balance'}
+              {isVi ? 'Số dư tiền thưởng' : 'Reward credit'}
             </div>
             <div className="font-serif-display text-2xl font-bold text-[#164E3F]">
               {formatMoneyFromVnd(user.rewardCreditVnd, currency)}
@@ -235,7 +248,7 @@ export function MemberDashboardClient({
               href="/host"
               className="flex items-center rounded-2xl bg-[#164E3F] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0F392E]"
             >
-              {isVi ? 'Mở Cổng Chủ nhà →' : 'Open Host Console →'}
+              {isVi ? 'Vào trang quản lý nhà' : 'Open Host Portal'}
             </Link>
           )}
           {user.role === 'admin' && (
@@ -243,7 +256,7 @@ export function MemberDashboardClient({
               href="/admin"
               className="flex items-center rounded-2xl bg-[#C25E28] px-5 py-3 text-sm font-semibold text-white hover:bg-[#ad5020]"
             >
-              {isVi ? 'Mở Admin & CRM →' : 'Open Admin & CRM →'}
+              {isVi ? 'Vào trang kiểm duyệt' : 'Open Admin Portal'}
             </Link>
           )}
         </div>
@@ -255,20 +268,19 @@ export function MemberDashboardClient({
         </div>
       )}
 
-      {/* Bookings & Unlocked Check-In Instructions */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-            {isVi ? 'Lịch lưu trú & Chứng nhận Wi-Fi' : 'Your Extended Stays & Wi-Fi Certificates'}
+            {isVi ? 'Đơn đặt phòng và chứng nhận Wi-Fi' : 'Your stays and Wi-Fi certificates'}
           </h2>
           <Link href="/stays" className="text-sm font-semibold text-[#164E3F] hover:underline">
-            {isVi ? '+ Đặt thêm chỗ ở' : '+ Book another base'}
+            {isVi ? 'Tìm thêm chỗ ở' : 'Find another stay'}
           </Link>
         </div>
 
         {data.bookings.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#E5DFD3] bg-white p-8 text-center text-sm text-[#53635D]">
-            {isVi ? 'Bạn chưa có đặt phòng nào.' : 'No bookings yet. Explore work-ready Vietnam stays to lock your first week or month.'}
+            {isVi ? 'Bạn chưa có đặt phòng nào.' : 'You have no bookings yet. Pick a city to start your next stay.'}
           </div>
         ) : (
           <div className="grid gap-5">
@@ -300,12 +312,12 @@ export function MemberDashboardClient({
                           <span className="rounded-full bg-[#164E3F] px-2.5 py-0.5 text-white">
                             {b.bookingCode}
                           </span>
-                          <span className={`rounded-full px-2.5 py-0.5 uppercase ${renderStatusBadge(b.status)}`}>
-                            {b.status}
+                          <span className={`rounded-full px-2.5 py-0.5 ${renderStatusBadge(b.status)}`}>
+                            {formatBookingStatusLabel(b.status, locale)}
                           </span>
                           <span className="text-[#53635D]">
                             <Wifi className="mr-1 inline h-3.5 w-3.5 text-[#164E3F]" />
-                            {b.wifiDownloadMbps}↓ / {b.wifiUploadMbps}↑ Mbps ({b.wifiJitterMs}ms)
+                            {b.wifiDownloadMbps}/{b.wifiUploadMbps} Mbps ({b.wifiJitterMs}ms)
                           </span>
                         </div>
                         <Link
@@ -315,7 +327,7 @@ export function MemberDashboardClient({
                           {isVi ? b.titleVi : b.titleEn}
                         </Link>
                         <div className="text-xs text-[#53635D]">
-                          {isVi ? b.destinationNameVi : b.destinationNameEn} ·{' '}
+                          {isVi ? b.destinationNameVi : b.destinationNameEn},{' '}
                           {isVi ? b.roomNameVi : b.roomNameEn}
                         </div>
                       </div>
@@ -325,23 +337,22 @@ export function MemberDashboardClient({
                           {formatMoneyFromVnd(b.guestTotalVnd, currency)}
                         </div>
                         <div className="text-xs text-[#53635D]">
-                          {b.nights} {isVi ? 'đêm' : 'nights'} · {b.checkIn} → {b.checkOut}
+                          {b.nights} {isVi ? 'đêm' : 'nights'}, {b.checkIn} {isVi ? 'đến' : 'to'} {b.checkOut}
                         </div>
                       </div>
                     </div>
 
-                    {/* Financial Split Summary */}
                     {b.businessModel === 'booking_flow' && (
                       <div className="grid gap-2 rounded-2xl bg-[#FAF8F3] p-3 text-xs sm:grid-cols-3">
                         <div>
                           <span className="text-[#53635D]">
                             {b.status === 'PENDING_PAYMENT'
                               ? isVi
-                                ? 'Chờ thanh toán (12%):'
-                                : 'Due Online (12% Fee):'
+                                ? 'Cần trả online (12%):'
+                                : 'Due online (12% fee):'
                               : isVi
-                                ? 'Đã trả Online (12%):'
-                                : 'Paid Online (12% Fee):'}
+                                ? 'Đã trả online (12%):'
+                                : 'Paid online (12% fee):'}
                           </span>{' '}
                           <strong className="text-[#164E3F]">
                             {formatMoneyFromVnd(b.feeOnlineVnd, currency)}
@@ -351,11 +362,11 @@ export function MemberDashboardClient({
                           <span className="text-[#53635D]">
                             {b.status === 'CHECKED_IN_COMPLETED'
                               ? isVi
-                                ? 'Đã trả Chủ nhà:'
-                                : 'Paid Direct to Host:'
+                                ? 'Đã trả chủ nhà:'
+                                : 'Paid to host:'
                               : isVi
-                                ? 'Trả Chủ nhà khi nhận phòng:'
-                                : 'Due at Check-in (Host):'}
+                                ? 'Trả chủ nhà khi nhận phòng:'
+                                : 'Pay host at check-in:'}
                           </span>{' '}
                           <strong className="text-[#17221E]">
                             {formatMoneyFromVnd(b.payAtCheckinVnd, currency)}
@@ -363,20 +374,19 @@ export function MemberDashboardClient({
                         </div>
                         <div>
                           <span className="text-[#53635D]">
-                            {isVi ? 'Tổng kỳ lưu trú:' : 'All-Inclusive Total:'}
+                            {isVi ? 'Tổng chi phí:' : 'Total cost:'}
                           </span>{' '}
                           <strong>{formatMoneyFromVnd(b.guestTotalVnd, currency)}</strong>
                         </div>
                       </div>
                     )}
 
-                    {/* Pending 12% Payment Action */}
                     {b.status === 'PENDING_PAYMENT' && (
                       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#A67C2E]/35 bg-[#FAF8F3] p-3.5 text-xs">
                         <span className="text-[#17221E]">
                           {isVi
-                            ? 'Hoàn tất thanh toán phí giữ chỗ 12% để khóa lịch phòng & nhận địa chỉ.'
-                            : 'Complete the 12% reservation fee to lock dates and unlock address + Wi-Fi Certificate.'}
+                            ? 'Trả phí giữ chỗ 12% để khóa lịch phòng và mở khóa địa chỉ thật.'
+                            : 'Pay the 12% booking fee to lock your dates and unlock the address.'}
                         </span>
                         <div className="flex gap-2">
                           <button
@@ -388,7 +398,7 @@ export function MemberDashboardClient({
                             <CreditCard className="h-3.5 w-3.5" />
                             {isVi
                               ? `Thanh toán ${formatMoneyFromVnd(b.feeOnlineVnd, currency)}`
-                              : `Pay ${formatMoneyFromVnd(b.feeOnlineVnd, currency)} Now`}
+                              : `Pay ${formatMoneyFromVnd(b.feeOnlineVnd, currency)}`}
                           </button>
                           <button
                             type="button"
@@ -402,15 +412,14 @@ export function MemberDashboardClient({
                       </div>
                     )}
 
-                    {/* Unlocked Address, Wi-Fi Verification Certificate & Host WhatsApp */}
                     {b.exactAddress && (
                       <div className="space-y-2 rounded-2xl border border-[#164E3F]/20 bg-[#FAF8F3] p-4 text-xs">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 font-semibold text-[#164E3F]">
                             <KeyRound className="h-4 w-4" />
                             {isVi
-                              ? 'Địa chỉ, Hướng dẫn nhận phòng & Chứng nhận Wi-Fi'
-                              : 'Unlocked Address, Check-in & Wi-Fi Verification Certificate'}
+                              ? 'Địa chỉ nhận phòng và chứng nhận Wi-Fi'
+                              : 'Address, check-in guide, and Wi-Fi certificate'}
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {b.speedtestProofUrl && (
@@ -421,7 +430,7 @@ export function MemberDashboardClient({
                                 className="inline-flex items-center gap-1 rounded-lg bg-[#E7F1EC] px-2.5 py-1 font-semibold text-[#164E3F]"
                               >
                                 <ShieldCheck className="h-3.5 w-3.5" />
-                                {isVi ? 'Chứng nhận Speedtest' : 'Wi-Fi Certificate'}
+                                {isVi ? 'Xem chứng nhận Wi-Fi' : 'View Wi-Fi certificate'}
                                 <ExternalLink className="h-3 w-3" />
                               </a>
                             )}
@@ -432,7 +441,7 @@ export function MemberDashboardClient({
                               className="inline-flex items-center gap-1 rounded-lg bg-[#25D366]/20 px-2.5 py-1 font-semibold text-[#0F392E]"
                             >
                               <MessageCircle className="h-3.5 w-3.5 text-[#164E3F]" />
-                              Host WhatsApp ({b.hostWhatsapp})
+                              {isVi ? 'Nhắn chủ nhà' : 'Host WhatsApp'} ({b.hostWhatsapp})
                             </a>
                           </div>
                         </div>
@@ -448,23 +457,23 @@ export function MemberDashboardClient({
 
                     {b.status === 'direct_referral' && b.directBookingUrl && (
                       <div className="rounded-2xl bg-[#FAEDE5] p-3 text-xs text-[#C25E28]">
-                        StayDirect™ 0% Markup referral link:{' '}
+                        {isVi ? 'Trang đặt phòng chủ nhà:' : 'Host booking link:'}{' '}
                         <span className="font-semibold underline">{b.directBookingUrl}</span>
                       </div>
                     )}
 
                     {b.status === 'REFUNDED_WIFI_MISMATCH' && (
                       <div className="rounded-2xl bg-[#FAEDE5] p-3 text-xs text-[#C25E28]">
-                        <strong>100% Wi-Fi Guarantee Refunded:</strong>{' '}
-                        {formatMoneyFromVnd(b.refundAmountVnd, currency)} — {b.mismatchReason}
+                        <strong>{isVi ? 'Đã hoàn 100% phí giữ chỗ:' : '100% fee refunded:'}</strong>{' '}
+                        {formatMoneyFromVnd(b.refundAmountVnd, currency)} ({b.mismatchReason})
                       </div>
                     )}
 
                     {b.status === 'cancelled' && (
                       <div className="rounded-2xl bg-[#F2EDE3] p-3 text-xs text-[#17221E]">
                         {isVi
-                          ? `Hoàn tiền: ${formatMoneyFromVnd(b.refundAmountVnd, currency)} · Account Credit cấp thêm: ${formatMoneyFromVnd(b.creditIssuedVnd, currency)}`
-                          : `Cash refund: ${formatMoneyFromVnd(b.refundAmountVnd, currency)} · Account Credit issued: ${formatMoneyFromVnd(b.creditIssuedVnd, currency)}`}
+                          ? `Hoàn tiền mặt: ${formatMoneyFromVnd(b.refundAmountVnd, currency)}, tiền thưởng hoàn lại: ${formatMoneyFromVnd(b.creditIssuedVnd, currency)}`
+                          : `Cash refund: ${formatMoneyFromVnd(b.refundAmountVnd, currency)}, account credit: ${formatMoneyFromVnd(b.creditIssuedVnd, currency)}`}
                       </div>
                     )}
 
@@ -473,8 +482,8 @@ export function MemberDashboardClient({
                         <span className="text-xs text-[#53635D]">
                           <CheckCircle2 className="mr-1 inline h-3.5 w-3.5 text-[#164E3F]" />
                           {isVi
-                            ? `Chính sách ${b.cancellationPolicy} + Bảo chứng hoàn 100% phí giữ chỗ nếu Wi-Fi sai cam kết.`
-                            : `${b.cancellationPolicy} policy + 100% Wi-Fi Guarantee refund protection.`}
+                            ? `Chính sách hủy: ${formatCancellationPolicyLabel(b.cancellationPolicy, locale)}. Hoàn 100% phí nếu Wi-Fi sai cam kết.`
+                            : `Cancellation: ${formatCancellationPolicyLabel(b.cancellationPolicy, locale)}. Protected by 100% Wi-Fi refund guarantee.`}
                         </span>
                         <div className="flex flex-wrap gap-2">
                           <button
@@ -484,7 +493,7 @@ export function MemberDashboardClient({
                             className="inline-flex min-h-[36px] items-center gap-1 rounded-xl border border-[#A67C2E]/40 bg-[#FAF8F3] px-3 py-1.5 text-xs font-semibold text-[#A67C2E] hover:bg-[#F2EDE3]"
                           >
                             <AlertTriangle className="h-3.5 w-3.5" />
-                            {isVi ? 'Báo Wi-Fi sai cam kết (Hoàn 100%)' : 'Wi-Fi Mismatch (100% Refund)'}
+                            {isVi ? 'Báo Wi-Fi chậm (Hoàn 100%)' : 'Report slow Wi-Fi (100% refund)'}
                           </button>
                           <button
                             type="button"
@@ -496,7 +505,7 @@ export function MemberDashboardClient({
                               ? '...'
                               : isVi
                                 ? 'Hủy đặt phòng'
-                                : 'Cancel Booking'}
+                                : 'Cancel booking'}
                           </button>
                         </div>
                       </div>
@@ -504,7 +513,8 @@ export function MemberDashboardClient({
 
                     {b.notifications.length > 0 && (
                       <div className="border-t border-[#E5DFD3] pt-2 text-[11px] text-[#53635D]">
-                        Latest confirmation: <span className="font-medium text-[#17221E]">{b.notifications[0].subject}</span>
+                        {isVi ? 'Xác nhận gần nhất:' : 'Latest update:'}{' '}
+                        <span className="font-medium text-[#17221E]">{b.notifications[0].subject}</span>
                       </div>
                     )}
                   </div>
@@ -515,16 +525,15 @@ export function MemberDashboardClient({
         )}
       </section>
 
-      {/* Saved Stays & Event RSVPs */}
       <div className="grid gap-8 lg:grid-cols-2">
         <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6">
           <h3 className="font-serif-display mb-4 flex items-center gap-2 text-xl font-semibold text-[#17221E]">
             <Bookmark className="h-5 w-5 text-[#C25E28]" />
-            {isVi ? 'Chỗ ở đã lưu' : 'Saved Favourites'}
+            {isVi ? 'Chỗ ở đã lưu' : 'Saved stays'}
           </h3>
           {data.savedStays.length === 0 ? (
             <p className="text-sm text-[#53635D]">
-              {isVi ? 'Bấm biểu tượng đánh dấu trên thẻ chỗ ở để lưu.' : 'Bookmark any stay card to compare later.'}
+              {isVi ? 'Bấm biểu tượng lưu trên thẻ chỗ ở để xem lại sau.' : 'Save any stay to compare or book later.'}
             </p>
           ) : (
             <div className="space-y-3">
@@ -537,11 +546,11 @@ export function MemberDashboardClient({
                   <div>
                     <div className="font-semibold text-[#17221E]">{isVi ? s.titleVi : s.titleEn}</div>
                     <div className="text-xs text-[#53635D]">
-                      {isVi ? s.destinationNameVi : s.destinationNameEn} · {s.wifiDownloadMbps} Mbps
+                      {isVi ? s.destinationNameVi : s.destinationNameEn}, {s.wifiDownloadMbps} Mbps
                     </div>
                   </div>
                   <div className="text-sm font-bold text-[#164E3F]">
-                    {formatMoneyFromVnd(s.monthDisplayVnd, currency)}/mo
+                    {formatMoneyFromVnd(s.monthDisplayVnd, currency)}/{isVi ? 'tháng' : 'mo'}
                   </div>
                 </Link>
               ))}
@@ -552,13 +561,13 @@ export function MemberDashboardClient({
         <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6">
           <h3 className="font-serif-display mb-4 flex items-center gap-2 text-xl font-semibold text-[#17221E]">
             <Calendar className="h-5 w-5 text-[#164E3F]" />
-            {isVi ? 'Lịch Vietnam Brunch Club đã đăng ký' : 'My Nomad Brunch Club RSVPs'}
+            {isVi ? 'Sự kiện đã đăng ký' : 'Your meetup RSVPs'}
           </h3>
           {data.rsvps.length === 0 ? (
             <div className="space-y-2 text-sm text-[#53635D]">
-              <p>{isVi ? 'Chưa đăng ký buổi gặp mặt nào.' : 'No meetup RSVPs yet.'}</p>
+              <p>{isVi ? 'Bạn chưa đăng ký sự kiện nào.' : 'No meetup RSVPs yet.'}</p>
               <Link href="/community" className="inline-block font-semibold text-[#164E3F] hover:underline">
-                {isVi ? 'Xem lịch Meetup tại Việt Nam →' : 'Browse Vietnam Brunch Club →'}
+                {isVi ? 'Xem lịch sự kiện cộng đồng' : 'Browse upcoming meetups'}
               </Link>
             </div>
           ) : (
@@ -567,7 +576,7 @@ export function MemberDashboardClient({
                 <div key={ev.id} className="rounded-2xl bg-[#FAF8F3] p-3">
                   <div className="font-semibold text-[#17221E]">{isVi ? ev.titleVi : ev.titleEn}</div>
                   <div className="text-xs text-[#53635D]">
-                    {ev.eventDate} · {isVi ? ev.venueVi : ev.venueEn}
+                    {ev.eventDate}, {isVi ? ev.venueVi : ev.venueEn}
                   </div>
                 </div>
               ))}

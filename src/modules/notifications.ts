@@ -18,20 +18,20 @@ export function buildConciergeWhatsappUrl(params: {
 
   const parts = isVi
     ? [
-        'Xin chào đội hỗ trợ VietNomad!',
-        params.stayTitle ? `Mình quan tâm chỗ ở: ${params.stayTitle}.` : '',
+        'Xin chào đội ngũ hỗ trợ VietNomad.',
+        params.stayTitle ? `Tôi cần tư vấn chỗ ở: ${params.stayTitle}.` : '',
         params.checkIn ? `Ngày nhận phòng dự kiến: ${params.checkIn}.` : '',
-        params.nights ? `Thời gian lưu trú: ${params.nights} đêm.` : '',
+        params.nights ? `Thời gian ở: ${params.nights} đêm.` : '',
         params.bookingCode ? `Mã đặt phòng: ${params.bookingCode}.` : '',
-        'Nhờ hỗ trợ xác nhận Wi-Fi & hướng dẫn giữ chỗ 12%.',
+        'Nhờ bạn xác nhận tình trạng phòng trống và hướng dẫn đặt giữ chỗ.',
       ]
     : [
-        'Hi VietNomad Concierge!',
-        params.stayTitle ? `I am interested in: ${params.stayTitle}.` : '',
+        'Hi VietNomad Support,',
+        params.stayTitle ? `I have a question about: ${params.stayTitle}.` : '',
         params.checkIn ? `Check-in: ${params.checkIn}.` : '',
-        params.nights ? `Duration: ${params.nights} nights.` : '',
+        params.nights ? `Stay length: ${params.nights} nights.` : '',
         params.bookingCode ? `Booking Code: ${params.bookingCode}.` : '',
-        'Could you confirm availability & details before I lock my stay with the 12% booking fee?',
+        'Could you confirm availability before I pay the 12% booking fee?',
       ];
 
   const text = encodeURIComponent(parts.filter(Boolean).join(' '));
@@ -143,8 +143,7 @@ export async function dispatchBookingLockedNotifications(
     phoneOverride: row.host_whatsapp,
   });
 
-  // 1. Guest Confirmation + Wi-Fi Verification Certificate
-  const guestSubject = `[${row.booking_code}] Confirmed & Locked: ${row.stay_title} (Wi-Fi Verification Certificate Included)`;
+  const guestSubject = `[${row.booking_code}] Confirmed: ${row.stay_title} (Wi-Fi certificate included)`;
   const guestPayload = {
     bookingCode: row.booking_code,
     stayTitle: row.stay_title,
@@ -168,21 +167,20 @@ export async function dispatchBookingLockedNotifications(
       speedtestProofUrl: row.speedtest_proof_url,
     },
     guaranteeNote:
-      '100% Booking Fee Refund Guarantee if Wi-Fi or workspace at check-in does not match this certificate.',
+      '100% booking fee refund guarantee if Wi-Fi or workspace at check-in falls below this certificate.',
   };
 
   const guestStatus = await maybeSendResendEmail(
     row.guest_email,
     guestSubject,
     `<h2>${guestSubject}</h2>
-     <p>Paid Online (12% Booking Fee): <strong>${formatVndExact(feeOnlineVnd)}</strong></p>
-     <p>Due at Check-in (Pay directly to Host): <strong>${formatVndExact(payAtCheckinVnd)}</strong></p>
+     <p>Paid online (12% booking fee): <strong>${formatVndExact(feeOnlineVnd)}</strong></p>
+     <p>Due at check-in (pay directly to host): <strong>${formatVndExact(payAtCheckinVnd)}</strong></p>
      <p>Address: ${row.exact_address}</p>
-     <p>Verified Wi-Fi Certificate: ${row.wifi_download_mbps} Mbps ↓ / ${row.wifi_upload_mbps} Mbps ↑ (${row.wifi_jitter_ms}ms jitter)</p>`
+     <p>Verified Wi-Fi: ${row.wifi_download_mbps} Mbps down / ${row.wifi_upload_mbps} Mbps up (${row.wifi_jitter_ms}ms latency)</p>`
   );
 
-  // 2. Host Alert
-  const hostSubject = `[New Locked Booking ${row.booking_code}] ${row.guest_name} · Collect ${formatVndExact(payAtCheckinVnd)} at Check-in`;
+  const hostSubject = `[New Booking ${row.booking_code}] ${row.guest_name}, collect ${formatVndExact(payAtCheckinVnd)} at check-in`;
   const hostPayload = {
     bookingCode: row.booking_code,
     guestName: row.guest_name,
@@ -194,29 +192,28 @@ export async function dispatchBookingLockedNotifications(
     deposit12Locked: true,
     collectAtCheckinVnd: payAtCheckinVnd,
     pledgeNote:
-      'Guest paid 12% Booking & Verification Fee online. Dates locked; collect 100% of host net rent directly at check-in.',
+      'Guest paid the 12% booking fee online. Dates are locked; collect 100% of rent directly at check-in.',
   };
 
   const hostStatus = await maybeSendResendEmail(
     row.host_email,
     hostSubject,
     `<h2>${hostSubject}</h2>
-     <p>Guest: ${row.guest_name} (${checkIn} → ${checkOut}, ${row.nights} nights)</p>
-     <p>12% Booking Fee settled online. Please hold room and collect <strong>${formatVndExact(payAtCheckinVnd)}</strong> directly at check-in.</p>`
+     <p>Guest: ${row.guest_name} (${checkIn} to ${checkOut}, ${row.nights} nights)</p>
+     <p>12% booking fee settled online. Please hold the room and collect <strong>${formatVndExact(payAtCheckinVnd)}</strong> directly at check-in.</p>`
   );
 
-  // 3. Admin Internal Alert (Zalo 30-min confirmation SLA)
-  const adminSubject = `[ADMIN ALERT · 30m Zalo SLA] Booking ${row.booking_code} LOCKED — Confirm with ${row.host_name}`;
+  const adminSubject = `[Admin Alert] Booking ${row.booking_code} locked, message ${row.host_name} on Zalo within 30 minutes`;
   const adminPayload = {
     bookingCode: row.booking_code,
     stayTitle: row.stay_title,
     hostName: row.host_name,
     hostWhatsapp: row.host_whatsapp,
-    slaMinutes: 30,
-    actionRequired: `Message host ${row.host_name} via Zalo/WhatsApp (${row.host_whatsapp}) within 30 minutes to confirm check-in readiness.`,
+    confirmWithinMinutes: 30,
+    actionRequired: `Message host ${row.host_name} via Zalo or WhatsApp (${row.host_whatsapp}) within 30 minutes to confirm check-in readiness.`,
   };
   const adminStatus = await maybeSendAdminWebhook(
-    `${adminSubject} | Guest: ${row.guest_name} (${checkIn} -> ${checkOut}) | Host: ${row.host_whatsapp}`
+    `${adminSubject} | Guest: ${row.guest_name} (${checkIn} to ${checkOut}) | Host: ${row.host_whatsapp}`
   );
 
   const records = [
