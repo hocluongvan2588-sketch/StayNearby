@@ -4,6 +4,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, ShieldCheck, SlidersHorizontal, Wifi } from 'lucide-react';
 import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
+import {
+  formatCountNoun,
+  formatNightsLabel,
+} from '@/lib/i18n';
 import type { DestinationSummary, LifestyleItem, StayCardItem } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
 import { PaginatedStayGrid } from './PaginatedStayGrid';
@@ -71,17 +75,17 @@ export function SearchStaysClient({
       <div className="mb-8 flex flex-col justify-between gap-4 border-b border-[#E5DFD3] pb-6 md:flex-row md:items-end">
         <div>
           <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
-            {isVi ? 'Phòng đang mở đặt qua BookingFlow' : 'Live BookingFlow availability'}
+            {isVi ? 'Chỗ ở còn trống' : 'Available stays'}
           </span>
           <h1 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E] sm:text-4xl">
             {isVi
               ? `${stays.length} chỗ ở phù hợp cho ${filters.nights} đêm`
-              : `${stays.length} stays available for ${filters.nights} nights`}
+              : `${formatCountNoun(stays.length, 'stay', 'stays', 'chỗ ở', locale)} available for ${formatNightsLabel(filters.nights, locale)}`}
           </h1>
           <p className="mt-1 text-sm text-[#53635D]">
             {isVi
-              ? `Nhận phòng ngày ${filters.checkIn}. Lọc linh hoạt theo tốc độ Wi-Fi, tiện nghi làm việc & sinh hoạt, hoặc badge kiểm định tùy chọn.`
-              : `Check-in ${filters.checkIn}. Filter freely by Wi-Fi speed, home amenities, workspace setup, or optional verified badges.`}
+              ? `Nhận phòng ${filters.checkIn}. Lọc theo tiện nghi sinh hoạt, tốc độ Wi-Fi, bàn làm việc hoặc badge kiểm định tùy chọn.`
+              : `Check-in ${filters.checkIn}. Filter by kitchen, laundry, Wi-Fi speed, desk setup, or optional verified badges.`}
           </p>
         </div>
 
@@ -239,7 +243,7 @@ export function SearchStaysClient({
 
           <div className="space-y-2 border-t border-[#E5DFD3] pt-3">
             <div className="text-xs font-semibold uppercase tracking-wider text-[#53635D]">
-              {isVi ? 'Tiện nghi làm việc & sinh hoạt' : 'Workspace & Living'}
+              {isVi ? 'Tiện nghi & Không gian' : 'Amenities & Setup'}
             </div>
             {[
               { key: 'workspace', val: filters.workspace, label: isVi ? 'Có bàn làm việc riêng' : 'Dedicated desk' },

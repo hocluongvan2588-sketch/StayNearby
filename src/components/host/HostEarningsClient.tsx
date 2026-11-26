@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import {
   formatBookingStatusLabel,
-  formatMoneyFromVnd,
   formatVndExact,
 } from '@/lib/i18n';
 import { usePreferences } from '@/components/PreferencesProvider';
@@ -22,7 +21,7 @@ export function HostEarningsClient({
 }: {
   initialData: HostEarningsData;
 }) {
-  const { locale, currency } = usePreferences();
+  const { locale, formatMoney, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [data, setData] = useState<HostEarningsData>(initialData);
@@ -64,8 +63,8 @@ export function HostEarningsClient({
           </h1>
           <p className="mt-0.5 text-xs text-[#53635D]">
             {isVi
-              ? '0% hoa hồng chủ nhà — Host thu đủ 100% tiền phòng khi khách nhận phòng.'
-              : '0% host commission — keep 100% of room rates collected directly at check-in.'}
+              ? `${hostCommissionPct}% hoa hồng chủ nhà. Bạn thu đủ 100% tiền phòng khi khách nhận phòng.`
+              : `${hostCommissionPct}% host commission. Collect 100% of your room rate at check-in.`}
           </p>
         </div>
 
@@ -129,7 +128,7 @@ export function HostEarningsClient({
             <Wallet className="h-4 w-4 text-[#164E3F]" />
           </div>
           <div className="mt-2 text-xl font-semibold text-[#17221E]">
-            {formatMoneyFromVnd(data.summary.hostGrossEarnedVnd, currency)}
+            {formatMoney(data.summary.hostGrossEarnedVnd)}
           </div>
           <div className="mt-1 text-[11px] text-[#53635D]">
             {formatVndExact(data.summary.hostGrossEarnedVnd)}
@@ -142,7 +141,7 @@ export function HostEarningsClient({
             <CheckCircle2 className="h-4 w-4 text-[#164E3F]" />
           </div>
           <div className="mt-2 text-xl font-semibold text-[#164E3F]">
-            {formatMoneyFromVnd(data.summary.hostCollectedVnd, currency)}
+            {formatMoney(data.summary.hostCollectedVnd)}
           </div>
           <div className="mt-1 text-[11px] text-[#53635D]">
             {formatVndExact(data.summary.hostCollectedVnd)}
@@ -155,7 +154,7 @@ export function HostEarningsClient({
             <Clock className="h-4 w-4 text-[#A67C2E]" />
           </div>
           <div className="mt-2 text-xl font-semibold text-[#17221E]">
-            {formatMoneyFromVnd(data.summary.hostPendingVnd, currency)}
+            {formatMoney(data.summary.hostPendingVnd)}
           </div>
           <div className="mt-1 text-[11px] text-[#53635D]">
             {formatVndExact(data.summary.hostPendingVnd)}

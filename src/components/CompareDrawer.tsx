@@ -6,12 +6,11 @@ import { ArrowLeftRight, Check, Minus, Wifi, X } from 'lucide-react';
 import {
   formatBusinessModelLabel,
   formatCancellationPolicyLabel,
-  formatMoneyFromVnd,
 } from '@/lib/i18n';
 import { usePreferences } from './PreferencesProvider';
 
 export function CompareDrawer() {
-  const { locale, currency, compareList, toggleCompare, clearCompare } = usePreferences();
+  const { locale, formatMoney, compareList, toggleCompare, clearCompare } = usePreferences();
   const [openModal, setOpenModal] = useState(false);
 
   if (compareList.length === 0) return null;
@@ -126,9 +125,9 @@ export function CompareDrawer() {
                     </td>
                     {compareList.map((s) => (
                       <td key={s.id} className="px-3 py-3 font-bold text-[#17221E]">
-                        {formatMoneyFromVnd(s.monthDisplayVnd, currency)}
+                        {formatMoney(s.monthDisplayVnd)}
                         <div className="text-[11px] font-normal text-[#53635D]">
-                          {formatMoneyFromVnd(s.monthNightVnd, currency)} / {isVi ? 'đêm' : 'night'}
+                          {formatMoney(s.monthNightVnd)} / {isVi ? 'đêm' : 'night'}
                         </div>
                       </td>
                     ))}
@@ -139,7 +138,7 @@ export function CompareDrawer() {
                     </td>
                     {compareList.map((s) => (
                       <td key={s.id} className="px-3 py-3">
-                        {formatMoneyFromVnd(s.weekDisplayVnd, currency)}
+                        {formatMoney(s.weekDisplayVnd)}
                       </td>
                     ))}
                   </tr>

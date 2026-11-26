@@ -50,7 +50,7 @@ export function HostListingEditorClient({
 }: {
   initialStay: HostStaySummary;
 }) {
-  const { locale } = usePreferences();
+  const { locale, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [stay] = useState<HostStaySummary>(initialStay);
@@ -656,7 +656,7 @@ export function HostListingEditorClient({
               </h2>
               <p className="rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] p-3 text-[#53635D]">
                 {isVi
-                  ? 'Các tiện ích làm việc từ xa là tùy chọn — không ảnh hưởng tới điều kiện đăng phòng.'
+                  ? 'Các tiện ích làm việc từ xa là tùy chọn và không ảnh hưởng tới điều kiện đăng phòng.'
                   : 'All workspace fields are optional and never block publishing.'}
               </p>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -748,7 +748,7 @@ export function HostListingEditorClient({
                 </div>
                 <div className="sm:col-span-2">
                   <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Địa chỉ chính xác (mở khóa sau khi khách đặt)' : 'Exact address (revealed after booking)'}
+                    {isVi ? 'Địa chỉ chính xác (chỉ gửi khách sau khi xác nhận đặt phòng)' : 'Exact address (shared after booking confirmation)'}
                   </label>
                   <input
                     value={exactAddress}
@@ -791,8 +791,8 @@ export function HostListingEditorClient({
                   </h2>
                   <p className="text-[#53635D]">
                     {isVi
-                      ? '0% hoa hồng chủ nhà — bạn nhận đủ 100% các mức giá nhập dưới đây.'
-                      : '0% host commission — you receive 100% of these rates.'}
+                      ? `${hostCommissionPct}% hoa hồng chủ nhà. Bạn nhận đủ 100% các mức giá nhập dưới đây.`
+                      : `${hostCommissionPct}% host commission. You receive 100% of these rates.`}
                   </p>
                 </div>
                 <Link href="/host/calendar" className="font-semibold text-[#164E3F] hover:underline">

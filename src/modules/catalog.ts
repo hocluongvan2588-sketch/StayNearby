@@ -3,6 +3,7 @@ import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates
 import type { Locale } from '@/lib/i18n';
 import { calculateStayQuote } from '@/lib/pricing';
 import { parseHouseRules, type HostHouseRules } from '@/modules/host';
+import { getPlatformFeeConfig, type PlatformFeeConfig } from '@/modules/platform-settings';
 
 export interface CoworkingSpot {
   name: string;
@@ -66,6 +67,8 @@ export interface StayCardItem {
   dealSavingsPct: number;
   isDealFeatured: boolean;
   dealMonthLabel: string;
+  isFeatured: boolean;
+  featuredRank: number;
 }
 
 export interface DestinationSummary {
@@ -160,8 +163,29 @@ export interface LocalDiscoveryPlace {
   imageUrl: string;
   neighborhoodNameEn: string | null;
   neighborhoodNameVi: string | null;
+  partnerName?: string | null;
+  partnerPerk?: string | null;
   verificationStatus: string;
   distanceLabel?: string;
+}
+
+export interface DestinationNeighborhood {
+  id: string;
+  slug: string;
+  nameEn: string;
+  nameVi: string;
+  summaryEn: string;
+  summaryVi: string;
+  guideEn: string;
+  guideVi: string;
+}
+
+export interface DestinationLocalPartner {
+  id: string;
+  businessName: string;
+  category: string;
+  perkOffer: string;
+  contractRef: string;
 }
 
 export interface StayDetail extends StayCardItem {
@@ -207,7 +231,11 @@ function parseJsonArray<T>(raw: unknown): T[] {
   return [];
 }
 
-function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]): StayCardItem {
+function mapStayRowToCard(
+  row: Record<string, unknown>,
+  lifestyleSlugs: string[],
+  feeConfig?: PlatformFeeConfig
+): StayCardItem {
   const pkgInput = {
     wholesale7Vnd: toNum(row.wholesale_7_vnd),
     wholesale14Vnd: toNum(row.wholesale_14_vnd),
@@ -217,12 +245,30 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
     extraNightVnd: toNum(row.extra_night_vnd),
   };
 
-  const q7 = calculateStayQuote({ pkg: pkgInput, nights: 7, businessModel: 'booking_flow' });
-  const q30 = calculateStayQuote({ pkg: pkgInput, nights: 30, businessModel: 'booking_flow' });
+  const serviceFeeRate = feeConfig?.serviceFeeRate ?? 0.12;
+  const vatDiscountRate = feeConfig?.vatDiscountRate ?? 0.05;
+  const premiumRewardRate = feeConfig?.premiumRewardRate ?? 0.04;
+
+  const q7 = calculateStayQuote({
+    pkg: pkgInput,
+    nights: 7,
+    businessModel: 'booking_flow',
+    serviceFeeRate,
+    vatDiscountRate,
+    premiumRewardRate,
+  });
+  const q30 = calculateStayQuote({
+    pkg: pkgInput,
+    nights: 30,
+    businessModel: 'booking_flow',
+    serviceFeeRate,
+    vatDiscountRate,
+    premiumRewardRate,
+  });
 
   const compareDisplay =
     pkgInput.compare30Vnd && pkgInput.compare30Vnd > pkgInput.wholesale30Vnd
-      ? Math.round(pkgInput.compare30Vnd * 1.12)
+      ? Math.round(pkgInput.compare30Vnd * (1 + serviceFeeRate))
       : null;
 
   const dealSavingsPct =
@@ -303,6 +349,8 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
     dealSavingsPct,
     isDealFeatured: Boolean(row.is_deal_featured),
     dealMonthLabel: String(row.deal_month_label ?? 'December'),
+    isFeatured: Boolean(row.is_featured),
+    featuredRank: toNum(row.featured_rank, 100),
   };
 }
 
@@ -376,27 +424,30 @@ export interface SearchStaysFilter {
   wifiVerifiedOnly?: boolean;
   workReadyOnly?: boolean;
   maxMonthlyVnd?: number;
-  sort?: 'wifi_desc' | 'price_asc' | 'savings_desc' | 'rating_desc';
+  sort?: 'featured' | 'wifi_desc' | 'price_asc' | 'savings_desc' | 'rating_desc';
 }
 
 export async function searchStays(filters: SearchStaysFilter = {}): Promise<StayCardItem[]> {
-  const res = await dbQuery(
-    `SELECT s.*,
-            d.slug AS destination_slug, d.name_en AS destination_name_en, d.name_vi AS destination_name_vi,
-            r.id AS default_room_id, r.beds_count, r.max_guests, r.units_total,
-            p.wholesale_7_vnd, p.wholesale_14_vnd, p.wholesale_21_vnd, p.wholesale_30_vnd,
-            p.compare_30_vnd, p.extra_night_vnd, p.is_deal_featured, p.deal_month_label,
-            p.valid_from, p.valid_to
-     FROM stays s
-     JOIN destinations d ON d.id = s.destination_id
-     JOIN LATERAL (
-       SELECT * FROM stay_rooms sr WHERE sr.stay_id = s.id ORDER BY sr.max_guests DESC LIMIT 1
-     ) r ON TRUE
-     JOIN LATERAL (
-       SELECT * FROM stay_packages sp WHERE sp.stay_id = s.id AND sp.is_listed = TRUE ORDER BY sp.wholesale_30_vnd ASC LIMIT 1
-     ) p ON TRUE
-     WHERE s.status = 'live'`
-  );
+  const [res, feeConfig] = await Promise.all([
+    dbQuery(
+      `SELECT s.*,
+              d.slug AS destination_slug, d.name_en AS destination_name_en, d.name_vi AS destination_name_vi,
+              r.id AS default_room_id, r.beds_count, r.max_guests, r.units_total,
+              p.wholesale_7_vnd, p.wholesale_14_vnd, p.wholesale_21_vnd, p.wholesale_30_vnd,
+              p.compare_30_vnd, p.extra_night_vnd, p.is_deal_featured, p.deal_month_label,
+              p.valid_from, p.valid_to
+       FROM stays s
+       JOIN destinations d ON d.id = s.destination_id
+       JOIN LATERAL (
+         SELECT * FROM stay_rooms sr WHERE sr.stay_id = s.id ORDER BY sr.max_guests DESC LIMIT 1
+       ) r ON TRUE
+       JOIN LATERAL (
+         SELECT * FROM stay_packages sp WHERE sp.stay_id = s.id AND sp.is_listed = TRUE ORDER BY sp.wholesale_30_vnd ASC LIMIT 1
+       ) p ON TRUE
+       WHERE s.status = 'live'`
+    ),
+    getPlatformFeeConfig(),
+  ]);
 
   const lifestyleRows = await dbQuery<{ stay_id: string; slug: string }>(
     `SELECT sl.stay_id, l.slug
@@ -438,7 +489,7 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
 
   let items = res.rows
     .filter((r) => !unavailableRoomIds.has(String(r.default_room_id)))
-    .map((r) => mapStayRowToCard(r, lsMap.get(String(r.id)) ?? []));
+    .map((r) => mapStayRowToCard(r, lsMap.get(String(r.id)) ?? [], feeConfig));
 
   if (filters.destination && filters.destination !== 'all') {
     items = items.filter((s) => s.destinationSlug === filters.destination);
@@ -480,12 +531,15 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
     items = items.filter((s) => s.monthDisplayVnd <= filters.maxMonthlyVnd!);
   }
 
-  const sortBy = filters.sort ?? 'wifi_desc';
+  const sortBy = filters.sort ?? 'featured';
   items.sort((a, b) => {
     if (sortBy === 'price_asc') return a.monthDisplayVnd - b.monthDisplayVnd;
     if (sortBy === 'savings_desc')
       return b.dealSavingsPct + b.stayLongerSavingsPct - (a.dealSavingsPct + a.stayLongerSavingsPct);
     if (sortBy === 'rating_desc') return b.googleRating - a.googleRating;
+    if (sortBy === 'wifi_desc') return b.wifiDownloadMbps - a.wifiDownloadMbps;
+    if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
+    if (a.featuredRank !== b.featuredRank) return a.featuredRank - b.featuredRank;
     return b.wifiDownloadMbps - a.wifiDownloadMbps;
   });
 
@@ -493,30 +547,33 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
 }
 
 export async function getStayDetailBySlug(slug: string): Promise<StayDetail | null> {
-  const stayRes = await dbQuery(
-    `SELECT s.*,
-            u.full_name AS host_name, u.nationality AS host_nationality,
-            d.id AS d_id, d.slug AS destination_slug, d.name_en AS destination_name_en,
-            d.name_vi AS destination_name_vi, d.region_en, d.region_vi,
-            d.tagline_en, d.tagline_vi, d.climate_en, d.climate_vi,
-            d.visa_summary_en, d.visa_summary_vi, d.visa_details_en, d.visa_details_vi,
-            d.monthly_cost_usd, d.avg_wifi_mbps, d.hero_image AS dest_hero_image,
-            d.map_x AS dest_map_x, d.map_y AS dest_map_y,
-            r.beds_count, r.max_guests,
-            p.wholesale_7_vnd, p.wholesale_14_vnd, p.wholesale_21_vnd, p.wholesale_30_vnd,
-            p.compare_30_vnd, p.extra_night_vnd, p.is_deal_featured, p.deal_month_label
-     FROM stays s
-     JOIN users u ON u.id = s.host_id
-     JOIN destinations d ON d.id = s.destination_id
-     LEFT JOIN LATERAL (
-       SELECT * FROM stay_rooms sr WHERE sr.stay_id = s.id ORDER BY sr.max_guests DESC LIMIT 1
-     ) r ON TRUE
-     LEFT JOIN LATERAL (
-       SELECT * FROM stay_packages sp WHERE sp.stay_id = s.id AND sp.is_listed = TRUE ORDER BY sp.wholesale_30_vnd ASC LIMIT 1
-     ) p ON TRUE
-     WHERE s.slug = $1`,
-    [slug]
-  );
+  const [stayRes, feeConfig] = await Promise.all([
+    dbQuery(
+      `SELECT s.*,
+              u.full_name AS host_name, u.nationality AS host_nationality,
+              d.id AS d_id, d.slug AS destination_slug, d.name_en AS destination_name_en,
+              d.name_vi AS destination_name_vi, d.region_en, d.region_vi,
+              d.tagline_en, d.tagline_vi, d.climate_en, d.climate_vi,
+              d.visa_summary_en, d.visa_summary_vi, d.visa_details_en, d.visa_details_vi,
+              d.monthly_cost_usd, d.avg_wifi_mbps, d.hero_image AS dest_hero_image,
+              d.map_x AS dest_map_x, d.map_y AS dest_map_y,
+              r.beds_count, r.max_guests,
+              p.wholesale_7_vnd, p.wholesale_14_vnd, p.wholesale_21_vnd, p.wholesale_30_vnd,
+              p.compare_30_vnd, p.extra_night_vnd, p.is_deal_featured, p.deal_month_label
+       FROM stays s
+       JOIN users u ON u.id = s.host_id
+       JOIN destinations d ON d.id = s.destination_id
+       LEFT JOIN LATERAL (
+         SELECT * FROM stay_rooms sr WHERE sr.stay_id = s.id ORDER BY sr.max_guests DESC LIMIT 1
+       ) r ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT * FROM stay_packages sp WHERE sp.stay_id = s.id AND sp.is_listed = TRUE ORDER BY sp.wholesale_30_vnd ASC LIMIT 1
+       ) p ON TRUE
+       WHERE s.slug = $1`,
+      [slug]
+    ),
+    getPlatformFeeConfig(),
+  ]);
 
   const row = stayRes.rows[0];
   if (!row) return null;
@@ -527,7 +584,8 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
   );
   const card = mapStayRowToCard(
     row,
-    lsRes.rows.map((x) => x.slug)
+    lsRes.rows.map((x) => x.slug),
+    feeConfig
   );
 
   const roomsRes = await dbQuery(
@@ -790,13 +848,18 @@ export async function getDestinationLocalPlaces(destinationSlug: string): Promis
       verification_status: string;
       neighborhood_name_en: string | null;
       neighborhood_name_vi: string | null;
+      partner_name: string | null;
+      partner_perk: string | null;
     }>(
       `SELECT p.id, p.slug, p.name, p.category, p.address, p.price_range, p.opening_hours,
               p.description_en, p.description_vi, p.image_url, p.verification_status,
-              n.name_en AS neighborhood_name_en, n.name_vi AS neighborhood_name_vi
+              n.name_en AS neighborhood_name_en, n.name_vi AS neighborhood_name_vi,
+              CASE WHEN lp.partnership_status = 'active' THEN lp.business_name ELSE NULL END AS partner_name,
+              CASE WHEN lp.partnership_status = 'active' THEN lp.perk_offer ELSE NULL END AS partner_perk
        FROM places p
        JOIN destinations d ON d.id = p.destination_id
        LEFT JOIN neighborhoods n ON n.id = p.neighborhood_id
+       LEFT JOIN local_partners lp ON lp.id = p.partner_id
        WHERE d.slug = $1 AND p.verification_status = 'verified'
        ORDER BY p.is_featured DESC, p.category ASC, p.name ASC`,
       [destinationSlug]
@@ -814,7 +877,75 @@ export async function getDestinationLocalPlaces(destinationSlug: string): Promis
       imageUrl: String(p.image_url ?? ''),
       neighborhoodNameEn: p.neighborhood_name_en ? String(p.neighborhood_name_en) : null,
       neighborhoodNameVi: p.neighborhood_name_vi ? String(p.neighborhood_name_vi) : null,
+      partnerName: p.partner_name ? String(p.partner_name) : null,
+      partnerPerk: p.partner_perk ? String(p.partner_perk) : null,
       verificationStatus: String(p.verification_status ?? 'verified'),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getDestinationNeighborhoods(
+  destinationSlug: string
+): Promise<DestinationNeighborhood[]> {
+  try {
+    const res = await dbQuery<{
+      id: string;
+      slug: string;
+      name_en: string;
+      name_vi: string;
+      summary_en: string;
+      summary_vi: string;
+      guide_en: string;
+      guide_vi: string;
+    }>(
+      `SELECT n.id, n.slug, n.name_en, n.name_vi, n.summary_en, n.summary_vi, n.guide_en, n.guide_vi
+       FROM neighborhoods n
+       JOIN destinations d ON d.id = n.destination_id
+       WHERE d.slug = $1
+       ORDER BY n.name_en ASC`,
+      [destinationSlug]
+    );
+    return res.rows.map((n) => ({
+      id: String(n.id),
+      slug: String(n.slug),
+      nameEn: String(n.name_en),
+      nameVi: String(n.name_vi),
+      summaryEn: String(n.summary_en ?? ''),
+      summaryVi: String(n.summary_vi ?? ''),
+      guideEn: String(n.guide_en ?? ''),
+      guideVi: String(n.guide_vi ?? ''),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getDestinationLocalPartners(
+  destinationSlug: string
+): Promise<DestinationLocalPartner[]> {
+  try {
+    const res = await dbQuery<{
+      id: string;
+      business_name: string;
+      category: string;
+      perk_offer: string;
+      contract_ref: string;
+    }>(
+      `SELECT lp.id, lp.business_name, lp.category, lp.perk_offer, lp.contract_ref
+       FROM local_partners lp
+       JOIN destinations d ON d.id = lp.destination_id
+       WHERE d.slug = $1 AND lp.partnership_status = 'active'
+       ORDER BY lp.business_name ASC`,
+      [destinationSlug]
+    );
+    return res.rows.map((lp) => ({
+      id: String(lp.id),
+      businessName: String(lp.business_name),
+      category: String(lp.category),
+      perkOffer: String(lp.perk_offer ?? ''),
+      contractRef: String(lp.contract_ref ?? ''),
     }));
   } catch {
     return [];

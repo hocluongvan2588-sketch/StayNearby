@@ -9,7 +9,7 @@ import {
   Percent,
   TrendingUp,
 } from 'lucide-react';
-import { formatMoneyFromVnd, formatVndExact } from '@/lib/i18n';
+import { formatVndExact } from '@/lib/i18n';
 import { usePreferences } from '@/components/PreferencesProvider';
 import type { HostInsightsData } from '@/modules/host-console';
 
@@ -18,7 +18,7 @@ export function HostInsightsClient({
 }: {
   initialData: HostInsightsData;
 }) {
-  const { locale, currency } = usePreferences();
+  const { locale, formatMoney } = usePreferences();
   const isVi = locale === 'vi';
 
   const [data, setData] = useState<HostInsightsData>(initialData);
@@ -82,13 +82,13 @@ export function HostInsightsClient({
     },
     {
       label: isVi ? 'Giá đêm TB (ADR)' : 'Avg daily rate (ADR)',
-      val: m.adrVnd > 0 ? formatMoneyFromVnd(m.adrVnd, currency) : '—',
+      val: m.adrVnd > 0 ? formatMoney(m.adrVnd) : '—',
       sub: m.adrVnd > 0 ? formatVndExact(m.adrVnd) : isVi ? 'Chưa có đơn trong kỳ' : 'No bookings in window',
       icon: TrendingUp,
     },
     {
       label: isVi ? 'Doanh thu / đêm khả dụng (RevPAR)' : 'RevPAR',
-      val: formatMoneyFromVnd(m.revParVnd, currency),
+      val: formatMoney(m.revParVnd),
       sub: formatVndExact(m.revParVnd),
       icon: TrendingUp,
     },

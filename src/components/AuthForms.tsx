@@ -224,8 +224,8 @@ export function RegisterClient() {
           </h1>
           <p className="mt-1 text-sm text-[#53635D]">
             {isVi
-              ? 'Đặt phòng trực tiếp chủ nhà, lưu chỗ ở yêu thích và đăng ký tham gia sự kiện.'
-              : 'Unlock direct host bookings, save favorite stays, and join local meetups.'}
+              ? 'Đặt phòng trực tiếp với chủ nhà, lưu chỗ ở yêu thích và đăng ký tham gia sự kiện.'
+              : 'Book stays directly, save favorites, and RSVP to local events.'}
           </p>
         </div>
 

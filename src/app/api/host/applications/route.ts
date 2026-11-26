@@ -17,6 +17,9 @@ const schema = z.object({
   hasExternalMonitor: z.boolean().optional(),
   kitchenType: z.enum(['full', 'kitchenette', 'shared', 'none']).optional(),
   laundryType: z.enum(['in_unit', 'building', 'service', 'none']).optional(),
+  sourceDetail: z.string().max(120).optional(),
+  utmSource: z.string().max(120).optional(),
+  utmCampaign: z.string().max(120).optional(),
 });
 
 export async function POST(req: Request) {

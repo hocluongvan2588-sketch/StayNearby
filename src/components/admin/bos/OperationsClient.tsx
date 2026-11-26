@@ -498,7 +498,7 @@ export function BookingsOperationsView({ initialBookings }: { initialBookings: B
     <div>
       <PageHeader
         title="Bookings & 5-Axis Lifecycle Sync"
-        subtitle="Synchronized with Guest Platform & Host Console — tracking Booking, Stay, Payment, Payout, and Refund status separately."
+        subtitle="Synced with Guest Platform and Host Console across Booking, Stay, Payment, Payout, and Refund status."
       />
 
       <SavedViewToolbar
@@ -861,6 +861,7 @@ export function SupportTicketsView({ initialTickets }: { initialTickets: Tickets
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [replyBody, setReplyBody] = useState('');
+  const [replyInternal, setReplyInternal] = useState(false);
   const [nextStatus, setNextStatus] = useState<'open' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed'>('in_progress');
 
   async function refresh() {
@@ -896,13 +897,14 @@ export function SupportTicketsView({ initialTickets }: { initialTickets: Tickets
         ticketId: selected.id,
         status: nextStatus,
         messageBody: replyBody,
-        isInternalNote: true,
-        resolutionSummary: nextStatus === 'resolved' ? replyBody : undefined,
+        isInternalNote: replyInternal,
+        resolutionSummary: nextStatus === 'resolved' && !replyInternal ? replyBody : undefined,
       }),
     });
     if (res.ok) {
       setSelected(null);
       setReplyBody('');
+      setReplyInternal(false);
       await refresh();
     }
   }
@@ -987,8 +989,55 @@ export function SupportTicketsView({ initialTickets }: { initialTickets: Tickets
         {selected && (
           <form onSubmit={handleUpdate} className="space-y-4 text-xs">
             <div className="rounded border border-[#E5DFD3] bg-[#FAF8F3] p-3 leading-relaxed">
-              {selected.description}
+              <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-[#53635D]">
+                <span>{selected.guestName || 'Guest'}</span>
+                {selected.bookingCode && <span>· {selected.bookingCode}</span>}
+                {selected.issueSubCategory && <span>· {selected.issueSubCategory}</span>}
+              </div>
+              <div>{selected.description}</div>
+              {selected.attachments.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {selected.attachments.map((url, idx) => (
+                    <a
+                      key={idx}
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded border border-[#E5DFD3] bg-white px-2 py-0.5 text-[11px] text-[#164E3F] underline"
+                    >
+                      Attachment #{idx + 1}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
+            {selected.messages.length > 0 && (
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded border border-[#E5DFD3] bg-white p-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-[#53635D]">
+                  Conversation Thread
+                </div>
+                {selected.messages.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`rounded-md p-2 text-[11px] ${
+                      m.isInternalNote
+                        ? 'border border-[#E7C69C] bg-[#FDF7ED]'
+                        : 'border border-[#E5DFD3] bg-[#FAF8F3]'
+                    }`}
+                  >
+                    <div className="mb-0.5 flex items-center justify-between font-semibold text-[#17221E]">
+                      <span>
+                        {m.senderName} ({m.senderRole}) {m.isInternalNote ? '· INTERNAL NOTE' : ''}
+                      </span>
+                      <span className="font-normal text-[#53635D]">
+                        {m.createdAt.slice(0, 16).replace('T', ' ')}
+                      </span>
+                    </div>
+                    <div className="whitespace-pre-wrap text-[#17221E]">{m.body}</div>
+                  </div>
+                ))}
+              </div>
+            )}
             <div>
               <label className="mb-1 block font-semibold">Status</label>
               <select
@@ -1008,13 +1057,28 @@ export function SupportTicketsView({ initialTickets }: { initialTickets: Tickets
               </select>
             </div>
             <div>
-              <label className="mb-1 block font-semibold">Internal Note / Resolution Summary</label>
+              <label className="mb-1 block font-semibold">
+                {replyInternal ? 'Internal Staff Note (hidden from guest)' : 'Public Reply to Guest'}
+              </label>
               <textarea
                 rows={4}
                 value={replyBody}
                 onChange={(e) => setReplyBody(e.target.value)}
+                placeholder={
+                  replyInternal
+                    ? 'Internal investigation note...'
+                    : 'Write reply visible to guest in Member Dashboard...'
+                }
                 className="w-full rounded border border-[#E5DFD3] p-2.5"
               />
+              <label className="mt-2 inline-flex items-center gap-1.5 text-[11px] text-[#53635D]">
+                <input
+                  type="checkbox"
+                  checked={replyInternal}
+                  onChange={(e) => setReplyInternal(e.target.checked)}
+                />
+                Save as internal staff note only (hidden from guest)
+              </label>
             </div>
             <button type="submit" className="h-8 rounded bg-[#164E3F] px-4 font-semibold text-white">
               Save Update

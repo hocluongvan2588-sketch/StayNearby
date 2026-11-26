@@ -13,18 +13,18 @@ import {
 import { usePreferences } from '@/components/PreferencesProvider';
 
 export function HostHelpClient() {
-  const { locale } = usePreferences();
+  const { locale, serviceFeePct, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const guides = [
     {
       icon: Wallet,
       title: isVi
-        ? 'Mô hình thanh toán 0% hoa hồng chủ nhà hoạt động ra sao?'
-        : 'How does the 0% host commission model work?',
+        ? `Mô hình thanh toán ${hostCommissionPct}% hoa hồng chủ nhà hoạt động ra sao?`
+        : `How does the ${hostCommissionPct}% host commission model work?`,
       body: isVi
-        ? 'Khách thanh toán 12% phí dịch vụ đặt phòng trực tuyến cho VietNomad Stays để khóa lịch và xác thực đặt chỗ. Khi khách tới nhận phòng, bạn trực tiếp thu 100% giá phòng (chuyển khoản VietQR, thẻ hoặc tiền mặt) mà không bị nền tảng khấu trừ bất kỳ khoản hoa hồng nào. Sau khi thu tiền, bạn vào mục Đặt phòng hoặc Tổng quan hôm nay bấm "Xác nhận nhận phòng & đã thu tiền".'
-        : 'Guests pay a 12% booking service fee online to VietNomad Stays to lock dates. Upon arrival, you collect 100% of your room rate directly from the guest (bank transfer, QR, card, or cash) with 0% commission deducted. Once collected, click "Confirm check-in & rent received" inside Reservations or Today’s queue.',
+        ? `Khách thanh toán ${serviceFeePct}% phí dịch vụ đặt phòng trực tuyến cho VietNomad Stays để khóa lịch và xác thực đặt chỗ. Khi khách tới nhận phòng, bạn trực tiếp thu 100% giá phòng (chuyển khoản VietQR, thẻ hoặc tiền mặt) mà không bị nền tảng khấu trừ hoa hồng bất ngờ. Sau khi thu tiền, bạn vào mục Đặt phòng hoặc Tổng quan hôm nay bấm "Xác nhận nhận phòng & đã thu tiền".`
+        : `Guests pay a ${serviceFeePct}% booking service fee online to VietNomad Stays to lock dates. Upon arrival, you collect 100% of your room rate directly from the guest (bank transfer, QR, card, or cash) with ${hostCommissionPct}% host commission. Once collected, click "Confirm check-in & rent received" inside Reservations or Today’s queue.`,
     },
     {
       icon: CalendarClock,
@@ -50,8 +50,8 @@ export function HostHelpClient() {
         ? 'Quy trình duyệt đơn khi tắt Đặt phòng tức thì'
         : 'Pending approval workflow (when Instant Book is off)',
       body: isVi
-        ? 'Nếu bạn tắt Instant Book trong phần Chỉnh sửa chỗ ở, đơn đặt mới sẽ giữ lịch tạm thời ở trạng thái Chờ duyệt. Khi bạn chấp nhận, lịch chuyển sang Đã khóa; nếu bạn từ chối, hệ thống tự động hoàn lại 12% phí đặt phòng cho khách và mở lại ngày trống.'
-        : 'When Instant Book is turned off for a property, new bookings arrive in Pending Host Approval. Approving confirms the stay; declining automatically releases the calendar dates and refunds the guest’s 12% booking fee.',
+        ? `Nếu bạn tắt Instant Book trong phần Chỉnh sửa chỗ ở, đơn đặt mới sẽ giữ lịch tạm thời ở trạng thái Chờ duyệt. Khi bạn chấp nhận, lịch chuyển sang Đã khóa; nếu bạn từ chối, hệ thống tự động hoàn lại ${serviceFeePct}% phí đặt phòng cho khách và mở lại ngày trống.`
+        : `When Instant Book is turned off for a property, new bookings arrive in Pending Host Approval. Approving confirms the stay; declining automatically releases the calendar dates and refunds the guest’s ${serviceFeePct}% booking fee.`,
     },
   ];
 

@@ -30,7 +30,14 @@ export function SiteHeader({
   destinations: DestinationSummary[];
   lifestyles: LifestyleItem[];
 }) {
-  const { locale, currency, setLocale, setCurrency } = usePreferences();
+  const {
+    locale,
+    currency,
+    setLocale,
+    setCurrency,
+    premiumRewardPct,
+    hostCommissionPct,
+  } = usePreferences();
   const [openMenu, setOpenMenu] = useState<'explore' | 'locale' | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
@@ -189,7 +196,7 @@ export function SiteHeader({
             onClick={() => setOpenMenu(null)}
             className="whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium text-[#17221E] transition hover:bg-[#EFECE4]/70 xl:px-3.5"
           >
-            {isVi ? 'Tìm chỗ ở' : 'Stays'}
+            {isVi ? 'Chỗ ở' : 'Stays'}
           </Link>
 
           <Link
@@ -214,7 +221,7 @@ export function SiteHeader({
             className="flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium text-[#A67C2E] transition hover:bg-[#EFECE4]/70 xl:px-3.5"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            {isVi ? 'Hội viên' : 'Nomad Pass'}
+            {isVi ? 'Hội viên' : 'Membership'}
           </Link>
         </nav>
 
@@ -225,7 +232,7 @@ export function SiteHeader({
             onClick={() => setOpenMenu(null)}
             className="whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold text-[#164E3F] transition hover:bg-[#E7F1EC]"
           >
-            {isVi ? 'Cho thuê nhà' : 'Host a stay'}
+            {isVi ? 'Cho thuê nhà' : 'List a property'}
           </Link>
 
           {/* Compact Language + Currency Popover */}
@@ -330,7 +337,7 @@ export function SiteHeader({
                   className="flex items-center gap-1 whitespace-nowrap rounded-full bg-[#E7F1EC] px-3 py-1.5 text-xs font-semibold text-[#164E3F] hover:bg-[#d7eae0]"
                 >
                   <Building2 className="h-3.5 w-3.5" />
-                  {isVi ? 'Quản lý nhà' : 'Host Portal'}
+                  {isVi ? 'Kênh chủ nhà' : 'Host Console'}
                 </Link>
               )}
               {user.role === 'admin' && (
@@ -339,7 +346,7 @@ export function SiteHeader({
                   className="flex items-center gap-1 whitespace-nowrap rounded-full bg-[#FAEDE5] px-3 py-1.5 text-xs font-semibold text-[#C25E28] hover:bg-[#f4dfd3]"
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  {isVi ? 'Kiểm duyệt' : 'Admin'}
+                  {isVi ? 'Quản trị' : 'Admin'}
                 </Link>
               )}
               <Link
@@ -423,34 +430,37 @@ export function SiteHeader({
           <div className="grid gap-1 text-sm font-medium">
             <Link href="/stays" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 hover:bg-[#FAF8F3]">
               <Compass className="mr-2 inline h-4 w-4 text-[#164E3F]" />
-              {isVi ? 'Tìm chỗ ở dài ngày' : 'Find Stays'}
+              {isVi ? 'Tìm chỗ ở' : 'Browse stays'}
             </Link>
             <Link href="/deals" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 text-[#C25E28] hover:bg-[#FAEDE5]">
-              {isVi ? 'Ưu đãi thuê theo tháng' : 'Monthly Deals'}
+              {isVi ? 'Ưu đãi theo tháng' : 'Monthly deals'}
+            </Link>
+            <Link href="/guides" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 hover:bg-[#FAF8F3]">
+              {isVi ? 'Cẩm nang địa phương' : 'Guides'}
             </Link>
             <Link href="/community" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 hover:bg-[#FAF8F3]">
-              {isVi ? 'Visa và Cộng đồng' : 'Visa and Community'}
+              {isVi ? 'Visa & Cộng đồng' : 'Visa & Community'}
             </Link>
             <Link href="/membership" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 text-[#A67C2E] hover:bg-[#FAF8F3]">
-              {isVi ? 'Thẻ hội viên (Hoàn 4%)' : 'Nomad Pass (4% Credit)'}
+              {isVi ? `Thẻ hội viên (Hoàn ${premiumRewardPct}%)` : `Membership (${premiumRewardPct}% credit)`}
             </Link>
             <Link href="/list-your-stay" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 font-semibold text-[#164E3F] hover:bg-[#E7F1EC]">
-              {isVi ? 'Cho thuê nhà (0% hoa hồng)' : 'Host a stay'}
+              {isVi ? `Cho thuê nhà (${hostCommissionPct}% hoa hồng)` : `List a property (${hostCommissionPct}% commission)`}
             </Link>
             <div className="my-2 border-t border-[#E5DFD3]" />
             {user ? (
               <>
                 <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="rounded-lg bg-[#164E3F] px-3 py-2 text-center font-semibold text-white">
-                  {user.fullName} ({isVi ? 'Tài khoản' : 'Account'})
+                  {user.fullName} ({isVi ? 'Tài khoản' : 'Dashboard'})
                 </Link>
                 {user.role === 'host' && (
                   <Link href="/host" onClick={() => setMobileOpen(false)} className="rounded-lg bg-[#E7F1EC] px-3 py-2 text-center font-semibold text-[#164E3F]">
-                    {isVi ? 'Quản lý nhà' : 'Host Portal'}
+                    {isVi ? 'Kênh chủ nhà' : 'Host Console'}
                   </Link>
                 )}
                 {user.role === 'admin' && (
                   <Link href="/admin" onClick={() => setMobileOpen(false)} className="rounded-lg bg-[#FAEDE5] px-3 py-2 text-center font-semibold text-[#C25E28]">
-                    {isVi ? 'Kiểm duyệt' : 'Admin'}
+                    {isVi ? 'Quản trị' : 'Admin'}
                   </Link>
                 )}
                 <button type="button" onClick={handleLogout} className="rounded-lg px-3 py-2 text-left text-[#C25E28]">

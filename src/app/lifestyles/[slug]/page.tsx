@@ -49,7 +49,7 @@ export default async function LifestyleDetailPage({
         <div className="grid items-center gap-6 md:grid-cols-12">
           <div className="space-y-3 p-8 md:col-span-7">
             <span className="text-xs font-semibold uppercase tracking-widest text-[#E6B87A]">
-              {isVi ? 'Lối sống Digital Nomad' : 'Curated Nomad Lifestyle'}
+              {isVi ? 'Phong cách lưu trú' : 'Stay style'}
             </span>
             <h1 className="font-serif-display text-4xl font-semibold">
               {isVi ? lifestyle.nameVi : lifestyle.nameEn}

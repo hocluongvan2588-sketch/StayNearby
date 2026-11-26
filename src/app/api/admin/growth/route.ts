@@ -91,7 +91,15 @@ const postSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('content'),
     id: z.string().uuid().optional(),
-    contentType: z.enum(['article', 'landing_page', 'destination_guide']),
+    contentType: z.enum([
+      'article',
+      'landing_page',
+      'destination_guide',
+      'faq',
+      'announcement',
+      'hero_banner',
+      'community_story',
+    ]),
     category: z.string().min(2).max(80),
     slug: z.string().min(2).max(140),
     titleEn: z.string().min(2).max(200),
@@ -104,6 +112,8 @@ const postSchema = z.discriminatedUnion('kind', [
     canonicalUrl: z.string().max(300).optional(),
     redirectTo: z.string().max(300).optional(),
     robotsIndex: z.boolean().optional(),
+    publishStartAt: z.string().nullable().optional(),
+    publishEndAt: z.string().nullable().optional(),
     status: z.enum(['draft', 'published', 'archived']),
   }),
   z.object({
@@ -126,6 +136,10 @@ const postSchema = z.discriminatedUnion('kind', [
     maxUses: z.number().int().min(1).nullable().optional(),
     validFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     validTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    isPublic: z.boolean().optional(),
+    fundingSource: z.enum(['vietnomad', 'host', 'shared']).optional(),
+    descriptionEn: z.string().max(400).optional(),
+    descriptionVi: z.string().max(400).optional(),
   }),
 ]);
 

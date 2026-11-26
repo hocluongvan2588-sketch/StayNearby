@@ -72,7 +72,7 @@ export function DestinationsView({ initialData }: { initialData: DestinationsDat
     <div>
       <PageHeader
         title="Destinations & Neighborhoods"
-        subtitle="Manage Vietnam hubs, living benchmarks, and curated neighborhoods."
+        subtitle="Manage Vietnam destination hubs, benchmarks, and neighborhoods."
         actions={
           <button
             type="button"
@@ -94,7 +94,7 @@ export function DestinationsView({ initialData }: { initialData: DestinationsDat
               <th className="px-4 py-2.5 text-right">Avg Wi-Fi</th>
               <th className="px-4 py-2.5 text-right">Est. Monthly Cost</th>
               <th className="px-4 py-2.5 text-right">Live Stays</th>
-              <th className="px-4 py-2.5 text-right">Discovery Places</th>
+              <th className="px-4 py-2.5 text-right">Places</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E5DFD3]">
@@ -256,7 +256,7 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
   }
 
   async function handleDelete(placeId: string) {
-    if (!window.confirm('Delete this Local Discovery entity?')) return;
+    if (!window.confirm('Remove this place? It will no longer appear on destination or stay pages.')) return;
     const res = await fetch('/api/admin/growth', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -281,8 +281,8 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
   return (
     <div>
       <PageHeader
-        title="Centralized Local Discovery"
-        subtitle="Single-source entity repository shared across Destination Hubs, Stay Detail pages, and SEO Guides."
+        title="Local Places"
+        subtitle="Places shown across destination pages, stay listings, and city guides."
         actions={
           <button
             type="button"
@@ -290,7 +290,7 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
             className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[#164E3F] px-3 text-xs font-semibold text-white"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add local place
+            Add place
           </button>
         }
       />
@@ -422,7 +422,7 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
           <textarea
             required
             rows={2}
-            placeholder="Curated editorial note..."
+            placeholder="Short description of this place..."
             value={descriptionEn}
             onChange={(e) => setDescriptionEn(e.target.value)}
             className="w-full rounded border border-[#E5DFD3] p-2"
@@ -466,13 +466,20 @@ export function ContentSeoView({ initialContents }: { initialContents: CmsList }
   const [contents, setContents] = useState(initialContents);
   const [open, setOpen] = useState(false);
 
-  const [contentType, setContentType] = useState<'article' | 'landing_page' | 'destination_guide'>(
-    'destination_guide'
-  );
+  const [contentType, setContentType] = useState<
+    | 'article'
+    | 'landing_page'
+    | 'destination_guide'
+    | 'faq'
+    | 'announcement'
+    | 'hero_banner'
+    | 'community_story'
+  >('destination_guide');
   const [slug, setSlug] = useState('');
   const [titleEn, setTitleEn] = useState('');
   const [titleVi, setTitleVi] = useState('');
   const [bodyEn, setBodyEn] = useState('');
+  const [bodyVi, setBodyVi] = useState('');
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
   const [status, setStatus] = useState<'draft' | 'published'>('published');
@@ -498,6 +505,7 @@ export function ContentSeoView({ initialContents }: { initialContents: CmsList }
         titleEn,
         titleVi: titleVi || titleEn,
         bodyEn,
+        bodyVi: bodyVi || bodyEn,
         seoTitle,
         seoDescription,
         robotsIndex: true,
@@ -508,7 +516,9 @@ export function ContentSeoView({ initialContents }: { initialContents: CmsList }
       setOpen(false);
       setSlug('');
       setTitleEn('');
+      setTitleVi('');
       setBodyEn('');
+      setBodyVi('');
       await refresh();
     }
   }
@@ -572,7 +582,14 @@ export function ContentSeoView({ initialContents }: { initialContents: CmsList }
               value={contentType}
               onChange={(e) =>
                 setContentType(
-                  e.target.value as 'article' | 'landing_page' | 'destination_guide'
+                  e.target.value as
+                    | 'article'
+                    | 'landing_page'
+                    | 'destination_guide'
+                    | 'faq'
+                    | 'announcement'
+                    | 'hero_banner'
+                    | 'community_story'
                 )
               }
               className="h-8 rounded border border-[#E5DFD3] px-2"
@@ -580,6 +597,10 @@ export function ContentSeoView({ initialContents }: { initialContents: CmsList }
               <option value="destination_guide">Destination Guide</option>
               <option value="article">Blog Article</option>
               <option value="landing_page">Landing Page</option>
+              <option value="faq">FAQ Item</option>
+              <option value="announcement">Announcement Banner</option>
+              <option value="hero_banner">Hero Banner</option>
+              <option value="community_story">Community Story</option>
             </select>
             <select
               value={status}
@@ -831,6 +852,9 @@ export function PromotionsView({ initialPromos }: { initialPromos: PromotionsLis
   const [discountType, setDiscountType] = useState<'percent' | 'fixed_vnd'>('fixed_vnd');
   const [discountValue, setDiscountValue] = useState(250000);
   const [minNights, setMinNights] = useState(14);
+  const [maxUses, setMaxUses] = useState<string>('');
+  const [isPublic, setIsPublic] = useState(true);
+  const [fundingSource, setFundingSource] = useState<'vietnomad' | 'host' | 'shared'>('vietnomad');
   const [validFrom, setValidFrom] = useState(new Date().toISOString().slice(0, 10));
   const [validTo, setValidTo] = useState('2027-06-30');
 
@@ -854,6 +878,9 @@ export function PromotionsView({ initialPromos }: { initialPromos: PromotionsLis
         discountType,
         discountValue,
         minNights,
+        maxUses: maxUses.trim() ? Number(maxUses) : null,
+        isPublic,
+        fundingSource,
         validFrom,
         validTo,
       }),
@@ -862,6 +889,7 @@ export function PromotionsView({ initialPromos }: { initialPromos: PromotionsLis
       setOpen(false);
       setCode('');
       setName('');
+      setMaxUses('');
       await refresh();
     }
   }
@@ -883,7 +911,7 @@ export function PromotionsView({ initialPromos }: { initialPromos: PromotionsLis
     <div>
       <PageHeader
         title="Promotions & Voucher Codes"
-        subtitle="Manage long-stay fee discounts and promotional redemption tracking."
+        subtitle="Manage public deals vs private codes, funding source (VietNomad vs Host), and usage limits."
         actions={
           <button
             type="button"
@@ -903,7 +931,8 @@ export function PromotionsView({ initialPromos }: { initialPromos: PromotionsLis
               <th className="px-4 py-2.5">Code</th>
               <th className="px-4 py-2.5">Campaign Name</th>
               <th className="px-4 py-2.5">Value</th>
-              <th className="px-4 py-2.5">Min Nights</th>
+              <th className="px-4 py-2.5">Funding</th>
+              <th className="px-4 py-2.5">Visibility</th>
               <th className="px-4 py-2.5">Usage</th>
               <th className="px-4 py-2.5">Window</th>
               <th className="px-4 py-2.5 text-right">Active</th>
@@ -915,9 +944,12 @@ export function PromotionsView({ initialPromos }: { initialPromos: PromotionsLis
                 <td className="px-4 py-2.5 font-mono font-semibold text-[#164E3F]">{p.code}</td>
                 <td className="px-4 py-2.5 text-[#17221E]">{p.name}</td>
                 <td className="px-4 py-2.5 tabular-nums">
-                  {p.discountType === 'percent' ? `${p.discountValue}%` : fmtVnd(p.discountValue)}
+                  {p.discountType === 'percent' ? `${p.discountValue}%` : fmtVnd(p.discountValue)} ({p.minNights}n+)
                 </td>
-                <td className="px-4 py-2.5 tabular-nums">{p.minNights}n+</td>
+                <td className="px-4 py-2.5 text-xs capitalize text-[#53635D]">{p.fundingSource}</td>
+                <td className="px-4 py-2.5 text-xs">
+                  <StatusBadge label={p.isPublic ? 'Public /deals' : 'Private'} tone={p.isPublic ? 'emerald' : 'neutral'} />
+                </td>
                 <td className="px-4 py-2.5 tabular-nums">
                   {p.usedCount} / {p.maxUses ?? '∞'}
                 </td>
@@ -981,10 +1013,38 @@ export function PromotionsView({ initialPromos }: { initialPromos: PromotionsLis
             <input
               type="number"
               min={1}
+              placeholder="Min nights"
               value={minNights}
               onChange={(e) => setMinNights(Number(e.target.value))}
               className="h-8 rounded border border-[#E5DFD3] px-2"
             />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <select
+              value={fundingSource}
+              onChange={(e) => setFundingSource(e.target.value as 'vietnomad' | 'host' | 'shared')}
+              className="h-8 rounded border border-[#E5DFD3] px-2"
+            >
+              <option value="vietnomad">Funded by VietNomad (Fee)</option>
+              <option value="host">Funded by Host (Rent)</option>
+              <option value="shared">Shared 50/50</option>
+            </select>
+            <input
+              type="number"
+              min={1}
+              placeholder="Max uses (blank=∞)"
+              value={maxUses}
+              onChange={(e) => setMaxUses(e.target.value)}
+              className="h-8 rounded border border-[#E5DFD3] px-2"
+            />
+            <label className="flex items-center gap-1.5 px-1">
+              <input
+                type="checkbox"
+                checked={isPublic}
+                onChange={(e) => setIsPublic(e.target.checked)}
+              />
+              Show on /deals
+            </label>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <input

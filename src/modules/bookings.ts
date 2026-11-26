@@ -11,8 +11,10 @@ import { dbQuery, dbTransaction, toNum, type DbClient } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { calculateCancellationOutcome, calculateStayQuote } from '@/lib/pricing';
 import { refundGatewayTransactionIfLive } from '@/lib/stripe-refund';
+import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
 import { dispatchBookingLockedNotifications } from '@/modules/notifications';
 import { getPlatformFeeConfig } from '@/modules/platform-settings';
+import { validatePromotionTx, type ValidatedPromotionRecord } from '@/modules/promotions';
 
 export interface CreateBookingInput {
   stayId: string;
@@ -26,6 +28,95 @@ export interface CreateBookingInput {
   guestNote?: string;
   checkoutMode?: 'intent' | 'instant';
   promotionCode?: string;
+  attributionSessionKey?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+  utmTerm?: string;
+  landingPath?: string;
+}
+
+export async function releaseBookingPromotionTx(tx: DbClient, bookingId: string) {
+  const bRes = await tx.query<{
+    id: string;
+    promotion_id: string | null;
+    promotion_counted: boolean;
+  }>(
+    `SELECT id, promotion_id, promotion_counted FROM bookings WHERE id = $1 FOR UPDATE`,
+    [bookingId]
+  );
+  const b = bRes.rows[0];
+  if (!b || !b.promotion_id || !b.promotion_counted) return;
+
+  await tx.query(
+    `UPDATE promotions SET used_count = GREATEST(0, used_count - 1) WHERE id = $1`,
+    [b.promotion_id]
+  );
+  await tx.query(
+    `UPDATE bookings SET promotion_counted = FALSE WHERE id = $1`,
+    [b.id]
+  );
+}
+
+export async function recordBackendBookingCompletedAttributionTx(
+  tx: DbClient,
+  params: {
+    bookingId: string;
+    stayId: string;
+    guestId: string;
+    guestRole?: string | null;
+  }
+) {
+  const isInternal = params.guestRole === 'admin';
+  const prevRes = await tx.query<{
+    session_key: string;
+    visitor_id: string;
+    utm_source: string;
+    utm_medium: string;
+    utm_campaign: string;
+    utm_content: string;
+    utm_term: string;
+    landing_path: string;
+  }>(
+    `SELECT session_key, visitor_id, utm_source, utm_medium, utm_campaign,
+            utm_content, utm_term, landing_path
+     FROM attribution_events
+     WHERE (user_id = $1 OR booking_id = $2)
+     ORDER BY created_at DESC LIMIT 1`,
+    [params.guestId, params.bookingId]
+  );
+  const prev = prevRes.rows[0];
+  const dedupeKey = `booking_completed:${params.bookingId}`;
+
+  const dup = await tx.query(`SELECT id FROM attribution_events WHERE dedupe_key = $1 LIMIT 1`, [
+    dedupeKey,
+  ]);
+  if (dup.rows.length > 0) return;
+
+  await tx.query(
+    `INSERT INTO attribution_events (
+      id, session_key, visitor_id, user_id, event_name, stay_id, booking_id,
+      utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_path,
+      dedupe_key, is_internal
+    ) VALUES ($1,$2,$3,$4,'booking_completed',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+    [
+      crypto.randomUUID(),
+      prev?.session_key || `bk_${params.bookingId}`,
+      prev?.visitor_id || '',
+      params.guestId,
+      params.stayId,
+      params.bookingId,
+      prev?.utm_source || '',
+      prev?.utm_medium || '',
+      prev?.utm_campaign || '',
+      prev?.utm_content || '',
+      prev?.utm_term || '',
+      prev?.landing_path || '/',
+      dedupeKey,
+      isInternal,
+    ]
+  );
 }
 
 async function recordBookingFinancialLedgerTx(
@@ -351,6 +442,16 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
     }
 
     const platformConfig = await getPlatformFeeConfig(tx);
+    let validatedPromo: ValidatedPromotionRecord | null = null;
+    if (input.promotionCode?.trim()) {
+      validatedPromo = await validatePromotionTx(tx, {
+        code: input.promotionCode,
+        nights: input.nights,
+        userId: user.id,
+        lockForUpdate: true,
+      });
+    }
+
     const quote = calculateStayQuote({
       pkg: {
         wholesale7Vnd: toNum(meta.wholesale_7_vnd),
@@ -371,7 +472,15 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       serviceFeeRate: platformConfig.serviceFeeRate,
       vatDiscountRate: platformConfig.vatDiscountRate,
       premiumRewardRate: platformConfig.premiumRewardRate,
+      promotion: validatedPromo,
     });
+
+    if (validatedPromo) {
+      await tx.query(
+        `UPDATE promotions SET used_count = used_count + 1 WHERE id = $1`,
+        [validatedPromo.id]
+      );
+    }
 
     const bookingId = crypto.randomUUID();
     const bookingCode = `VN-${crypto.randomInt(100000, 999999)}`;
@@ -424,7 +533,8 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         id, booking_code, stay_id, room_id, package_id, guest_id, business_model,
         status, booking_status, stay_status, payment_status, payout_status, refund_status,
         applied_service_fee_rate, applied_host_commission_rate, applied_fx_rate_usd, currency_code,
-        promotion_code,
+        applied_vat_discount_rate, applied_premium_reward_rate,
+        promotion_id, promotion_code, promotion_discount_vnd, promotion_funding_source, promotion_counted,
         check_in, check_out, nights, guests_count, wholesale_total_vnd,
         service_fee_vnd, vat_discount_vnd, reward_credit_used_vnd, guest_total_vnd,
         booking_fee_online_vnd, pay_at_checkin_vnd, payment_intent_id, paid_at,
@@ -432,11 +542,12 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       ) VALUES (
         $1,$2,$3,$4,$5,$6,'booking_flow',
         $7,$8,'upcoming',$9,$10,'none',
-        $11,$12,$13,'VND',$14,
-        $15,$16,$17,$18,$19,
-        $20,$21,$22,$23,
-        $24,$25,$26,$27,
-        $28,$29,$30
+        $11,$12,$13,'VND',$14,$15,
+        $16,$17,$18,$19,$20,
+        $21,$22,$23,$24,$25,
+        $26,$27,$28,$29,
+        $30,$31,$32,$33,
+        $34,$35,$36
       )`,
       [
         bookingId,
@@ -452,7 +563,13 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         platformConfig.serviceFeeRate,
         platformConfig.hostCommissionRate,
         fxRateUsd,
-        input.promotionCode?.trim() || null,
+        platformConfig.vatDiscountRate,
+        platformConfig.premiumRewardRate,
+        validatedPromo?.id ?? null,
+        validatedPromo?.code ?? null,
+        quote.promotionDiscountVnd,
+        validatedPromo?.fundingSource ?? 'vietnomad',
+        Boolean(validatedPromo),
         input.checkIn,
         checkOut,
         input.nights,
@@ -471,6 +588,31 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         (input.guestNote ?? '').trim(),
       ]
     );
+
+    if (input.attributionSessionKey || input.utmSource || input.utmCampaign) {
+      await tx.query(
+        `INSERT INTO attribution_events (
+          id, session_key, user_id, event_name, stay_id, booking_id,
+          utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_path,
+          dedupe_key, is_internal
+        ) VALUES ($1,$2,$3,'checkout_start',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [
+          crypto.randomUUID(),
+          input.attributionSessionKey || `bk_${bookingId}`,
+          user.id,
+          meta.stay_id,
+          bookingId,
+          input.utmSource ?? '',
+          input.utmMedium ?? '',
+          input.utmCampaign ?? '',
+          input.utmContent ?? '',
+          input.utmTerm ?? '',
+          input.landingPath ?? '/',
+          `checkout_start:${bookingId}`,
+          user.role === 'admin',
+        ]
+      );
+    }
 
     await logBookingEventTx(tx, {
       bookingId,
@@ -499,6 +641,12 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         checkInIso: input.checkIn,
         actorUserId: user.id,
       });
+      await recordBackendBookingCompletedAttributionTx(tx, {
+        bookingId,
+        stayId: meta.stay_id,
+        guestId: user.id,
+        guestRole: user.role,
+      });
       await dispatchBookingLockedNotifications(tx, bookingId);
     }
 
@@ -525,7 +673,9 @@ export async function markBookingPaidInTx(
   const res = await tx.query<{
     id: string;
     booking_code: string;
+    stay_id: string;
     guest_id: string;
+    guest_role: string;
     host_id: string;
     room_id: string;
     status: string;
@@ -542,10 +692,11 @@ export async function markBookingPaidInTx(
     units_total: number;
     is_instant_book: boolean;
   }>(
-    `SELECT b.*, sr.units_total, s.is_instant_book, s.host_id
+    `SELECT b.*, sr.units_total, s.is_instant_book, s.host_id, u.role AS guest_role
      FROM bookings b
      JOIN stay_rooms sr ON sr.id = b.room_id
      JOIN stays s ON s.id = b.stay_id
+     JOIN users u ON u.id = b.guest_id
      WHERE b.id = $1 FOR UPDATE`,
     [bookingId]
   );
@@ -630,6 +781,20 @@ export async function markBookingPaidInTx(
     summary: b.is_instant_book
       ? `Online booking fee paid (${nextProvider}); dates locked immediately.`
       : `Online booking fee paid (${nextProvider}); awaiting host confirmation.`,
+  });
+
+  await recordBackendBookingCompletedAttributionTx(tx, {
+    bookingId: b.id,
+    stayId: b.stay_id,
+    guestId: b.guest_id,
+    guestRole: b.guest_role,
+  });
+
+  await advanceHostLeadMilestoneTx(tx, {
+    userId: b.host_id,
+    targetStage: 'first_booking',
+    summary: `Host received paid booking ${b.booking_code}`,
+    actorUserId: b.guest_id,
   });
 
   await dispatchBookingLockedNotifications(tx, b.id);
@@ -839,12 +1004,14 @@ export async function respondToPendingBooking(
       refundAmountVnd: feePaid,
     });
 
+    await releaseBookingPromotionTx(tx, b.id);
+
     await logBookingEventTx(tx, {
       bookingId: b.id,
       actorUserId: actor.id,
       actorRole: actor.role === 'admin' ? 'admin' : 'host',
       eventType: 'host_declined',
-      summary: `Host declined booking request (${declineNote}); 12% online fee refunded.`,
+      summary: `Host declined booking request (${declineNote}); online fee refunded.`,
     });
 
     return { bookingId: b.id, status: 'cancelled' as const, refundAmountVnd: feePaid };
@@ -999,6 +1166,8 @@ export async function refundWifiMismatch(
       summary: `Admin issued booking fee refund (${cleanReason}).`,
     });
 
+    await releaseBookingPromotionTx(tx, b.id);
+
     return {
       bookingId: b.id,
       status: 'REFUNDED_WIFI_MISMATCH' as const,
@@ -1047,6 +1216,7 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
          WHERE id = $1`,
         [b.id]
       );
+      await releaseBookingPromotionTx(tx, b.id);
       await logBookingEventTx(tx, {
         bookingId: b.id,
         actorUserId: user.id,
@@ -1165,12 +1335,14 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
       refundAmountVnd: outcome.refundAmountVnd,
     });
 
+    await releaseBookingPromotionTx(tx, b.id);
+
     return { bookingId: b.id, ...outcome };
   });
 }
 
 export async function getMemberDashboard(userId: string) {
-  const [bookingsRes, savedRes, rsvpsRes] = await Promise.all([
+  const [bookingsRes, savedRes, rsvpsRes, ticketsRes, platformConfig] = await Promise.all([
     dbQuery(
       `SELECT b.*,
               s.slug AS stay_slug, s.title_en, s.title_vi, s.hero_image,
@@ -1207,18 +1379,49 @@ export async function getMemberDashboard(userId: string) {
       `SELECT ne.* FROM event_rsvps er JOIN nomad_events ne ON ne.id = er.event_id WHERE er.user_id = $1`,
       [userId]
     ),
+    dbQuery(
+      `SELECT t.*, b.booking_code, s.title_en AS stay_title_en, s.title_vi AS stay_title_vi
+       FROM support_tickets t
+       LEFT JOIN bookings b ON b.id = t.booking_id
+       LEFT JOIN stays s ON s.id = t.stay_id
+       WHERE t.guest_id = $1
+       ORDER BY t.created_at DESC`,
+      [userId]
+    ),
+    getPlatformFeeConfig(),
   ]);
 
   const bookingIds = bookingsRes.rows.map((r) => String(r.id));
-  const notifRes =
+  const ticketIds = ticketsRes.rows.map((t) => String(t.id));
+
+  const [notifRes, refundRes, ticketMsgRes] = await Promise.all([
     bookingIds.length > 0
-      ? await dbQuery(
+      ? dbQuery(
           `SELECT * FROM booking_notifications
            WHERE booking_id = ANY($1::uuid[]) AND recipient_role = 'guest'
            ORDER BY created_at DESC`,
           [bookingIds]
         )
-      : { rows: [] };
+      : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
+    bookingIds.length > 0
+      ? dbQuery(
+          `SELECT * FROM refund_requests
+           WHERE booking_id = ANY($1::uuid[])
+           ORDER BY created_at DESC`,
+          [bookingIds]
+        )
+      : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
+    ticketIds.length > 0
+      ? dbQuery(
+          `SELECT m.*, u.full_name AS sender_name, u.role AS sender_role
+           FROM support_ticket_messages m
+           LEFT JOIN users u ON u.id = m.sender_id
+           WHERE m.ticket_id = ANY($1::uuid[]) AND m.is_internal_note = FALSE
+           ORDER BY m.created_at ASC`,
+          [ticketIds]
+        )
+      : Promise.resolve({ rows: [] as Record<string, unknown>[] }),
+  ]);
 
   const notifByBooking = new Map<
     string,
@@ -1235,6 +1438,70 @@ export async function getMemberDashboard(userId: string) {
       createdAt: new Date(String(n.created_at)).toISOString(),
     });
     notifByBooking.set(bid, list);
+  }
+
+  const refundsByBooking = new Map<
+    string,
+    Array<{
+      id: string;
+      refundType: string;
+      amountVnd: number;
+      status: string;
+      reason: string;
+      decisionNote: string;
+      createdAt: string;
+      processedAt: string | null;
+    }>
+  >();
+  for (const rf of refundRes.rows) {
+    const bid = String(rf.booking_id);
+    const list = refundsByBooking.get(bid) ?? [];
+    list.push({
+      id: String(rf.id),
+      refundType: String(rf.refund_type),
+      amountVnd: toNum(rf.amount_vnd),
+      status: String(rf.status),
+      reason: String(rf.reason ?? ''),
+      decisionNote: String(rf.decision_note ?? ''),
+      createdAt: new Date(String(rf.created_at)).toISOString(),
+      processedAt: rf.processed_at ? new Date(String(rf.processed_at)).toISOString() : null,
+    });
+    refundsByBooking.set(bid, list);
+  }
+
+  const messagesByTicket = new Map<
+    string,
+    Array<{
+      id: string;
+      senderName: string;
+      senderRole: string;
+      body: string;
+      attachments: string[];
+      createdAt: string;
+    }>
+  >();
+  for (const m of ticketMsgRes.rows) {
+    const tid = String(m.ticket_id);
+    const list = messagesByTicket.get(tid) ?? [];
+    let att: string[] = [];
+    if (Array.isArray(m.attachments)) att = m.attachments.map(String);
+    else if (typeof m.attachments === 'string') {
+      try {
+        const p = JSON.parse(m.attachments);
+        if (Array.isArray(p)) att = p.map(String);
+      } catch {
+        att = [];
+      }
+    }
+    list.push({
+      id: String(m.id),
+      senderName: m.sender_name ? String(m.sender_name) : 'VietNomad Support',
+      senderRole: m.sender_role ? String(m.sender_role) : 'admin',
+      body: String(m.body),
+      attachments: att,
+      createdAt: new Date(String(m.created_at)).toISOString(),
+    });
+    messagesByTicket.set(tid, list);
   }
 
   return {
@@ -1256,6 +1523,7 @@ export async function getMemberDashboard(userId: string) {
 
       return {
         id: String(b.id),
+        stayId: String(b.stay_id),
         bookingCode: String(b.booking_code),
         staySlug: String(b.stay_slug),
         titleEn: String(b.title_en),
@@ -1267,6 +1535,18 @@ export async function getMemberDashboard(userId: string) {
         roomNameVi: String(b.room_name_vi),
         businessModel: String(b.business_model),
         status,
+        bookingStatus: String(b.booking_status ?? 'pending_payment'),
+        stayStatus: String(b.stay_status ?? 'upcoming'),
+        paymentStatus: String(b.payment_status ?? 'pending'),
+        payoutStatus: String(b.payout_status ?? 'pending'),
+        refundStatus: String(b.refund_status ?? 'none'),
+        appliedServiceFeeRate:
+          b.applied_service_fee_rate !== null && b.applied_service_fee_rate !== undefined
+            ? toNum(b.applied_service_fee_rate, platformConfig.serviceFeeRate)
+            : platformConfig.serviceFeeRate,
+        promotionCode: b.promotion_code ? String(b.promotion_code) : null,
+        promotionDiscountVnd: toNum(b.promotion_discount_vnd, 0),
+        promotionFundingSource: b.promotion_funding_source ? String(b.promotion_funding_source) : null,
         checkIn:
           b.check_in instanceof Date
             ? b.check_in.toISOString().slice(0, 10)
@@ -1304,7 +1584,40 @@ export async function getMemberDashboard(userId: string) {
         checkinInstructionsEn: unlockAddress ? String(b.checkin_instructions_en) : null,
         checkinInstructionsVi: unlockAddress ? String(b.checkin_instructions_vi) : null,
         notifications: notifByBooking.get(String(b.id)) ?? [],
+        refundRequests: refundsByBooking.get(String(b.id)) ?? [],
         createdAt: new Date(String(b.created_at)).toISOString(),
+      };
+    }),
+    supportTickets: ticketsRes.rows.map((t) => {
+      let attachments: string[] = [];
+      if (Array.isArray(t.attachments)) attachments = t.attachments.map(String);
+      else if (typeof t.attachments === 'string') {
+        try {
+          const p = JSON.parse(t.attachments);
+          if (Array.isArray(p)) attachments = p.map(String);
+        } catch {
+          attachments = [];
+        }
+      }
+      return {
+        id: String(t.id),
+        ticketCode: String(t.ticket_code),
+        category: String(t.category),
+        issueSubCategory: String(t.issue_sub_category ?? ''),
+        priority: String(t.priority),
+        status: String(t.status),
+        bookingId: t.booking_id ? String(t.booking_id) : null,
+        bookingCode: t.booking_code ? String(t.booking_code) : null,
+        stayId: t.stay_id ? String(t.stay_id) : null,
+        stayTitleEn: t.stay_title_en ? String(t.stay_title_en) : null,
+        stayTitleVi: t.stay_title_vi ? String(t.stay_title_vi) : null,
+        subject: String(t.subject),
+        description: String(t.description ?? ''),
+        resolutionSummary: String(t.resolution_summary ?? ''),
+        attachments,
+        messages: messagesByTicket.get(String(t.id)) ?? [],
+        createdAt: new Date(String(t.created_at)).toISOString(),
+        updatedAt: new Date(String(t.updated_at)).toISOString(),
       };
     }),
     savedStays: savedRes.rows.map((s) => {
@@ -1319,7 +1632,7 @@ export async function getMemberDashboard(userId: string) {
         businessModel: 'booking_flow',
         destinationNameEn: String(s.destination_name_en),
         destinationNameVi: String(s.destination_name_vi),
-        monthDisplayVnd: Math.round(raw30 * 1.12),
+        monthDisplayVnd: Math.round(raw30 * (1 + platformConfig.serviceFeeRate)),
       };
     }),
     rsvps: rsvpsRes.rows.map((e) => ({

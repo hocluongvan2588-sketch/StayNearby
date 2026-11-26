@@ -4,7 +4,8 @@ import { getConfig } from '@/lib/config';
 import { dbQuery, dbTransaction, toNum, type DbClient } from '@/lib/db';
 import { isValidUuid } from '@/lib/dates';
 import { AppError } from '@/lib/errors';
-import { markBookingPaidInTx } from '@/modules/bookings';
+import { markBookingPaidInTx, releaseBookingPromotionTx } from '@/modules/bookings';
+import { getPlatformFeeConfig } from '@/modules/platform-settings';
 import {
   NOMAD_PASS_PRICE_VND,
   type GatewayTransactionDTO,
@@ -165,10 +166,12 @@ export async function createGatewayCheckoutSession(
       guest_id: string;
       status: string;
       booking_fee_online_vnd: string | number;
+      applied_service_fee_rate: string | number | null;
       nights: number;
       title_en: string;
     }>(
-      `SELECT b.id, b.booking_code, b.guest_id, b.status, b.booking_fee_online_vnd, b.nights, s.title_en
+      `SELECT b.id, b.booking_code, b.guest_id, b.status, b.booking_fee_online_vnd,
+              b.applied_service_fee_rate, b.nights, s.title_en
        FROM bookings b
        JOIN stays s ON s.id = b.stay_id
        WHERE b.id = $1`,
@@ -185,17 +188,20 @@ export async function createGatewayCheckoutSession(
 
     bookingId = b.id;
     amountVnd = toNum(b.booking_fee_online_vnd);
+    const feePct = Math.round(toNum(b.applied_service_fee_rate, 0.12) * 100);
     // Use clean alphanumeric transfer memo friendly to VN banking apps (e.g. VN839201)
     const compactCode = b.booking_code.replace(/[^A-Z0-9]/gi, '').toUpperCase();
     referenceCode = `${compactCode}${crypto.randomInt(10, 99)}`;
-    itemTitle = `VietNomad Booking Fee (${b.booking_code})`;
-    itemDesc = `12% reservation & verification fee for ${b.title_en} (${b.nights} nights)`;
+    itemTitle = `VietNomad Service Fee (${b.booking_code})`;
+    itemDesc = `${feePct}% online service fee for ${b.title_en} (${b.nights} ${b.nights === 1 ? 'night' : 'nights'})`;
     metadata.bookingCode = b.booking_code;
   } else {
+    const feeConfig = await getPlatformFeeConfig();
+    const rewardPct = Math.round(feeConfig.premiumRewardRate * 100);
     amountVnd = NOMAD_PASS_PRICE_VND;
     referenceCode = `VNM${crypto.randomInt(100000, 999999)}`;
     itemTitle = 'VietNomad Nomad Pass (1 Year)';
-    itemDesc = '4% stay reward credit + VAT-free business invoicing for 12 months';
+    itemDesc = `${rewardPct}% stay reward credit and VAT-free business invoicing for 12 months`;
     if (input.vatTaxId?.trim()) {
       metadata.vatTaxId = input.vatTaxId.trim();
     }
@@ -414,6 +420,52 @@ export async function finalizeTransactionPaid(params: {
       bookingId: record.booking_id,
       referenceCode: record.reference_code,
     };
+  });
+}
+
+export async function markTransactionFailedOrExpired(params: {
+  transactionId?: string;
+  referenceCode?: string;
+  nextStatus: 'failed' | 'expired';
+  reason?: string;
+}) {
+  return dbTransaction(async (tx) => {
+    const query = params.transactionId
+      ? 'SELECT id, status, booking_id FROM payment_transactions WHERE id = $1 FOR UPDATE'
+      : 'SELECT id, status, booking_id FROM payment_transactions WHERE reference_code = $1 FOR UPDATE';
+    const lookupVal = params.transactionId || params.referenceCode;
+    if (!lookupVal) return { ok: false };
+
+    const res = await tx.query<{
+      id: string;
+      status: string;
+      booking_id: string | null;
+    }>(query, [lookupVal]);
+    const row = res.rows[0];
+    if (!row || row.status === 'paid' || row.status === 'refunded') {
+      return { ok: true, skipped: true };
+    }
+
+    await tx.query(
+      `UPDATE payment_transactions SET status = $2 WHERE id = $1`,
+      [row.id, params.nextStatus]
+    );
+
+    if (row.booking_id) {
+      const bRes = await tx.query<{ status: string }>(
+        `SELECT status FROM bookings WHERE id = $1 FOR UPDATE`,
+        [row.booking_id]
+      );
+      if (bRes.rows[0]?.status === 'PENDING_PAYMENT') {
+        await tx.query(
+          `UPDATE bookings SET payment_status = 'failed' WHERE id = $1`,
+          [row.booking_id]
+        );
+        await releaseBookingPromotionTx(tx, row.booking_id);
+      }
+    }
+
+    return { ok: true, transactionId: row.id, status: params.nextStatus };
   });
 }
 

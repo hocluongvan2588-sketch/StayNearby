@@ -3,13 +3,15 @@ import './globals.css';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getServerPreferences } from '@/lib/preferences';
 import { getDestinations, getLifestyles } from '@/modules/catalog';
+import { getPublishedCmsContents } from '@/modules/cms';
+import { getPlatformFeeConfig } from '@/modules/platform-settings';
 import { PreferencesProvider } from '@/components/PreferencesProvider';
 import { AppShellSwitch } from '@/components/shells/AppShellSwitch';
 
 export const metadata: Metadata = {
-  title: 'VietNomad Stays | Extended Stays for Remote Work in Vietnam',
+  title: 'VietNomad Stays | Weekly & Monthly Stays in Vietnam',
   description:
-    'Verified Wi-Fi speeds, clear weekly and monthly rates, full desks, and kitchens for remote workers across Vietnam.',
+    'Book weekly and monthly apartments, villas, and boutique stays across Vietnam. Transparent pricing, local neighborhoods, and workspaces when you need them.',
 };
 
 export default async function RootLayout({
@@ -17,11 +19,13 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [prefs, user, destinations, lifestyles] = await Promise.all([
+  const [prefs, user, destinations, lifestyles, platformConfig, announcements] = await Promise.all([
     getServerPreferences(),
     getCurrentUser(),
     getDestinations(),
     getLifestyles(),
+    getPlatformFeeConfig(),
+    getPublishedCmsContents({ contentTypes: ['announcement'], limit: 1 }),
   ]);
 
   return (
@@ -30,11 +34,13 @@ export default async function RootLayout({
         <PreferencesProvider
           initialLocale={prefs.locale}
           initialCurrency={prefs.currency}
+          platformConfig={platformConfig}
         >
           <AppShellSwitch
             user={user}
             destinations={destinations}
             lifestyles={lifestyles}
+            announcement={announcements[0] ?? null}
           >
             {children}
           </AppShellSwitch>

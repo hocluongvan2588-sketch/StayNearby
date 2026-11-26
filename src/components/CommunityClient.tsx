@@ -159,13 +159,13 @@ export function CommunityClient({
           </span>
           <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
             {isVi
-              ? 'Gặp gỡ người làm việc từ xa tại Việt Nam'
-              : 'Meet remote workers in Da Nang, Saigon, and Hanoi'}
+              ? 'Gặp gỡ cộng đồng tại Đà Nẵng, TP.HCM và Hà Nội'
+              : 'Weekly meetups in Da Nang, Saigon, and Hanoi'}
           </h2>
           <p className="mt-1 text-sm text-[#53635D]">
             {isVi
-              ? 'Giữ chỗ miễn phí cho các buổi cà phê và trao đổi kinh nghiệm hằng tuần.'
-              : 'Reserve a free seat at weekly founder coffees and community brunches.'}
+              ? 'Giữ chỗ miễn phí cho các buổi cà phê và giao lưu hàng tuần.'
+              : 'Reserve a free seat at weekly coffees, brunches, and local gatherings.'}
           </p>
         </div>
 

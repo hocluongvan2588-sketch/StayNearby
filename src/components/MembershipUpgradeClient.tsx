@@ -9,7 +9,7 @@ import { GatewayCheckoutPanel } from './GatewayCheckoutPanel';
 import { usePreferences } from './PreferencesProvider';
 
 export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) {
-  const { locale } = usePreferences();
+  const { locale, serviceFeePct, premiumRewardPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [vatTaxId, setVatTaxId] = useState(user?.vatTaxId ?? '');
@@ -25,8 +25,8 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
           </span>
           <h1 className="font-serif-display text-4xl font-semibold leading-tight sm:text-5xl">
             {isVi
-              ? 'Nhận lại 4% tiền thưởng và xuất hóa đơn miễn VAT.'
-              : 'Earn 4% back on every stay and unlock VAT-free invoices.'}
+              ? `Nhận lại ${premiumRewardPct}% tiền thưởng và xuất hóa đơn miễn VAT.`
+              : `Earn ${premiumRewardPct}% credit back and get VAT-free invoices.`}
           </h1>
           <p className="text-sm leading-relaxed text-[#DCECE5]">
             {isVi
@@ -44,8 +44,8 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
               </div>
               <p className="text-xs text-[#53635D]">
                 {isVi
-                  ? 'Ưu đãi hoàn 4% và miễn VAT tự động áp dụng khi bạn đặt phòng qua VietNomad.'
-                  : 'Your 4% reward credit and VAT-free invoicing are ready to use at checkout.'}
+                  ? `Ưu đãi hoàn ${premiumRewardPct}% và miễn VAT tự động áp dụng khi bạn đặt phòng qua VietNomad.`
+                  : `Your ${premiumRewardPct}% reward credit and VAT-free invoicing are ready to use at checkout.`}
               </p>
               <Link
                 href="/stays"
@@ -82,8 +82,8 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
                   title={isVi ? 'Thanh toán thẻ hội viên 1 năm' : 'Pay 1-year Nomad Pass'}
                   subtitle={
                     isVi
-                      ? 'Mở khóa hoàn 4% tiền thưởng và hóa đơn miễn VAT ngay lập tức.'
-                      : 'Unlock 4% stay rewards and VAT-free invoices immediately.'
+                      ? `Nhận ngay ưu đãi hoàn ${premiumRewardPct}% tiền thưởng và xuất hóa đơn miễn VAT.`
+                      : `Get ${premiumRewardPct}% stay credit and VAT-free invoices right away.`
                   }
                   onPaid={() => {
                     setDone(true);
@@ -114,8 +114,8 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
           </thead>
           <tbody className="divide-y divide-[#E5DFD3]">
             {[
-              [isVi ? 'Đặt phòng thống nhất qua BookingFlow (phí 12% giữ chỗ)' : 'Unified BookingFlow reservations (12% online deposit)', true, true],
-              [isVi ? 'Hoàn 4% tiền thưởng cho mỗi đơn đặt phòng' : 'Earn 4% reward credit on VietNomad stays', false, true],
+              [isVi ? `Đặt phòng trực tuyến (${serviceFeePct}% phí dịch vụ)` : `Book stays online (${serviceFeePct}% service fee)`, true, true],
+              [isVi ? `Hoàn ${premiumRewardPct}% tiền thưởng cho mỗi đặt phòng` : `Earn ${premiumRewardPct}% reward credit on VietNomad stays`, false, true],
               [isVi ? 'Xuất hóa đơn miễn VAT khi có mã số thuế' : 'VAT-free business invoicing with Tax ID', false, true],
               [isVi ? 'Nhận thông báo sớm chỗ ở giảm giá theo tháng' : 'Early access to monthly price drops', false, true],
               [isVi ? 'Lưu chỗ ở và so sánh tốc độ Wi-Fi' : 'Save stays and compare Wi-Fi speeds', true, true],

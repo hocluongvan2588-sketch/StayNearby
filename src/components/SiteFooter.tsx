@@ -9,8 +9,10 @@ export function SiteFooter({
 }: {
   destinations: DestinationSummary[];
 }) {
-  const { locale } = usePreferences();
+  const { locale, serviceFeePct, hostCommissionPct, premiumRewardPct, platformConfig } =
+    usePreferences();
   const isVi = locale === 'vi';
+  const minNights = platformConfig.defaultMinNights;
 
   return (
     <footer className="mt-20 border-t border-[#E5DFD3] bg-[#0F392E] text-[#FAF8F3]">
@@ -20,11 +22,13 @@ export function SiteFooter({
             <div className="font-serif-display text-2xl font-semibold">VietNomad Stays</div>
             <p className="text-sm leading-relaxed text-[#CDE0D9]">
               {isVi
-                ? 'Chỗ ở thuê theo tuần và tháng tại Việt Nam: lưu trú thoải mái, làm việc linh hoạt và hòa mình vào nhịp sống bản địa.'
-                : 'Weekly and monthly stays in Vietnam for comfortable long stays, remote work, and local living.'}
+                ? 'Chỗ ở thuê theo tuần và tháng khắp Việt Nam. Giá cả minh bạch, gần gũi đời sống bản địa và tiện nghi cho cả nghỉ ngơi lẫn làm việc.'
+                : 'Weekly and monthly stays across Vietnam. Transparent pricing, local neighborhoods, and comfortable spaces for living and working.'}
             </p>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-[#E7F1EC]">
-              {isVi ? 'Ở tối thiểu 7 đêm, không thu hoa hồng chủ nhà' : '7-night minimum, 0% host commission'}
+              {isVi
+                ? `Từ ${minNights} đêm · ${hostCommissionPct}% hoa hồng chủ nhà`
+                : `${minNights}-night minimum · ${hostCommissionPct}% host commission`}
             </div>
           </div>
 
@@ -36,7 +40,7 @@ export function SiteFooter({
               {destinations.map((d) => (
                 <li key={d.id}>
                   <Link href={`/destinations/${d.slug}`} className="hover:text-white">
-                    {isVi ? d.nameVi : d.nameEn} ({d.avgWifiMbps} Mbps)
+                    {isVi ? d.nameVi : d.nameEn}
                   </Link>
                 </li>
               ))}
@@ -50,22 +54,27 @@ export function SiteFooter({
             <ul className="space-y-2 text-sm text-[#CDE0D9]">
               <li>
                 <Link href="/stays" className="hover:text-white">
-                  {isVi ? 'Tìm chỗ ở từ 7 đêm' : 'Search stays (7+ nights)'}
+                  {isVi ? `Tìm chỗ ở từ ${minNights} đêm` : `Search stays (${minNights}+ nights)`}
                 </Link>
               </li>
               <li>
                 <Link href="/deals" className="hover:text-white">
-                  {isVi ? 'Giá tốt theo tháng' : 'Monthly deals'}
+                  {isVi ? 'Ưu đãi theo tháng' : 'Monthly deals'}
+                </Link>
+              </li>
+              <li>
+                <Link href="/guides" className="hover:text-white">
+                  {isVi ? 'Cẩm nang địa phương' : 'City & living guides'}
                 </Link>
               </li>
               <li>
                 <Link href="/membership" className="hover:text-white">
-                  {isVi ? 'Thẻ hội viên (Hoàn 4%)' : 'Nomad Pass (4% credit)'}
+                  {isVi ? `Thẻ hội viên (Hoàn ${premiumRewardPct}%)` : `Membership (${premiumRewardPct}% credit)`}
                 </Link>
               </li>
               <li>
                 <Link href="/community" className="hover:text-white">
-                  {isVi ? 'Visa & Sự kiện gặp mặt' : 'Visa guide & Meetups'}
+                  {isVi ? 'Visa & Sự kiện gặp mặt' : 'Visa guide & meetups'}
                 </Link>
               </li>
             </ul>
@@ -83,12 +92,12 @@ export function SiteFooter({
               </li>
               <li>
                 <Link href="/host" className="hover:text-white">
-                  {isVi ? 'Trang quản lý chủ nhà' : 'Host portal'}
+                  {isVi ? 'Kênh quản lý chủ nhà' : 'Host Console'}
                 </Link>
               </li>
               <li>
                 <Link href="/admin" className="hover:text-white">
-                  {isVi ? 'Quản lý kiểm duyệt' : 'Admin verification'}
+                  {isVi ? 'Trang quản trị' : 'Admin portal'}
                 </Link>
               </li>
             </ul>
@@ -101,8 +110,8 @@ export function SiteFooter({
           </div>
           <div>
             {isVi
-              ? 'Trả phí giữ chỗ 12% online để khóa phòng. Trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng.'
-              : 'Pay the 12% booking fee online to reserve. Pay rent directly to your host at check-in.'}
+              ? `Thanh toán ${serviceFeePct}% phí dịch vụ online để giữ phòng. Trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng.`
+              : `Pay the ${serviceFeePct}% service fee online to reserve. Pay rent directly to your host at check-in.`}
           </div>
         </div>
       </div>

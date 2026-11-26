@@ -826,6 +826,20 @@ export function HostAcquisitionView({ initialLeads }: { initialLeads: LeadsList 
                       <div className="text-[11px] text-[#53635D]">
                         {l.contactName} · {l.estimatedUnits} units · {l.destinationSlug}
                       </div>
+                      {(l.applicationId || l.sourceDetail || l.utmSource) && (
+                        <div className="flex flex-wrap gap-1 text-[10px] text-[#53635D]">
+                          {l.applicationId && (
+                            <span className="rounded bg-[#E7F1EC] px-1.5 py-0.5 font-medium text-[#164E3F]">
+                              App Linked
+                            </span>
+                          )}
+                          {l.utmSource && (
+                            <span className="rounded bg-[#FAF8F3] px-1.5 py-0.5">
+                              UTM: {l.utmSource}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-center justify-between gap-1 pt-1">
                         <StatusBadge label={`KYC:${l.kycStatus}`} tone={statusToTone(l.kycStatus)} />
                         <select
@@ -1074,7 +1088,7 @@ export function LocalPartnersView({ initialData }: { initialData: PartnersData }
     <div>
       <PageHeader
         title="Local Partners CRM"
-        subtitle="Coworking hubs, cafes, wellness studios, and local services integrated with Local Discovery."
+        subtitle="Partner businesses, cafes, workspaces, fitness studios, and local services linked to destination pages."
         actions={
           <button
             type="button"

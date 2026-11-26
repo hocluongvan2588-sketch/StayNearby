@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -11,18 +11,28 @@ import {
   Plus,
   ShieldCheck,
   Sparkles,
+  Tag,
+  X,
   Zap,
 } from 'lucide-react';
+import { captureClientAttribution, trackClientEvent } from '@/lib/attribution';
 import type { SessionUser } from '@/lib/auth/session';
 import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
-import {
-  formatCancellationPolicyLabel,
-  formatMoneyFromVnd,
-} from '@/lib/i18n';
-import { calculateStayQuote } from '@/lib/pricing';
+import { formatCancellationPolicyLabel } from '@/lib/i18n';
+import { calculateStayQuote, type PromotionAdjustmentInput } from '@/lib/pricing';
 import type { StayDetail } from '@/modules/catalog';
 import { GatewayCheckoutPanel } from './GatewayCheckoutPanel';
 import { usePreferences } from './PreferencesProvider';
+
+interface AppliedPromoPreview {
+  code: string;
+  name: string;
+  discountType: 'percent' | 'fixed_vnd';
+  discountValue: number;
+  fundingSource: 'vietnomad' | 'host' | 'shared';
+  minNights: number;
+  validTo: string;
+}
 
 function buildClientWhatsappHref(
   whatsappDigits: string,
@@ -47,7 +57,7 @@ export function StayBookingWidget({
   user: SessionUser | null;
   conciergeWhatsapp?: string;
 }) {
-  const { locale, currency } = usePreferences();
+  const { locale, platformConfig, serviceFeePct, premiumRewardPct, formatMoney } = usePreferences();
   const isVi = locale === 'vi';
 
   const defaultRoom = stay.rooms[0];
@@ -65,6 +75,23 @@ export function StayBookingWidget({
     Boolean((user?.rewardCreditVnd ?? 0) > 0)
   );
   const [guestNote, setGuestNote] = useState('');
+
+  // Promo code state
+  const [promoInput, setPromoInput] = useState('');
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState('');
+
+  useEffect(() => {
+    const attr = captureClientAttribution();
+    void trackClientEvent({
+      eventName: 'stay_view',
+      stayId: stay.id,
+      landingPath: `/stays/${stay.slug}`,
+      dedupeKey: `sv:${attr.sessionKey}:${stay.id}`,
+    });
+  }, [stay.id, stay.slug]);
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromoPreview | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [pendingBooking, setPendingBooking] = useState<{
@@ -92,6 +119,24 @@ export function StayBookingWidget({
     return nights.map((d) => selectedRoom.customPricesByDate?.[d] ?? null);
   }, [selectedRoom, checkIn, checkOut]);
 
+  const promoAdjustment: PromotionAdjustmentInput | null = useMemo(() => {
+    if (!appliedPromo) return null;
+    if (totalNights < appliedPromo.minNights) return null;
+    return {
+      code: appliedPromo.code,
+      discountType: appliedPromo.discountType,
+      discountValue: appliedPromo.discountValue,
+      fundingSource: appliedPromo.fundingSource,
+    };
+  }, [appliedPromo, totalNights]);
+
+  const effectivePromoError =
+    appliedPromo && totalNights < appliedPromo.minNights
+      ? isVi
+        ? `Mã ${appliedPromo.code} yêu cầu tối thiểu ${appliedPromo.minNights} đêm.`
+        : `Code ${appliedPromo.code} requires at least ${appliedPromo.minNights} nights.`
+      : promoError;
+
   const quote = useMemo(() => {
     if (!selectedPkg) return null;
     return calculateStayQuote({
@@ -103,8 +148,74 @@ export function StayBookingWidget({
       availableRewardCreditVnd: user?.rewardCreditVnd ?? 0,
       useRewardCredit,
       nightOverridesVnd,
+      serviceFeeRate: platformConfig.serviceFeeRate,
+      vatDiscountRate: platformConfig.vatDiscountRate,
+      premiumRewardRate: platformConfig.premiumRewardRate,
+      promotion: promoAdjustment,
     });
-  }, [selectedPkg, totalNights, user, applyVatFree, useRewardCredit, nightOverridesVnd]);
+  }, [
+    selectedPkg,
+    totalNights,
+    user,
+    applyVatFree,
+    useRewardCredit,
+    nightOverridesVnd,
+    platformConfig,
+    promoAdjustment,
+  ]);
+
+  async function handleApplyPromo() {
+    const cleaned = promoInput.trim().toUpperCase();
+    if (!cleaned || !selectedRoom || !selectedPkg) return;
+    setPromoLoading(true);
+    setPromoError('');
+    try {
+      const res = await fetch('/api/promotions/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: cleaned,
+          stayId: stay.id,
+          roomId: selectedRoom.id,
+          packageId: selectedPkg.id,
+          checkIn,
+          nights: totalNights,
+          applyVatFree,
+          useRewardCredit,
+        }),
+      });
+      const json = await res.json();
+      if (!json.ok || !json.promotion) {
+        setAppliedPromo(null);
+        setPromoError(
+          json.error?.message ??
+            (isVi ? 'Mã giảm giá không hợp lệ hoặc đã hết hạn.' : 'Promo code is invalid or expired.')
+        );
+        return;
+      }
+      setAppliedPromo({
+        code: json.promotion.code,
+        name: json.promotion.name,
+        discountType: json.promotion.discountType,
+        discountValue: json.promotion.discountValue,
+        fundingSource: json.promotion.fundingSource,
+        minNights: json.promotion.minNights,
+        validTo: json.promotion.validTo,
+      });
+      setPromoInput(json.promotion.code);
+      setPromoError('');
+    } catch {
+      setPromoError(isVi ? 'Không thể kiểm tra mã lúc này.' : 'Could not validate promo code.');
+    } finally {
+      setPromoLoading(false);
+    }
+  }
+
+  function handleRemovePromo() {
+    setAppliedPromo(null);
+    setPromoInput('');
+    setPromoError('');
+  }
 
   async function handleStartReservation() {
     if (!user) {
@@ -115,6 +226,14 @@ export function StayBookingWidget({
     setSubmitting(true);
     setError('');
     try {
+      const attr = captureClientAttribution();
+      void trackClientEvent({
+        eventName: 'checkout_start',
+        stayId: stay.id,
+        landingPath: `/stays/${stay.slug}`,
+        dedupeKey: `cs:${attr.sessionKey}:${stay.id}:${checkIn}:${totalNights}`,
+      });
+
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -127,8 +246,16 @@ export function StayBookingWidget({
           guestsCount,
           applyVatFree,
           useRewardCredit,
+          promotionCode: promoAdjustment?.code,
           guestNote,
           checkoutMode: 'intent',
+          attributionSessionKey: attr.sessionKey,
+          utmSource: attr.utmSource,
+          utmMedium: attr.utmMedium,
+          utmCampaign: attr.utmCampaign,
+          utmContent: attr.utmContent,
+          utmTerm: attr.utmTerm,
+          landingPath: attr.landingPath,
         }),
       });
       const json = await res.json();
@@ -173,20 +300,20 @@ export function StayBookingWidget({
         <div>
           <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-xs font-semibold text-[#164E3F]">
             <Zap className="h-3.5 w-3.5" />
-            {isVi ? 'BookingFlow · Phí giữ chỗ 12%' : 'BookingFlow · 12% service fee'}
+            {isVi ? `Phí dịch vụ ${serviceFeePct}% online` : `${serviceFeePct}% online service fee`}
           </span>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-serif-display text-3xl font-bold text-[#17221E]">
-              {formatMoneyFromVnd(quote.feeOnlineVnd, currency)}
+              {formatMoney(quote.feeOnlineVnd)}
             </span>
             <span className="text-xs font-medium text-[#164E3F]">
-              {isVi ? 'trả hôm nay (12%)' : 'due today (12%)'}
+              {isVi ? `trả hôm nay (${serviceFeePct}%)` : `due today (${serviceFeePct}%)`}
             </span>
           </div>
           <div className="text-xs text-[#53635D]">
             {isVi
-              ? `Trả ${formatMoneyFromVnd(quote.payAtCheckinVnd, currency)} cho chủ nhà khi nhận phòng · Tổng ${formatMoneyFromVnd(quote.totalStayVnd, currency)}`
-              : `Pay ${formatMoneyFromVnd(quote.payAtCheckinVnd, currency)} to host at check-in · Total ${formatMoneyFromVnd(quote.totalStayVnd, currency)}`}
+              ? `Trả ${formatMoney(quote.payAtCheckinVnd)} cho chủ nhà khi nhận phòng · Tổng ${formatMoney(quote.totalStayVnd)}`
+              : `Pay ${formatMoney(quote.payAtCheckinVnd)} to host at check-in · Total ${formatMoney(quote.totalStayVnd)}`}
           </div>
         </div>
 
@@ -225,6 +352,9 @@ export function StayBookingWidget({
             const tierQ = calculateStayQuote({
               pkg: selectedPkg,
               nights: tier,
+              serviceFeeRate: platformConfig.serviceFeeRate,
+              vatDiscountRate: platformConfig.vatDiscountRate,
+              premiumRewardRate: platformConfig.premiumRewardRate,
             });
             return (
               <button
@@ -241,7 +371,7 @@ export function StayBookingWidget({
                   {tier === 30 ? (isVi ? '1 tháng' : '1 mo') : `${tier} ${isVi ? 'đêm' : 'N'}`}
                 </div>
                 <div className={`text-[10px] ${baseTier === tier ? 'text-[#CDE0D9]' : 'text-[#53635D]'}`}>
-                  {formatMoneyFromVnd(tierQ.totalStayVnd, currency)}
+                  {formatMoney(tierQ.totalStayVnd)}
                 </div>
               </button>
             );
@@ -326,6 +456,54 @@ export function StayBookingWidget({
         </label>
       </div>
 
+      {/* Promotion Code Input */}
+      <div className="space-y-1.5">
+        <label className="flex items-center gap-1 text-xs font-semibold text-[#53635D]">
+          <Tag className="h-3.5 w-3.5 text-[#C25E28]" />
+          {isVi ? 'Mã giảm giá' : 'Promo code'}
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={promoInput}
+            onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+            placeholder={isVi ? 'Nhập mã (VD: NOMAD14)' : 'Enter code (e.g. NOMAD14)'}
+            disabled={Boolean(appliedPromo) || promoLoading}
+            className="min-h-[38px] flex-1 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-1.5 font-mono text-xs uppercase"
+          />
+          {appliedPromo ? (
+            <button
+              type="button"
+              onClick={handleRemovePromo}
+              className="inline-flex items-center gap-1 rounded-xl border border-[#E5DFD3] px-3 py-1.5 text-xs font-semibold text-[#53635D] hover:bg-[#FAF8F3]"
+            >
+              <X className="h-3.5 w-3.5" />
+              {isVi ? 'Gỡ mã' : 'Remove'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleApplyPromo}
+              disabled={promoLoading || !promoInput.trim()}
+              className="inline-flex items-center gap-1 rounded-xl bg-[#164E3F] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#0F392E] disabled:opacity-50"
+            >
+              {promoLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {isVi ? 'Áp dụng' : 'Apply'}
+            </button>
+          )}
+        </div>
+        {appliedPromo && quote.promotionDiscountVnd > 0 && (
+          <div className="rounded-lg bg-[#E7F1EC] px-2.5 py-1.5 text-[11px] font-medium text-[#164E3F]">
+            {isVi
+              ? `Đã áp dụng ${appliedPromo.code} (${appliedPromo.name}): giảm ${formatMoney(quote.promotionDiscountVnd)}.`
+              : `Applied ${appliedPromo.code} (${appliedPromo.name}): saving ${formatMoney(quote.promotionDiscountVnd)}.`}
+          </div>
+        )}
+        {effectivePromoError && (
+          <div className="text-[11px] font-medium text-[#C25E28]">{effectivePromoError}</div>
+        )}
+      </div>
+
       {user && (user.vatTaxId || user.rewardCreditVnd > 0) && (
         <div className="space-y-2 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-3 text-xs">
           {user.membershipTier === 'premium' && user.vatTaxId && (
@@ -346,8 +524,8 @@ export function StayBookingWidget({
             <label className="flex cursor-pointer items-center justify-between gap-2">
               <span className="font-medium text-[#17221E]">
                 {isVi
-                  ? `Trừ tiền thưởng (${formatMoneyFromVnd(user.rewardCreditVnd, currency)})`
-                  : `Use reward credit (${formatMoneyFromVnd(user.rewardCreditVnd, currency)})`}
+                  ? `Trừ tiền thưởng (${formatMoney(user.rewardCreditVnd)})`
+                  : `Use reward credit (${formatMoney(user.rewardCreditVnd)})`}
               </span>
               <input
                 type="checkbox"
@@ -361,45 +539,80 @@ export function StayBookingWidget({
       )}
 
       <div className="space-y-2 rounded-2xl border border-[#164E3F]/20 bg-[#FAF8F3] p-4 text-xs">
-        <div className="flex items-center justify-between font-semibold text-[#164E3F]">
+        <div className="flex items-center justify-between text-[#53635D]">
           <span>
-            {isVi ? 'Trả hôm nay (Phí giữ chỗ 12%)' : 'Due today (12% booking fee)'}
+            {isVi
+              ? `Giá thuê gốc (${totalNights} đêm)`
+              : `Original stay rent (${totalNights} nights)`}
           </span>
-          <span className="text-sm font-bold text-[#164E3F]">
-            {formatMoneyFromVnd(quote.feeOnlineVnd, currency)}
-          </span>
+          <span>{formatMoney(quote.wholesaleTotalVnd)}</span>
         </div>
 
-        <div className="flex items-center justify-between text-[#17221E]">
-          <span>{isVi ? 'Trả chủ nhà khi nhận phòng' : 'Pay host at check-in'}</span>
-          <span className="font-semibold">
-            {formatMoneyFromVnd(quote.payAtCheckinVnd, currency)}
+        <div className="flex items-center justify-between text-[#53635D]">
+          <span>
+            {isVi
+              ? `Phí dịch vụ VietNomad (${serviceFeePct}%)`
+              : `Platform service fee (${serviceFeePct}%)`}
           </span>
+          <span>{formatMoney(quote.serviceFeeVnd)}</span>
         </div>
+
+        {quote.promotionDiscountVnd > 0 && (
+          <div className="flex items-center justify-between font-medium text-[#164E3F]">
+            <span>
+              {isVi
+                ? `Mã ưu đãi ${quote.promotionCode}`
+                : `Promo ${quote.promotionCode} (${
+                    quote.promotionFundingSource === 'host'
+                      ? 'Host-funded'
+                      : quote.promotionFundingSource === 'shared'
+                        ? 'Shared'
+                        : 'VietNomad-funded'
+                  })`}
+            </span>
+            <span>-{formatMoney(quote.promotionDiscountVnd)}</span>
+          </div>
+        )}
 
         {quote.vatDiscountVnd > 0 && (
           <div className="flex justify-between font-medium text-[#164E3F]">
             <span>{isVi ? 'Giảm VAT hội viên' : 'VAT-free savings'}</span>
-            <span>-{formatMoneyFromVnd(quote.vatDiscountVnd, currency)}</span>
+            <span>-{formatMoney(quote.vatDiscountVnd)}</span>
           </div>
         )}
 
         {quote.rewardCreditUsedVnd > 0 && (
           <div className="flex justify-between font-medium text-[#C25E28]">
             <span>{isVi ? 'Dùng tiền thưởng' : 'Reward credit applied'}</span>
-            <span>-{formatMoneyFromVnd(quote.rewardCreditUsedVnd, currency)}</span>
+            <span>-{formatMoney(quote.rewardCreditUsedVnd)}</span>
           </div>
         )}
 
+        <div className="flex items-center justify-between border-t border-[#E5DFD3] pt-2 font-semibold text-[#164E3F]">
+          <span>
+            {isVi ? `Trả online hôm nay (${serviceFeePct}%)` : `Due online today`}
+          </span>
+          <span className="text-sm font-bold text-[#164E3F]">
+            {formatMoney(quote.feeOnlineVnd)}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between text-[#17221E]">
+          <span>{isVi ? 'Trả chủ nhà khi nhận phòng' : 'Pay host at check-in'}</span>
+          <span className="font-semibold">{formatMoney(quote.payAtCheckinVnd)}</span>
+        </div>
+
         <div className="flex items-center justify-between border-t border-[#E5DFD3] pt-2 text-sm font-bold text-[#17221E]">
           <span>{isVi ? 'Tổng chi phí kỳ ở' : 'Total stay cost'}</span>
-          <span>{formatMoneyFromVnd(quote.totalStayVnd, currency)}</span>
+          <span>{formatMoney(quote.totalStayVnd)}</span>
         </div>
 
         {quote.rewardCreditEarnedVnd > 0 && (
           <div className="text-[11px] font-semibold text-[#A67C2E]">
-            + {formatMoneyFromVnd(quote.rewardCreditEarnedVnd, currency)}{' '}
-            {isVi ? 'tiền thưởng (4%) sau khi xác nhận' : 'earned in 4% reward credit'}
+            + {formatMoney(quote.rewardCreditEarnedVnd)}{' '}
+            {isVi
+              ? `tiền thưởng (${premiumRewardPct}%) sau khi xác nhận`
+              : `earned in ${premiumRewardPct}% reward credit`}
           </div>
         )}
       </div>
@@ -408,12 +621,12 @@ export function StayBookingWidget({
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#164E3F]" />
         <div>
           <div className="font-bold text-[#164E3F]">
-            {isVi ? 'Chính sách giữ chỗ và hủy phòng minh bạch' : 'Transparent BookingFlow terms'}
+            {isVi ? 'Chính sách đặt và hủy phòng' : 'Booking & cancellation terms'}
           </div>
           <p className="mt-0.5 text-[#53635D]">
             {isVi
-              ? `${stay.isWifiVerified ? 'Chỗ ở có gắn badge Wi-Fi Verified độc lập.' : 'Tiện ích và tốc độ Wi-Fi do chủ nhà cung cấp.'} Phí giữ chỗ ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} áp dụng theo chính sách hủy ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)}.`
-              : `${stay.isWifiVerified ? 'This stay carries an optional Wi-Fi Verified badge.' : 'Amenities & Internet metrics are self-declared by the host.'} Your ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} fee follows ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)} cancellation rules.`}
+              ? `${stay.isWifiVerified ? 'Chỗ ở có badge Wi-Fi Verified.' : 'Thông tin tiện nghi và Wi-Fi do chủ nhà cung cấp.'} Phí dịch vụ ${formatMoney(quote.feeOnlineVnd)} áp dụng theo chính sách hủy ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)}.`
+              : `${stay.isWifiVerified ? 'This stay carries a Wi-Fi Verified badge.' : 'Amenities and Wi-Fi details are reported by the host.'} The ${formatMoney(quote.feeOnlineVnd)} service fee follows the ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)} cancellation policy.`}
           </p>
         </div>
       </div>
@@ -437,8 +650,8 @@ export function StayBookingWidget({
           }
           subtitle={
             isVi
-              ? `Khóa lịch ngay khi thanh toán. Phần ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} trả chủ nhà khi nhận phòng.`
-              : `Locks your dates immediately. Pay ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} directly to host at check-in.`
+              ? `Khóa lịch ngay khi thanh toán. Phần ${formatMoney(pendingBooking.payAtCheckinVnd)} trả chủ nhà khi nhận phòng.`
+              : `Locks your dates immediately. Pay ${formatMoney(pendingBooking.payAtCheckinVnd)} directly to host at check-in.`
           }
           onPaid={() => {
             setConfirmed({
@@ -457,19 +670,19 @@ export function StayBookingWidget({
           <div className="flex items-center gap-2 font-bold text-[#164E3F]">
             <CheckCircle2 className="h-4 w-4" />
             {isVi
-              ? `Đã giữ phòng thành công (${confirmed.bookingCode})`
-              : `Dates locked (${confirmed.bookingCode})`}
+              ? `Đặt phòng thành công (${confirmed.bookingCode})`
+              : `Booking confirmed (${confirmed.bookingCode})`}
           </div>
           <p className="text-[#53635D]">
             {isVi
-              ? `Đã thanh toán ${formatMoneyFromVnd(confirmed.feePaidOnlineVnd, currency)} online. Phần ${formatMoneyFromVnd(confirmed.payAtCheckinVnd, currency)} trả chủ nhà khi nhận phòng.`
-              : `Paid ${formatMoneyFromVnd(confirmed.feePaidOnlineVnd, currency)} online. Pay ${formatMoneyFromVnd(confirmed.payAtCheckinVnd, currency)} to your host at check-in.`}
+              ? `Đã thanh toán ${formatMoney(confirmed.feePaidOnlineVnd)} online. Trả ${formatMoney(confirmed.payAtCheckinVnd)} cho chủ nhà khi nhận phòng.`
+              : `Paid ${formatMoney(confirmed.feePaidOnlineVnd)} online. Pay ${formatMoney(confirmed.payAtCheckinVnd)} to your host at check-in.`}
           </p>
           <Link
             href="/dashboard"
             className="inline-flex min-h-[40px] items-center rounded-lg bg-[#164E3F] px-3.5 py-2 font-semibold text-white"
           >
-            {isVi ? 'Xem địa chỉ và thông tin nhận phòng' : 'View exact address & check-in details'}
+            {isVi ? 'Xem địa chỉ & chi tiết nhận phòng' : 'View address & check-in details'}
           </Link>
         </div>
       ) : (
@@ -483,11 +696,11 @@ export function StayBookingWidget({
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             {!user
               ? isVi
-                ? 'Đăng nhập để giữ phòng (phí 12%)'
-                : 'Log in to reserve (12% fee)'
+                ? `Đăng nhập để giữ phòng (phí ${serviceFeePct}%)`
+                : `Log in to reserve (${serviceFeePct}% fee)`
               : isVi
-                ? `Đặt giữ chỗ ngay (${formatMoneyFromVnd(quote.feeOnlineVnd, currency)})`
-                : `Reserve now · Pay ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} today`}
+                ? `Đặt giữ chỗ ngay (${formatMoney(quote.feeOnlineVnd)})`
+                : `Reserve now · Pay ${formatMoney(quote.feeOnlineVnd)} today`}
           </button>
         )
       )}

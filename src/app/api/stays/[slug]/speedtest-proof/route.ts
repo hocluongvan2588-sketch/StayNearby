@@ -1,4 +1,5 @@
 import { dbQuery, toNum } from '@/lib/db';
+import { getPlatformFeeConfig } from '@/modules/platform-settings';
 
 function escapeXml(str: string): string {
   return str
@@ -43,6 +44,8 @@ export async function GET(
     return new Response('Stay not found', { status: 404 });
   }
 
+  const feeConfig = await getPlatformFeeConfig();
+  const feePct = Math.round(feeConfig.serviceFeeRate * 100);
   const down = toNum(s.wifi_download_mbps, 200);
   const up = toNum(s.wifi_upload_mbps, 150);
   const jitter = toNum(s.wifi_jitter_ms, 3);
@@ -73,8 +76,8 @@ export async function GET(
   <text x="88" y="282" fill="#ffffff" font-family="system-ui, sans-serif" font-size="18">${escapeXml(String(s.workspace_summary_en).slice(0, 86))}</text>
   <text x="88" y="310" fill="#cbe3db" font-family="system-ui, sans-serif" font-size="14">Wi-Fi: ${down} Mbps down, ${up} Mbps up, ${jitter}ms latency, checked ${verifiedIso}</text>
   <rect x="64" y="360" width="380" height="96" rx="12" fill="#134e3f" stroke="#5bb397" stroke-opacity="0.5"/>
-  <text x="88" y="396" fill="#9de2c8" font-family="system-ui, sans-serif" font-size="13" font-weight="700">BOOKINGFLOW PAYMENT SPLIT</text>
-  <text x="88" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14">Pay 12% fee online, pay rent to host at check-in</text>
+  <text x="88" y="396" fill="#9de2c8" font-family="system-ui, sans-serif" font-size="13" font-weight="700">PAYMENT TERMS</text>
+  <text x="88" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14">Pay ${feePct}% service fee online, pay rent to host at check-in</text>
   <rect x="468" y="360" width="428" height="96" rx="12" fill="#c89d54" fill-opacity="0.18" stroke="#c89d54" stroke-opacity="0.6"/>
   <text x="492" y="396" fill="#f5deb3" font-family="system-ui, sans-serif" font-size="13" font-weight="700">BADGE STATUS</text>
   <text x="492" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" font-weight="700">${escapeXml(tierLabel)}</text>

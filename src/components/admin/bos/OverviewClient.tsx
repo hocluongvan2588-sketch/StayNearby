@@ -91,9 +91,9 @@ export function OverviewClient({ initialData }: { initialData: OverviewData }) {
           hint={`${k.confirmedBookings} ${isVi ? 'đơn xác nhận' : 'confirmed bookings'}`}
         />
         <KpiMetric
-          label={isVi ? 'Doanh thu nền tảng (12% fee)' : 'Platform Revenue (12% Fee)'}
+          label={isVi ? 'Doanh thu nền tảng (Phí dịch vụ)' : 'Platform Revenue (Service Fee)'}
           value={fmtVnd(k.platformRevenueVnd)}
-          hint={isVi ? '0% hoa hồng chủ nhà' : '0% host commission'}
+          hint={isVi ? 'Doanh thu giữ chỗ ròng' : 'Net platform fee revenue'}
           accent="emerald"
         />
         <KpiMetric
@@ -158,8 +158,8 @@ export function OverviewClient({ initialData }: { initialData: OverviewData }) {
           {data.requiresAttention.length === 0 ? (
             <div className="px-4 py-10 text-center text-xs text-[#53635D]">
               {isVi
-                ? 'Tất cả hàng đợi vận hành đều đã xử lý xong.'
-                : 'Operational queues are clear — no pending reviews, urgent tickets, or overdue tasks.'}
+                ? 'Không có mục nào cần xử lý.'
+                : 'Operational queues are clear. No pending reviews, urgent tickets, or overdue tasks.'}
             </div>
           ) : (
             <div className="divide-y divide-[#E5DFD3]">

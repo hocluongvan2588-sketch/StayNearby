@@ -72,7 +72,7 @@ export function ReservationSideDrawer({
   onUpdated: (msg: string) => void;
 }) {
   const router = useRouter();
-  const { locale } = usePreferences();
+  const { locale, serviceFeePct, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [note, setNote] = useState(reservation?.hostInternalNote ?? '');
@@ -111,6 +111,12 @@ export function ReservationSideDrawer({
 
   async function handleDecision(decision: 'approve' | 'decline') {
     if (!reservation) return;
+    if (decision === 'decline') {
+      const msg = isVi
+        ? `Từ chối yêu cầu đặt phòng ${reservation.bookingCode}? Ngày sẽ được mở lại và khách được hoàn ${serviceFeePct}% phí dịch vụ.`
+        : `Decline booking request ${reservation.bookingCode}? The dates will reopen and the guest’s ${serviceFeePct}% service fee will be refunded automatically.`;
+      if (typeof window !== 'undefined' && !window.confirm(msg)) return;
+    }
     setBusy(true);
     setErrMsg('');
     try {
@@ -130,8 +136,8 @@ export function ReservationSideDrawer({
             ? `Đã duyệt yêu cầu đặt phòng ${reservation.bookingCode}.`
             : `Approved booking request ${reservation.bookingCode}.`
           : isVi
-            ? `Đã từ chối yêu cầu ${reservation.bookingCode} và hoàn phí 12% cho khách.`
-            : `Declined ${reservation.bookingCode} and refunded the 12% fee.`
+            ? `Đã từ chối yêu cầu ${reservation.bookingCode} và hoàn phí ${serviceFeePct}% cho khách.`
+            : `Declined ${reservation.bookingCode} and refunded the ${serviceFeePct}% fee.`
       );
       onClose();
     } finally {
@@ -343,14 +349,16 @@ export function ReservationSideDrawer({
             )}
           </div>
 
-          {/* Transparent BookingFlow Breakdown */}
+          {/* Payment Breakdown */}
           <div className="space-y-2 rounded-xl border border-[#E5DFD3] p-4 text-xs">
             <div className="font-semibold uppercase tracking-wider text-[#53635D]">
-              {isVi ? 'Chi tiết thanh toán (0% hoa hồng Host)' : 'Payment breakdown (0% Host fee)'}
+              {isVi
+                ? `Chi tiết thanh toán (${hostCommissionPct}% hoa hồng chủ nhà)`
+                : `Payment breakdown (${hostCommissionPct}% host commission)`}
             </div>
             <div className="flex justify-between py-1">
               <span className="text-[#53635D]">
-                {isVi ? 'Tổng khách thanh toán cho cả kỳ ở' : 'Total guest stay value'}
+                {isVi ? 'Tổng khách thanh toán cho kỳ ở' : 'Total guest booking value'}
               </span>
               <span className="font-medium text-[#17221E]">
                 {formatVndExact(reservation.guestTotalVnd)}
@@ -358,7 +366,9 @@ export function ReservationSideDrawer({
             </div>
             <div className="flex justify-between py-1">
               <span className="text-[#53635D]">
-                {isVi ? 'Phí giữ phòng 12% (khách trả online cho sàn)' : '12% online booking fee (paid to platform)'}
+                {isVi
+                  ? `Phí dịch vụ ${serviceFeePct}% (khách thanh toán online)`
+                  : `${serviceFeePct}% online service fee`}
               </span>
               <span className="font-medium text-[#53635D]">
                 {formatVndExact(reservation.feeOnlineVnd)}
@@ -368,11 +378,11 @@ export function ReservationSideDrawer({
               <span className="text-[#53635D]">
                 {isVi ? 'Hoa hồng chủ nhà' : 'Host commission'}
               </span>
-              <span className="font-semibold text-[#164E3F]">0 ₫ (0%)</span>
+              <span className="font-semibold text-[#164E3F]">0 ₫ ({hostCommissionPct}%)</span>
             </div>
             <div className="flex justify-between border-t border-[#E5DFD3] pt-2 text-sm font-semibold text-[#164E3F]">
               <span>
-                {isVi ? 'Host thực nhận (100% giá phòng tại chỗ)' : 'Host net payout (100% collected at check-in)'}
+                {isVi ? 'Chủ nhà thu trực tiếp khi nhận phòng' : 'Host payout (collected at check-in)'}
               </span>
               <span>{formatVndExact(reservation.payAtCheckinVnd)}</span>
             </div>

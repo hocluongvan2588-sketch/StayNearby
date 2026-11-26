@@ -15,7 +15,7 @@ import {
   Tag,
   Unlock,
 } from 'lucide-react';
-import { formatMoneyFromVnd, formatVndExact } from '@/lib/i18n';
+import { formatVndExact } from '@/lib/i18n';
 import { usePreferences } from '@/components/PreferencesProvider';
 import type { HostCalendarData } from '@/modules/host-console';
 
@@ -37,7 +37,7 @@ export function HostCalendarClient({
 }: {
   initialData: HostCalendarData;
 }) {
-  const { locale, currency } = usePreferences();
+  const { locale, formatMoney } = usePreferences();
   const isVi = locale === 'vi';
 
   const [data, setData] = useState<HostCalendarData>(initialData);
@@ -460,7 +460,7 @@ export function HostCalendarClient({
                                 : 'text-[#53635D]'
                             }`}
                           >
-                            {formatMoneyFromVnd(info.effectiveNightlyVnd, currency)}
+                            {formatMoney(info.effectiveNightlyVnd)}
                           </div>
                         )}
                       </div>
@@ -576,7 +576,7 @@ export function HostCalendarClient({
                       {p.nights} {isVi ? 'đêm' : 'nights'}
                     </div>
                     <div className="mt-0.5 font-medium text-[#164E3F]">
-                      {formatMoneyFromVnd(p.rate, currency)}
+                      {formatMoney(p.rate)}
                     </div>
                     <div className="text-[10px] text-[#53635D]">
                       ~{formatVndExact(Math.round(p.rate / p.nights))}/{isVi ? 'đêm' : 'nt'}

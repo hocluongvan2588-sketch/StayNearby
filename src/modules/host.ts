@@ -4,6 +4,7 @@ import { getTodayIsoVietnam, isValidIsoDate, isValidUuid } from '@/lib/dates';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { syncRoomIcalFeed } from '@/lib/ical';
+import { syncHostLeadFromApplicationTx } from '@/modules/host-lead-sync';
 import { deleteStayUploadedMedia, getMediaStorageStatus } from '@/lib/storage';
 
 export interface HostCoworkingSpot {
@@ -329,7 +330,7 @@ export async function getHostConsoleData(user: SessionUser) {
         stayTitleEn: String(b.title_en),
         stayTitleVi: String(b.title_vi),
         guestName: String(b.guest_name),
-        guestEmail: unlocked ? String(b.guest_email) : 'Hidden until 12% locked',
+        guestEmail: unlocked ? String(b.guest_email) : 'Hidden until fee locked',
         nationality: String(b.nationality),
         businessModel: String(b.business_model),
         status: String(b.status),
@@ -385,6 +386,9 @@ export async function submitHostApplication(
     hasExternalMonitor?: boolean;
     kitchenType?: 'full' | 'kitchenette' | 'shared' | 'none';
     laundryType?: 'in_unit' | 'building' | 'service' | 'none';
+    sourceDetail?: string;
+    utmSource?: string;
+    utmCampaign?: string;
   }
 ) {
   const id = crypto.randomUUID();
@@ -393,7 +397,13 @@ export async function submitHostApplication(
   const hasWorkspace = input.hasWorkspace ?? false;
   const declaredWifi = Math.max(0, Math.round(input.measuredDownloadMbps ?? 0));
 
-  await dbTransaction(async (tx) => {
+  const syncResult = await dbTransaction(async (tx) => {
+    const userRes = await tx.query<{ email: string; full_name: string; phone: string | null }>(
+      'SELECT email, full_name, phone FROM users WHERE id = $1',
+      [user.id]
+    );
+    const dbUser = userRes.rows[0];
+
     await tx.query(
       `INSERT INTO host_applications (
         id, applicant_user_id, business_name, stay_name, destination_slug,
@@ -420,12 +430,31 @@ export async function submitHostApplication(
       ]
     );
 
-    if (user.role === 'nomad') {
-      await tx.query(`UPDATE users SET role = 'host' WHERE id = $1`, [user.id]);
-    }
+    // Keep Lead Pipeline Stage, Host Account Status, and Listing Review Status distinct:
+    // Submitting an application creates/syncs the CRM host_lead and leaves users.role unchanged
+    // until Admin approves the application (or converts the lead).
+    return syncHostLeadFromApplicationTx(tx, {
+      applicationId: id,
+      userId: user.id,
+      email: dbUser?.email ?? user.email,
+      fullName: dbUser?.full_name ?? user.fullName,
+      phone: dbUser?.phone ?? user.phone,
+      businessName: input.businessName,
+      stayName: input.stayName,
+      destinationSlug: input.destinationSlug,
+      propertyType: input.propertyType,
+      sourceDetail: input.sourceDetail,
+      utmSource: input.utmSource,
+      utmCampaign: input.utmCampaign,
+    });
   });
 
-  return { applicationId: id, status: 'submitted' as const };
+  return {
+    applicationId: id,
+    status: 'submitted' as const,
+    leadId: syncResult.leadId,
+    leadStage: syncResult.stage,
+  };
 }
 
 export async function attachMediaToStay(

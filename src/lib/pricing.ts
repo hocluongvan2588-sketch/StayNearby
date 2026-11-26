@@ -11,6 +11,13 @@ export interface PackagePricingInput {
   extraNightVnd: number;
 }
 
+export interface PromotionAdjustmentInput {
+  code: string;
+  discountType: 'percent' | 'fixed_vnd';
+  discountValue: number;
+  fundingSource: 'vietnomad' | 'host' | 'shared';
+}
+
 export interface QuoteBreakdown {
   nights: number;
   baseTier: PackageDuration;
@@ -21,6 +28,11 @@ export interface QuoteBreakdown {
   serviceFeeVnd: number;
   vatDiscountVnd: number;
   rewardCreditUsedVnd: number;
+  promotionCode: string | null;
+  promotionFundingSource: 'vietnomad' | 'host' | 'shared' | null;
+  promotionDiscountVnd: number;
+  promoFeeDiscountVnd: number;
+  promoHostDiscountVnd: number;
   feeOnlineVnd: number;
   payAtCheckinVnd: number;
   totalStayVnd: number;
@@ -28,6 +40,9 @@ export interface QuoteBreakdown {
   perNightDisplayVnd: number;
   weeklySavingsPct: number;
   rewardCreditEarnedVnd: number;
+  appliedServiceFeeRate: number;
+  appliedVatDiscountRate: number;
+  appliedPremiumRewardRate: number;
 }
 
 export function calculateWholesaleForNights(
@@ -74,6 +89,7 @@ export function calculateStayQuote(params: {
   serviceFeeRate?: number;
   vatDiscountRate?: number;
   premiumRewardRate?: number;
+  promotion?: PromotionAdjustmentInput | null;
 }): QuoteBreakdown {
   const feeRate =
     typeof params.serviceFeeRate === 'number' && params.serviceFeeRate >= 0
@@ -111,9 +127,6 @@ export function calculateStayQuote(params: {
     : baseWholesaleTotalVnd;
 
   // Unified BookingFlow (P_host + configurable serviceFeeRate):
-  // P_host = wholesaleTotalVnd (paid directly to Host at check-in, 0% default host commission)
-  // Fee_online = Math.round(P_host * feeRate)
-  // Total_stay = P_host + Fee_online
   const baseBookingFeeVnd = Math.round(wholesaleTotalVnd * feeRate);
 
   const eligibleVatFree =
@@ -123,16 +136,53 @@ export function calculateStayQuote(params: {
 
   // Eligible Premium Business Nomads receive VAT discount off the online booking fee
   const vatDiscountVnd = eligibleVatFree ? Math.round(wholesaleTotalVnd * vatRate) : 0;
-  const serviceFeeVnd = Math.max(0, baseBookingFeeVnd - vatDiscountVnd);
+  const feeAfterVat = Math.max(0, baseBookingFeeVnd - vatDiscountVnd);
 
-  // Reward credit applies directly against the online booking fee
+  // Promotion adjustment strictly respects funding source so Host payout is never wrongly deducted
+  let promoFeeDiscountVnd = 0;
+  let promoHostDiscountVnd = 0;
+  let promotionDiscountVnd = 0;
+  let promotionCode: string | null = null;
+  let promotionFundingSource: 'vietnomad' | 'host' | 'shared' | null = null;
+
+  if (params.promotion && params.promotion.discountValue > 0) {
+    promotionCode = params.promotion.code.trim().toUpperCase();
+    promotionFundingSource = params.promotion.fundingSource;
+    const val = params.promotion.discountValue;
+
+    if (promotionFundingSource === 'vietnomad') {
+      promoFeeDiscountVnd =
+        params.promotion.discountType === 'percent'
+          ? Math.min(feeAfterVat, Math.round(feeAfterVat * (val / 100)))
+          : Math.min(feeAfterVat, Math.round(val));
+    } else if (promotionFundingSource === 'host') {
+      promoHostDiscountVnd =
+        params.promotion.discountType === 'percent'
+          ? Math.min(wholesaleTotalVnd, Math.round(wholesaleTotalVnd * (val / 100)))
+          : Math.min(wholesaleTotalVnd, Math.round(val));
+    } else {
+      const combinedCap = feeAfterVat + wholesaleTotalVnd;
+      const targetTotal =
+        params.promotion.discountType === 'percent'
+          ? Math.min(combinedCap, Math.round(combinedCap * (val / 100)))
+          : Math.min(combinedCap, Math.round(val));
+      const half = Math.round(targetTotal / 2);
+      promoFeeDiscountVnd = Math.min(feeAfterVat, half);
+      promoHostDiscountVnd = Math.min(wholesaleTotalVnd, targetTotal - promoFeeDiscountVnd);
+    }
+    promotionDiscountVnd = promoFeeDiscountVnd + promoHostDiscountVnd;
+  }
+
+  const serviceFeeVnd = Math.max(0, feeAfterVat - promoFeeDiscountVnd);
+
+  // Reward credit applies directly against the remaining online booking fee
   const rewardCreditUsedVnd =
     params.useRewardCredit && (params.availableRewardCreditVnd ?? 0) > 0
       ? Math.min(serviceFeeVnd, Math.round(params.availableRewardCreditVnd ?? 0))
       : 0;
 
   const feeOnlineVnd = Math.max(0, serviceFeeVnd - rewardCreditUsedVnd);
-  const payAtCheckinVnd = wholesaleTotalVnd;
+  const payAtCheckinVnd = Math.max(0, wholesaleTotalVnd - promoHostDiscountVnd);
   const totalStayVnd = payAtCheckinVnd + feeOnlineVnd;
   const guestTotalVnd = totalStayVnd;
   const perNightDisplayVnd = Math.round((payAtCheckinVnd + serviceFeeVnd) / params.nights);
@@ -158,6 +208,11 @@ export function calculateStayQuote(params: {
     serviceFeeVnd,
     vatDiscountVnd,
     rewardCreditUsedVnd,
+    promotionCode,
+    promotionFundingSource,
+    promotionDiscountVnd,
+    promoFeeDiscountVnd,
+    promoHostDiscountVnd,
     feeOnlineVnd,
     payAtCheckinVnd,
     totalStayVnd,
@@ -165,6 +220,9 @@ export function calculateStayQuote(params: {
     perNightDisplayVnd,
     weeklySavingsPct,
     rewardCreditEarnedVnd,
+    appliedServiceFeeRate: feeRate,
+    appliedVatDiscountRate: vatRate,
+    appliedPremiumRewardRate: rewardRate,
   };
 }
 
@@ -188,7 +246,6 @@ export function calculateCancellationOutcome(params: {
   const now = params.now ?? new Date();
   const hoursSinceBooking = (now.getTime() - params.bookedAt.getTime()) / (1000 * 60 * 60);
 
-  // Cooling-Off Period: within 48h of booking -> 100% cash refund of online fee (unless strict)
   if (hoursSinceBooking <= 48 && params.policy !== 'strict') {
     return {
       tier: 'cooling_off',
@@ -200,9 +257,6 @@ export function calculateCancellationOutcome(params: {
   const checkInMs = Date.parse(`${params.checkInIso}T14:00:00+07:00`);
   const hoursBeforeCheckIn = (checkInMs - now.getTime()) / (1000 * 60 * 60);
 
-  // Adequate Notice Period:
-  // - Flexible: >= 48h before check-in -> 100% Account Credit
-  // - Moderate: >= booking length days before check-in -> 100% Account Credit
   const requiredNoticeHours =
     params.policy === 'flexible'
       ? 48
@@ -218,7 +272,6 @@ export function calculateCancellationOutcome(params: {
     };
   }
 
-  // Restricted Period
   return {
     tier: 'restricted',
     refundAmountVnd: 0,

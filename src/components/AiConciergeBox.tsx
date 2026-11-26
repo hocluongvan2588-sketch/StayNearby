@@ -17,14 +17,14 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
 
   const presets = isVi
     ? [
-        'Gần biển Đà Nẵng 1 tháng, Wi-Fi trên 400 Mbps, có màn hình 4K',
+        'Gần biển Đà Nẵng 1 tháng, bếp riêng, Wi-Fi mạnh',
         'Yên tĩnh tại Đà Lạt, giá dưới 700 USD một tháng',
-        'Phòng có chỗ làm việc chung ở Thảo Điền, TP.HCM',
+        'Căn hộ tại Thảo Điền, TP.HCM ở 2 tuần',
       ]
     : [
-        'Beach stay in Da Nang for 1 month, 400+ Mbps, 4K monitor',
+        'Beach stay in Da Nang for 1 month with full kitchen',
         'Quiet month in Da Lat under $700',
-        'Thao Dien Saigon coliving with private call booths',
+        'Thao Dien Saigon apartment for 2 weeks',
       ];
 
   async function submitPrompt(textToRun: string) {
@@ -58,17 +58,17 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
         <div className="space-y-4 lg:col-span-5">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-[#E6B87A]">
             <Sparkles className="h-3.5 w-3.5" />
-            {isVi ? 'Gợi ý phòng theo nhu cầu' : 'Smart Stay Finder'}
+            {isVi ? 'Tìm phòng nhanh' : 'Smart Stay Finder'}
           </div>
           <h2 className="font-serif-display text-3xl font-semibold leading-tight">
             {isVi
-              ? 'Nhập nhu cầu của bạn để lọc nhanh phòng còn trống.'
-              : 'Describe what you need and see open stays right away.'}
+              ? 'Mô tả chuyến đi của bạn để tìm phòng còn trống.'
+              : 'Describe your trip to see open stays right away.'}
           </h2>
           <p className="text-sm leading-relaxed text-[#CDE0D9]">
             {isVi
-              ? 'Hệ thống tìm thẳng theo giá gói, thành phố, tiện nghi và tốc độ Wi-Fi.'
-              : 'Matches live room availability, amenities, reported Wi-Fi speed, and monthly prices.'}
+              ? 'Lọc trực tiếp theo thành phố, ngân sách, tiện nghi sinh hoạt và tốc độ Wi-Fi.'
+              : 'Matches live availability, city, monthly budget, home amenities, and Wi-Fi speeds.'}
           </p>
         </div>
 
@@ -86,8 +86,8 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={
                 isVi
-                  ? 'Ví dụ: Ở 1 tháng gần biển Đà Nẵng, Wi-Fi 400+ Mbps...'
-                  : 'Example: Beach month in Da Nang, 400+ Mbps Wi-Fi, under $900...'
+                  ? 'Ví dụ: Ở 1 tháng gần biển Đà Nẵng, bếp riêng, dưới $900...'
+                  : 'Example: Beach month in Da Nang, full kitchen, under $900...'
               }
               className="flex-1 rounded-xl border border-white/20 bg-white px-4 py-3 text-sm text-[#17221E] placeholder-[#53635D] outline-none focus:ring-2 focus:ring-[#E6B87A]"
             />

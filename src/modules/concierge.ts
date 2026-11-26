@@ -1,6 +1,6 @@
-import { formatMoneyFromVnd, type CurrencyCode, type Locale } from '@/lib/i18n';
-import { usdToVnd } from '@/lib/i18n';
+import { formatMoneyFromVnd, usdToVnd, type CurrencyCode, type Locale } from '@/lib/i18n';
 import { buildConciergeWhatsappUrl } from './notifications';
+import { getPlatformFeeConfig } from './platform-settings';
 import { searchStays, type StayCardItem } from './catalog';
 
 export interface ConciergeResponse {
@@ -21,6 +21,7 @@ export async function runAiStayConcierge(params: {
   locale: Locale;
   currency: CurrencyCode;
 }): Promise<ConciergeResponse> {
+  const feeConfig = await getPlatformFeeConfig();
   const q = params.prompt.toLowerCase();
 
   let destination: string | undefined;
@@ -57,7 +58,7 @@ export async function runAiStayConcierge(params: {
   const minWifiMbps = wifiMatch ? Number(wifiMatch[1]) : q.includes('fast wi') || q.includes('mạnh') ? 250 : undefined;
 
   const usdMatch = q.match(/(?:under|below|max|dưới|<|\$)\s*\$?\s*(\d{3,4})/);
-  const maxMonthlyVnd = usdMatch ? usdToVnd(Number(usdMatch[1])) : undefined;
+  const maxMonthlyVnd = usdMatch ? usdToVnd(Number(usdMatch[1]), feeConfig.fxRates) : undefined;
 
   const nights = q.includes('week') || q.includes('tuần') ? (q.includes('2') ? 14 : 7) : 30;
 
@@ -101,16 +102,17 @@ export async function runAiStayConcierge(params: {
         : top[0].titleEn
       : 'Vietnam long-stay apartments & villas',
     nights,
+    serviceFeePct: Math.round(feeConfig.serviceFeeRate * 100),
     locale: params.locale,
   });
 
   const summary =
     params.locale === 'vi'
       ? top.length > 0
-        ? `${relaxed ? 'Gợi ý gần nhất với yêu cầu của bạn:' : 'Tìm thấy'} ${top.length} chỗ ở phù hợp. Nổi bật là ${top[0].titleVi} tại ${top[0].destinationNameVi} (Wi-Fi ${top[0].wifiDownloadMbps} Mbps, đặt cọc ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency)} hôm nay và trả ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency)} cho chủ nhà khi nhận phòng).`
+        ? `${relaxed ? 'Gợi ý gần nhất với yêu cầu của bạn:' : 'Tìm thấy'} ${top.length} chỗ ở phù hợp. Nổi bật là ${top[0].titleVi} tại ${top[0].destinationNameVi} (Wi-Fi ${top[0].wifiDownloadMbps} Mbps, đặt cọc ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency, { fxRates: feeConfig.fxRates })} hôm nay và trả ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency, { fxRates: feeConfig.fxRates })} cho chủ nhà khi nhận phòng).`
         : 'Hiện chưa có chỗ ở phù hợp mô tả đó.'
       : top.length > 0
-        ? `${relaxed ? 'Closest matches:' : 'Found'} ${top.length} available stays. Top match is ${top[0].titleEn} in ${top[0].destinationNameEn} (${top[0].wifiDownloadMbps} Mbps Wi-Fi, pay ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency)} today to reserve and ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency)} to host at check-in).`
+        ? `${relaxed ? 'Closest matches:' : 'Found'} ${top.length} available stays. Top match is ${top[0].titleEn} in ${top[0].destinationNameEn} (${top[0].wifiDownloadMbps} Mbps Wi-Fi, pay ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency, { fxRates: feeConfig.fxRates })} today to reserve and ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency, { fxRates: feeConfig.fxRates })} to host at check-in).`
         : 'No matching stays are currently available.';
 
   return {

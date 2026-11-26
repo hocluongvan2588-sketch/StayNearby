@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { CalendarCheck, CheckCircle2, Loader2, Search } from 'lucide-react';
 import {
   formatBookingStatusLabel,
-  formatMoneyFromVnd,
   formatVndExact,
 } from '@/lib/i18n';
 import { usePreferences } from '@/components/PreferencesProvider';
@@ -23,7 +22,7 @@ export function HostReservationsClient({
 }: {
   initialData: HostReservationsPayload;
 }) {
-  const { locale, currency } = usePreferences();
+  const { locale, formatMoney } = usePreferences();
   const isVi = locale === 'vi';
 
   const [data, setData] = useState<HostReservationsPayload>(initialData);
@@ -225,7 +224,7 @@ export function HostReservationsClient({
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-semibold text-[#17221E]">
-                      {formatMoneyFromVnd(row.payAtCheckinVnd, currency)}
+                      {formatMoney(row.payAtCheckinVnd)}
                     </div>
                     <div className="text-[11px] text-[#53635D]">
                       {formatVndExact(row.payAtCheckinVnd)}

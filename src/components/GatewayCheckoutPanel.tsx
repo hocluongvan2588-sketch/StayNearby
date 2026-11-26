@@ -10,7 +10,7 @@ import {
   QrCode,
   RefreshCw,
 } from 'lucide-react';
-import { formatMoneyFromVnd, formatVndExact } from '@/lib/i18n';
+import { formatVndExact } from '@/lib/i18n';
 import type { GatewayTransactionDTO, PaymentProvider, PaymentPurpose } from '@/lib/payment-types';
 import { usePreferences } from './PreferencesProvider';
 
@@ -33,7 +33,7 @@ export function GatewayCheckoutPanel({
   subtitle,
   onPaid,
 }: GatewayCheckoutPanelProps) {
-  const { locale, currency } = usePreferences();
+  const { locale, formatMoney } = usePreferences();
   const isVi = locale === 'vi';
 
   const [provider, setProvider] = useState<PaymentProvider>('vietqr');
@@ -156,7 +156,7 @@ export function GatewayCheckoutPanel({
           <p className="mt-0.5 text-[#53635D]">{subtitle}</p>
         </div>
         <span className="shrink-0 rounded-full bg-[#E7F1EC] px-2.5 py-0.5 font-bold text-[#164E3F]">
-          {formatMoneyFromVnd(amountVnd, currency)}
+          {formatMoney(amountVnd)}
         </span>
       </div>
 
@@ -210,10 +210,10 @@ export function GatewayCheckoutPanel({
             {provider === 'vietqr'
               ? isVi
                 ? `Tạo mã VietQR (${formatVndExact(amountVnd)})`
-                : `Generate VietQR (${formatMoneyFromVnd(amountVnd, currency)})`
+                : `Generate VietQR (${formatMoney(amountVnd)})`
               : isVi
-                ? `Thanh toán thẻ qua Stripe (${formatMoneyFromVnd(amountVnd, currency)})`
-                : `Pay with Stripe (${formatMoneyFromVnd(amountVnd, currency)})`}
+                ? `Thanh toán thẻ qua Stripe (${formatMoney(amountVnd)})`
+                : `Pay with Stripe (${formatMoney(amountVnd)})`}
           </button>
         </>
       ) : (

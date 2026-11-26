@@ -143,4 +143,66 @@ describe('NomadStays Three-Window Cancellation Policy & PaidOnline Basis', () =>
     expect(restrictedMod.creditIssuedVnd).toBe(0);
     expect(restrictedMod.refundAmountVnd).toBe(0);
   });
+
+  it('supports dynamic platform fee rates & promotion sponsorship splits without corrupting host payout', () => {
+    const testPkg = {
+      wholesale7Vnd: 5_400_000,
+      wholesale14Vnd: 9_800_000,
+      wholesale21Vnd: 13_860_000,
+      wholesale30Vnd: 18_300_000,
+      compare30Vnd: 23_000_000,
+      extraNightVnd: 610_000,
+    };
+    // VietNomad-funded promo reduces platform fee only; host payout stays 100%
+    const vnPromo = calculateStayQuote({
+      pkg: testPkg,
+      nights: 30,
+      serviceFeeRate: 0.15,
+      promotion: {
+        code: 'VN300',
+        discountType: 'fixed_vnd',
+        discountValue: 300_000,
+        fundingSource: 'vietnomad',
+      },
+    });
+    expect(vnPromo.appliedServiceFeeRate).toBe(0.15);
+    expect(vnPromo.payAtCheckinVnd).toBe(18_300_000);
+    expect(vnPromo.promotionDiscountVnd).toBe(300_000);
+    expect(vnPromo.promoFeeDiscountVnd).toBe(300_000);
+    expect(vnPromo.promoHostDiscountVnd).toBe(0);
+    expect(vnPromo.feeOnlineVnd).toBe(Math.round(18_300_000 * 0.15) - 300_000);
+
+    // Host-funded promo reduces payAtCheckinVnd while fee remains intact
+    const hostPromo = calculateStayQuote({
+      pkg: testPkg,
+      nights: 14,
+      serviceFeeRate: 0.12,
+      promotion: {
+        code: 'HOST10',
+        discountType: 'percent',
+        discountValue: 10,
+        fundingSource: 'host',
+      },
+    });
+    expect(hostPromo.promoHostDiscountVnd).toBe(hostPromo.promotionDiscountVnd);
+    expect(hostPromo.promoFeeDiscountVnd).toBe(0);
+    expect(hostPromo.payAtCheckinVnd).toBe(9_800_000 - hostPromo.promotionDiscountVnd);
+    expect(hostPromo.feeOnlineVnd).toBe(Math.round(9_800_000 * 0.12));
+
+    // Shared 50/50 split
+    const sharedPromo = calculateStayQuote({
+      pkg: testPkg,
+      nights: 30,
+      serviceFeeRate: 0.12,
+      promotion: {
+        code: 'SHARE400',
+        discountType: 'fixed_vnd',
+        discountValue: 400_000,
+        fundingSource: 'shared',
+      },
+    });
+    expect(sharedPromo.promotionDiscountVnd).toBe(400_000);
+    expect(sharedPromo.promoFeeDiscountVnd).toBe(200_000);
+    expect(sharedPromo.promoHostDiscountVnd).toBe(200_000);
+  });
 });
