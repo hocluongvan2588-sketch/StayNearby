@@ -23,4 +23,4 @@
 
 ## 4. Verification Fields & iCal Calendar Sync
 - Trường kiểm định trên `stays`: `wifi_download_mbps`, `wifi_upload_mbps`, `wifi_jitter_ms`, `speedtest_proof_url`, `workspace_video_url`, `verified_at`, `verification_tier` (`HOST_VERIFIED | VIETNOMAD_CERTIFIED`).
-- Trường iCal trên `stay_rooms`: `ical_url`, `ical_last_synced_at`, `ical_sync_status` kèm cron `/api/cron/ical-sync` chạy định kỳ mỗi 3 giờ (`vercel.json`).
+- Trường iCal trên `stay_rooms`: `ical_url`, `ical_last_synced_at`, `ical_sync_status` kèm cron `/api/cron/ical-sync` (cấu hình daily `0 2 * * *` trong `vercel.json` để tương thích Vercel Hobby plan; có thể nâng tần suất mỗi 2–4 giờ qua Vercel Pro hoặc external scheduler).
