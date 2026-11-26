@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
-  CreditCard,
   ExternalLink,
   Loader2,
   MessageCircle,
@@ -25,6 +24,7 @@ import {
 } from '@/lib/i18n';
 import { calculateStayQuote } from '@/lib/pricing';
 import type { StayDetail } from '@/modules/catalog';
+import { GatewayCheckoutPanel } from './GatewayCheckoutPanel';
 import { usePreferences } from './PreferencesProvider';
 
 function buildClientWhatsappHref(
@@ -69,7 +69,6 @@ export function StayBookingWidget({
   );
   const [guestNote, setGuestNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
   const [pendingBooking, setPendingBooking] = useState<{
     bookingId: string;
@@ -157,34 +156,6 @@ export function StayBookingWidget({
       setError(isVi ? 'Lỗi kết nối. Vui lòng thử lại.' : 'Network error. Please retry.');
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function handleConfirmFeePayment() {
-    if (!pendingBooking) return;
-    setPaying(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/bookings/${pendingBooking.bookingId}/pay`, {
-        method: 'POST',
-      });
-      const json = await res.json();
-      if (!json.ok) {
-        setError(json.error?.message ?? (isVi ? 'Không thể hoàn tất thanh toán phí giữ chỗ.' : 'Could not complete payment.'));
-        return;
-      }
-      setConfirmed({
-        bookingCode: json.payment.bookingCode,
-        status: json.payment.status,
-        directReferralUrl: null,
-        feePaidOnlineVnd: json.payment.feePaidOnlineVnd,
-        payAtCheckinVnd: json.payment.payAtCheckinVnd,
-      });
-      setPendingBooking(null);
-    } catch {
-      setError(isVi ? 'Xác nhận thanh toán thất bại.' : 'Payment confirmation failed.');
-    } finally {
-      setPaying(false);
     }
   }
 
@@ -497,33 +468,31 @@ export function StayBookingWidget({
       )}
 
       {pendingBooking && (
-        <div className="space-y-3 rounded-2xl border-2 border-[#164E3F] bg-[#FAF8F3] p-4 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 font-bold text-[#164E3F]">
-              <CreditCard className="h-4 w-4" />
-              {isVi ? 'Thanh toán phí giữ chỗ 12%' : 'Pay 12% booking fee'}
-            </span>
-            <span className="font-mono text-[10px] text-[#53635D]">{pendingBooking.bookingCode}</span>
-          </div>
-          <p className="text-[#53635D]">
-            {isVi
-              ? `Trả ${formatMoneyFromVnd(pendingBooking.feeOnlineVnd, currency)} ngay bây giờ để khóa lịch và xem địa chỉ thật. Phần ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} trả cho chủ nhà khi nhận phòng.`
-              : `Pay ${formatMoneyFromVnd(pendingBooking.feeOnlineVnd, currency)} online now to lock dates and unlock the address. Pay ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} directly to host at check-in.`}
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleConfirmFeePayment}
-              disabled={paying}
-              className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-[#C25E28] px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-[#ad5020] disabled:opacity-60"
-            >
-              {paying && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isVi
-                ? `Thanh toán ${formatMoneyFromVnd(pendingBooking.feeOnlineVnd, currency)} và khóa phòng`
-                : `Pay ${formatMoneyFromVnd(pendingBooking.feeOnlineVnd, currency)} and confirm`}
-            </button>
-          </div>
-        </div>
+        <GatewayCheckoutPanel
+          purpose="booking_fee"
+          bookingId={pendingBooking.bookingId}
+          amountVnd={pendingBooking.feeOnlineVnd}
+          title={
+            isVi
+              ? `Thanh toán giữ chỗ (${pendingBooking.bookingCode})`
+              : `Pay reservation fee (${pendingBooking.bookingCode})`
+          }
+          subtitle={
+            isVi
+              ? `Khóa lịch ngay khi thanh toán. Phần ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} trả chủ nhà khi nhận phòng.`
+              : `Locks your dates immediately. Pay ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} directly to host at check-in.`
+          }
+          onPaid={() => {
+            setConfirmed({
+              bookingCode: pendingBooking.bookingCode,
+              status: 'RESERVED_LOCKED',
+              directReferralUrl: null,
+              feePaidOnlineVnd: pendingBooking.feeOnlineVnd,
+              payAtCheckinVnd: pendingBooking.payAtCheckinVnd,
+            });
+            setPendingBooking(null);
+          }}
+        />
       )}
 
       {confirmed ? (

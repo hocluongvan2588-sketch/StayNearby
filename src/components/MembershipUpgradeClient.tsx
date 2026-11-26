@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Check, CheckCircle2, Loader2, Minus, Sparkles } from 'lucide-react';
+import { Check, CheckCircle2, Minus, Sparkles } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
+import { NOMAD_PASS_PRICE_VND } from '@/lib/payment-types';
+import { GatewayCheckoutPanel } from './GatewayCheckoutPanel';
 import { usePreferences } from './PreferencesProvider';
 
 export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) {
@@ -11,31 +13,7 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
   const isVi = locale === 'vi';
 
   const [vatTaxId, setVatTaxId] = useState(user?.vatTaxId ?? '');
-  const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(user?.membershipTier === 'premium');
-
-  async function handleUpgrade(e: React.FormEvent) {
-    e.preventDefault();
-    if (!user) {
-      window.location.assign('/login?next=/membership');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch('/api/membership/upgrade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vatTaxId }),
-      });
-      const json = await res.json();
-      if (json.ok) {
-        setDone(true);
-        window.location.reload();
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-14 px-4 py-12 sm:px-6 lg:px-8">
@@ -77,7 +55,7 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
               </Link>
             </div>
           ) : (
-            <form onSubmit={handleUpgrade} className="space-y-4">
+            <div className="space-y-4">
               <div className="flex items-baseline justify-between">
                 <span className="font-serif-display text-2xl font-bold text-[#164E3F]">€99 / {isVi ? 'năm' : 'year'}</span>
                 <span className="rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-xs font-semibold text-[#164E3F]">
@@ -96,21 +74,31 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
                   className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 text-sm"
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C25E28] px-5 py-3 text-sm font-semibold text-white hover:bg-[#ad5020]"
-              >
-                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                {user
-                  ? isVi
-                    ? 'Kích hoạt thẻ hội viên'
-                    : 'Activate Nomad Pass'
-                  : isVi
-                    ? 'Đăng nhập để kích hoạt'
-                    : 'Log in to activate'}
-              </button>
-            </form>
+              {user ? (
+                <GatewayCheckoutPanel
+                  purpose="membership_pass"
+                  amountVnd={NOMAD_PASS_PRICE_VND}
+                  vatTaxId={vatTaxId}
+                  title={isVi ? 'Thanh toán thẻ hội viên 1 năm' : 'Pay 1-year Nomad Pass'}
+                  subtitle={
+                    isVi
+                      ? 'Mở khóa hoàn 4% tiền thưởng và hóa đơn miễn VAT ngay lập tức.'
+                      : 'Unlock 4% stay rewards and VAT-free invoices immediately.'
+                  }
+                  onPaid={() => {
+                    setDone(true);
+                    window.location.reload();
+                  }}
+                />
+              ) : (
+                <Link
+                  href="/login?next=/membership"
+                  className="flex w-full items-center justify-center rounded-xl bg-[#C25E28] px-5 py-3 text-sm font-semibold text-white hover:bg-[#ad5020]"
+                >
+                  {isVi ? 'Đăng nhập để kích hoạt' : 'Log in to activate'}
+                </Link>
+              )}
+            </div>
           )}
         </div>
       </div>

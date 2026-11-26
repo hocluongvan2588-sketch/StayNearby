@@ -22,6 +22,7 @@ import {
   formatCancellationPolicyLabel,
   formatMoneyFromVnd,
 } from '@/lib/i18n';
+import { GatewayCheckoutPanel } from './GatewayCheckoutPanel';
 import { usePreferences } from './PreferencesProvider';
 
 interface MemberDashboardData {
@@ -103,28 +104,8 @@ export function MemberDashboardClient({
   const { locale, currency } = usePreferences();
   const isVi = locale === 'vi';
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
-
-  async function handlePayFee(bookingId: string) {
-    setBusyId(bookingId);
-    setNotice('');
-    try {
-      const res = await fetch(`/api/bookings/${bookingId}/pay`, { method: 'POST' });
-      const json = await res.json();
-      if (!json.ok) {
-        setNotice(json.error?.message ?? (isVi ? 'Thanh toán thất bại.' : 'Payment failed.'));
-      } else {
-        setNotice(
-          isVi
-            ? `Đã thanh toán ${formatMoneyFromVnd(json.payment.feePaidOnlineVnd, currency)} và khóa phòng thành công.`
-            : `Paid ${formatMoneyFromVnd(json.payment.feePaidOnlineVnd, currency)}. Dates are locked and your Wi-Fi certificate is ready.`
-        );
-        window.location.reload();
-      }
-    } finally {
-      setBusyId(null);
-    }
-  }
 
   async function handleCancel(bookingId: string) {
     setBusyId(bookingId);
@@ -349,33 +330,62 @@ export function MemberDashboardClient({
                     )}
 
                     {b.status === 'PENDING_PAYMENT' && (
-                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#A67C2E]/35 bg-[#FAF8F3] p-3.5 text-xs">
-                        <span className="text-[#17221E]">
-                          {isVi
-                            ? 'Trả phí giữ chỗ 12% để khóa lịch phòng và mở khóa địa chỉ thật.'
-                            : 'Pay the 12% booking fee to lock your dates and unlock the address.'}
-                        </span>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={busyId === b.id}
-                            onClick={() => handlePayFee(b.id)}
-                            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-[#C25E28] px-4 py-2 font-bold text-white"
-                          >
-                            <CreditCard className="h-3.5 w-3.5" />
+                      <div className="space-y-3 rounded-2xl border border-[#A67C2E]/35 bg-[#FAF8F3] p-3.5 text-xs">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <span className="text-[#17221E]">
                             {isVi
-                              ? `Thanh toán ${formatMoneyFromVnd(b.feeOnlineVnd, currency)}`
-                              : `Pay ${formatMoneyFromVnd(b.feeOnlineVnd, currency)}`}
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === b.id}
-                            onClick={() => handleCancel(b.id)}
-                            className="rounded-xl border border-[#E5DFD3] px-3 py-2 font-semibold text-[#53635D]"
-                          >
-                            {isVi ? 'Hủy' : 'Cancel'}
-                          </button>
+                              ? 'Trả phí giữ chỗ 12% để khóa lịch phòng và mở khóa địa chỉ thật.'
+                              : 'Pay the 12% booking fee to lock your dates and unlock the address.'}
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={busyId === b.id}
+                              onClick={() =>
+                                setPayingBookingId(payingBookingId === b.id ? null : b.id)
+                              }
+                              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-[#C25E28] px-4 py-2 font-bold text-white"
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                              {payingBookingId === b.id
+                                ? isVi
+                                  ? 'Ẩn thanh toán'
+                                  : 'Hide payment'
+                                : isVi
+                                  ? `Thanh toán ${formatMoneyFromVnd(b.feeOnlineVnd, currency)}`
+                                  : `Pay ${formatMoneyFromVnd(b.feeOnlineVnd, currency)}`}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busyId === b.id}
+                              onClick={() => handleCancel(b.id)}
+                              className="rounded-xl border border-[#E5DFD3] px-3 py-2 font-semibold text-[#53635D]"
+                            >
+                              {isVi ? 'Hủy' : 'Cancel'}
+                            </button>
+                          </div>
                         </div>
+                        {payingBookingId === b.id && (
+                          <GatewayCheckoutPanel
+                            purpose="booking_fee"
+                            bookingId={b.id}
+                            amountVnd={b.feeOnlineVnd}
+                            title={
+                              isVi
+                                ? `Thanh toán giữ chỗ (${b.bookingCode})`
+                                : `Pay reservation fee (${b.bookingCode})`
+                            }
+                            subtitle={
+                              isVi
+                                ? 'Chọn VietQR hoặc thẻ quốc tế Stripe để hoàn tất giữ chỗ.'
+                                : 'Choose VietQR or Stripe card checkout to lock your stay.'
+                            }
+                            onPaid={() => {
+                              setPayingBookingId(null);
+                              window.location.reload();
+                            }}
+                          />
+                        )}
                       </div>
                     )}
 

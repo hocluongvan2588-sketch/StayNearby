@@ -4,6 +4,7 @@ import path from 'node:path';
 
 export interface AppConfig {
   brandName: string;
+  appBaseUrl: string;
   databaseUrl: string;
   pgliteDataDir: string;
   authSecret: string;
@@ -15,6 +16,12 @@ export interface AppConfig {
   resendFromEmail: string;
   adminAlertWebhookUrl: string;
   cronSecret: string;
+  stripeSecretKey: string;
+  stripeWebhookSecret: string;
+  vietqrBankBin: string;
+  vietqrAccountNo: string;
+  vietqrAccountName: string;
+  vietqrWebhookToken: string;
 }
 
 export function getConfig(): AppConfig {
@@ -35,6 +42,8 @@ export function getConfig(): AppConfig {
 
   return {
     brandName: 'VietNomad Stays',
+    appBaseUrl:
+      process.env.NEXT_PUBLIC_APP_URL?.trim() || 'http://localhost:3000',
     databaseUrl,
     pgliteDataDir,
     authSecret:
@@ -50,6 +59,12 @@ export function getConfig(): AppConfig {
       process.env.RESEND_FROM_EMAIL?.trim() || 'VietNomad Stays <bookings@vietnomad.stays>',
     adminAlertWebhookUrl: process.env.ADMIN_ALERT_WEBHOOK_URL?.trim() || '',
     cronSecret: process.env.CRON_SECRET?.trim() || '',
+    stripeSecretKey: process.env.STRIPE_SECRET_KEY?.trim() || '',
+    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET?.trim() || '',
+    vietqrBankBin: process.env.VIETQR_BANK_BIN?.trim() || '',
+    vietqrAccountNo: process.env.VIETQR_ACCOUNT_NO?.trim() || '',
+    vietqrAccountName: process.env.VIETQR_ACCOUNT_NAME?.trim() || '',
+    vietqrWebhookToken: process.env.VIETQR_WEBHOOK_TOKEN?.trim() || '',
   };
 }
 

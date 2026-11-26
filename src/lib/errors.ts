@@ -5,7 +5,9 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'INSUFFICIENT_WALLET'
-  | 'UNAVAILABLE';
+  | 'UNAVAILABLE'
+  | 'UNCONFIGURED'
+  | 'PAYMENT_GATEWAY_ERROR';
 
 export class AppError extends Error {
   readonly code: ErrorCode;
