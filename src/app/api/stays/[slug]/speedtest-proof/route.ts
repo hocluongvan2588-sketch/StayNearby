@@ -68,7 +68,7 @@ export async function GET(
   <text x="88" y="282" fill="#ffffff" font-family="system-ui, sans-serif" font-size="18">${escapeXml(String(s.workspace_summary_en).slice(0, 86))}</text>
   <text x="88" y="310" fill="#cbe3db" font-family="system-ui, sans-serif" font-size="14">Wi-Fi: ${down} Mbps down, ${up} Mbps up, ${jitter}ms latency, checked ${verifiedIso}</text>
   <rect x="64" y="360" width="380" height="96" rx="12" fill="#134e3f" stroke="#5bb397" stroke-opacity="0.5"/>
-  <text x="88" y="396" fill="#9de2c8" font-family="system-ui, sans-serif" font-size="13" font-weight="700">100% FEE REFUND GUARANTEE</text>
+  <text x="88" y="396" fill="#9de2c8" font-family="system-ui, sans-serif" font-size="13" font-weight="700">VERIFIED BEFORE LISTING</text>
   <text x="88" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14">Pay 12% fee online, pay rent to host at check-in</text>
   <rect x="468" y="360" width="428" height="96" rx="12" fill="#c89d54" fill-opacity="0.18" stroke="#c89d54" stroke-opacity="0.6"/>
   <text x="492" y="396" fill="#f5deb3" font-family="system-ui, sans-serif" font-size="13" font-weight="700">VERIFICATION LEVEL</text>
@@ -103,7 +103,7 @@ export async function GET(
   <text x="742" y="302" fill="#cfe6ed" font-family="system-ui, sans-serif" font-size="18" font-weight="600">ms</text>
 
   <text x="64" y="394" fill="#d5e5ea" font-family="system-ui, sans-serif" font-size="15">Tester note: ${escapeXml(String(s.wifi_tester_note))}</text>
-  <text x="64" y="424" fill="#82a7b4" font-family="system-ui, sans-serif" font-size="14">Code: ${escapeXml(String(s.registration_code))}. Protected by 100% booking fee refund guarantee if actual speed falls short.</text>
+  <text x="64" y="424" fill="#82a7b4" font-family="system-ui, sans-serif" font-size="14">Code: ${escapeXml(String(s.registration_code))}. Speed and workspace verified prior to listing on VietNomad Stays.</text>
 </svg>`;
 
   return new Response(svg, {

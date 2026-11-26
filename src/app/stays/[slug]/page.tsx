@@ -156,8 +156,8 @@ export default async function StayDetailPage({
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#E5DFD3] pt-4 text-xs">
               <div className="text-[#53635D]">
                 {isVi
-                  ? `Cập nhật ${stay.verifiedAt.slice(0, 10)}. Hoàn 100% phí giữ chỗ nếu Wi-Fi không đạt.`
-                  : `Checked ${stay.verifiedAt.slice(0, 10)}. Covered by 100% booking fee refund guarantee.`}
+                  ? `Đo thực tế ngày ${stay.verifiedAt.slice(0, 10)} tại bàn làm việc của chỗ ở.`
+                  : `Speed measured on ${stay.verifiedAt.slice(0, 10)} at the workspace desk.`}
               </div>
               <div className="flex flex-wrap gap-2">
                 {stay.speedtestProofUrl && (

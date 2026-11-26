@@ -167,7 +167,7 @@ export async function dispatchBookingLockedNotifications(
       speedtestProofUrl: row.speedtest_proof_url,
     },
     guaranteeNote:
-      '100% booking fee refund guarantee if Wi-Fi or workspace at check-in falls below this certificate.',
+      'On-site Wi-Fi speed and desk setup verified prior to listing. Standard cancellation policy applies.',
   };
 
   const guestStatus = await maybeSendResendEmail(

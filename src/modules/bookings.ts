@@ -511,8 +511,8 @@ export async function refundWifiMismatch(
     );
     const b = res.rows[0];
     if (!b) throw new AppError('NOT_FOUND', 'Booking not found.');
-    if (actor.role !== 'admin' && b.guest_id !== actor.id && b.host_id !== actor.id) {
-      throw new AppError('FORBIDDEN', 'Not authorized to trigger mismatch refund on this booking.');
+    if (actor.role !== 'admin') {
+      throw new AppError('FORBIDDEN', 'Only VietNomad admins can approve an administrative fee refund.');
     }
     if (b.status !== 'RESERVED_LOCKED' && b.status !== 'confirmed') {
       throw new AppError('CONFLICT', 'Wi-Fi mismatch refund applies to active locked reservations.');
@@ -562,7 +562,7 @@ export async function refundWifiMismatch(
     await tx.query(
       `INSERT INTO booking_notifications (
         id, booking_id, recipient_role, channel, recipient_contact, subject, payload_json, status
-      ) VALUES ($1,$2,'guest','email','member','100% Booking Fee Refund Issued (Wi-Fi Guarantee)',$3,'sent')`,
+      ) VALUES ($1,$2,'guest','email','member','Administrative Booking Fee Refund Issued',$3,'sent')`,
       [
         crypto.randomUUID(),
         b.id,

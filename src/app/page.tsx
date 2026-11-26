@@ -66,8 +66,8 @@ export default async function HomePage() {
           a: 'Khi đặt phòng qua VietNomad, bạn chỉ thanh toán trước 12% phí giữ chỗ và kiểm định (tính trên giá thuê chủ nhà) để khóa lịch và mở địa chỉ thật. Toàn bộ tiền thuê nhà bạn trả trực tiếp cho chủ nhà khi nhận phòng.',
         },
         {
-          q: 'Nếu tốc độ Wi-Fi khi nhận phòng không đúng như cam kết thì sao?',
-          a: 'Bạn được hoàn lại 100% khoản phí giữ chỗ 12% nếu tốc độ Wi-Fi hoặc bàn làm việc thực tế không đạt chứng nhận, kèm hỗ trợ đổi sang căn hộ khác cùng khu vực.',
+          q: 'Nếu tốc độ Wi-Fi khi nhận phòng gặp sự cố thì sao?',
+          a: 'Đội ngũ VietNomad sẽ phối hợp cùng chủ nhà kiểm tra router, đường truyền kỹ thuật hoặc hỗ trợ tìm chỗ ở phù hợp cùng khu vực ngay trong ngày nhận phòng.',
         },
         {
           q: 'Thời gian thuê tối thiểu là bao nhiêu đêm?',
@@ -75,7 +75,7 @@ export default async function HomePage() {
         },
         {
           q: 'Đặt qua VietNomad và đặt trực tiếp chủ nhà khác nhau thế nào?',
-          a: 'Đặt qua VietNomad cho phép giữ phòng ngay với phí 12% online và hưởng bảo chứng hoàn tiền Wi-Fi. Đặt trực tiếp chủ nhà sẽ chuyển bạn sang website riêng của chủ nhà với giá niêm yết gốc.',
+          a: 'Đặt qua VietNomad cho phép giữ phòng ngay với phí 12% online và được đội ngũ hỗ trợ kỹ thuật trong suốt thời gian lưu trú. Đặt trực tiếp chủ nhà sẽ chuyển bạn sang website riêng của chủ nhà với giá niêm yết gốc.',
         },
       ]
     : [
@@ -84,8 +84,8 @@ export default async function HomePage() {
           a: 'To confirm a stay on VietNomad, you pay only the 12% booking and verification fee online to lock your dates and unlock the exact address. You pay the full host rent directly to your host when you check in.',
         },
         {
-          q: 'What if the Wi-Fi at check-in is slower than promised?',
-          a: 'You receive a 100% refund of your 12% booking fee if the Wi-Fi speed or desk setup fails to match the certificate at check-in, plus support finding a replacement nearby.',
+          q: 'What if the Wi-Fi has technical issues at check-in?',
+          a: 'VietNomad coordinates with the host to troubleshoot the router line or help arrange a suitable alternative nearby on your check-in day.',
         },
         {
           q: 'What is the minimum stay?',
@@ -93,7 +93,7 @@ export default async function HomePage() {
         },
         {
           q: 'What is the difference between Book on VietNomad and Direct Booking?',
-          a: 'Book on VietNomad locks your dates immediately with a 12% online fee and full Wi-Fi refund protection. Direct Booking sends signed-in members straight to the host website with zero markup.',
+          a: 'Book on VietNomad locks your dates immediately with a 12% online fee and active stay support. Direct Booking sends signed-in members straight to the host website with zero markup.',
         },
       ];
 
@@ -128,8 +128,8 @@ export default async function HomePage() {
 
             <p className="max-w-2xl text-base leading-relaxed text-[#DCECE5] sm:text-lg">
               {isVi
-                ? 'Chỉ trả phí giữ chỗ 12% online để khóa phòng và trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng. Wi-Fi đo thực tế từ 250 đến 680 Mbps, hoàn lại 100% phí nếu không đúng cam kết.'
-                : 'Pay only a 12% booking fee online to hold your dates, then pay rent directly to your host at check-in. Verified Wi-Fi speeds from 250 to 680 Mbps with a 100% fee refund guarantee.'}
+                ? 'Chỉ trả phí giữ chỗ 12% online để khóa phòng và trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng. Mọi chỗ ở đều được đo tốc độ Wi-Fi thực tế từ 250 đến 680 Mbps tại bàn làm việc.'
+                : 'Pay only a 12% booking fee online to hold your dates, then pay rent directly to your host at check-in. Every listing includes on-site verified Wi-Fi speeds from 250 to 680 Mbps at the desk.'}
             </p>
           </div>
 
@@ -171,7 +171,7 @@ export default async function HomePage() {
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Wifi className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Wi-Fi đo thật, hoàn 100% phí nếu sai' : 'Tested Wi-Fi with 100% fee refund protection'}</span>
+              <span>{isVi ? 'Wi-Fi đo thực tế trước khi đăng' : 'Tested Wi-Fi speed before listing'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Clock className="h-5 w-5 shrink-0 text-[#E6B87A]" />
@@ -404,8 +404,8 @@ export default async function HomePage() {
                 [
                   isVi ? 'Thanh toán và rủi ro' : 'Payment & risk',
                   isVi
-                    ? 'Chỉ trả phí giữ chỗ 12% online. Trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng và được hoàn 100% phí nếu Wi-Fi sai cam kết.'
-                    : 'Pay only a 12% booking fee online. Pay rent to the host at check-in with a 100% Wi-Fi refund guarantee.',
+                    ? 'Chỉ trả phí giữ chỗ 12% online để khóa lịch, toàn bộ tiền thuê trả trực tiếp cho chủ nhà khi nhận phòng.'
+                    : 'Pay only a 12% booking fee online to lock dates, then pay host rent directly at check-in.',
                   isVi
                     ? 'Phải trả trước 100% tiền thuê ngay khi đặt, thủ tục hoàn tiền phức tạp.'
                     : 'Pay 100% upfront with slow refund disputes.',

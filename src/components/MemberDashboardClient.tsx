@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import {
-  AlertTriangle,
   Bookmark,
   Calendar,
   CheckCircle2,
@@ -119,38 +118,6 @@ export function MemberDashboardClient({
           isVi
             ? `Đã thanh toán ${formatMoneyFromVnd(json.payment.feePaidOnlineVnd, currency)} và khóa phòng thành công.`
             : `Paid ${formatMoneyFromVnd(json.payment.feePaidOnlineVnd, currency)}. Dates are locked and your Wi-Fi certificate is ready.`
-        );
-        window.location.reload();
-      }
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function handleWifiMismatchRefund(bookingId: string) {
-    const reason = window.prompt(
-      isVi
-        ? 'Mô tả ngắn sự cố Wi-Fi hoặc bàn làm việc để nhận hoàn lại 100% phí giữ chỗ:'
-        : 'Describe the Wi-Fi speed or desk issue to claim your 100% fee refund:',
-      'On-site speedtest below certified Mbps at check-in'
-    );
-    if (!reason) return;
-    setBusyId(bookingId);
-    setNotice('');
-    try {
-      const res = await fetch(`/api/bookings/${bookingId}/mismatch-refund`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-      });
-      const json = await res.json();
-      if (!json.ok) {
-        setNotice(json.error?.message ?? (isVi ? 'Không thể gửi yêu cầu hoàn tiền.' : 'Refund request failed.'));
-      } else {
-        setNotice(
-          isVi
-            ? `Đã hoàn lại 100% phí giữ chỗ (${formatMoneyFromVnd(json.refund.refundAmountVnd, currency)}).`
-            : `100% booking fee refund processed (${formatMoneyFromVnd(json.refund.refundAmountVnd, currency)}).`
         );
         window.location.reload();
       }
@@ -464,7 +431,7 @@ export function MemberDashboardClient({
 
                     {b.status === 'REFUNDED_WIFI_MISMATCH' && (
                       <div className="rounded-2xl bg-[#FAEDE5] p-3 text-xs text-[#C25E28]">
-                        <strong>{isVi ? 'Đã hoàn 100% phí giữ chỗ:' : '100% fee refunded:'}</strong>{' '}
+                        <strong>{isVi ? 'Đã hoàn phí giữ chỗ:' : 'Booking fee refunded:'}</strong>{' '}
                         {formatMoneyFromVnd(b.refundAmountVnd, currency)} ({b.mismatchReason})
                       </div>
                     )}
@@ -482,19 +449,10 @@ export function MemberDashboardClient({
                         <span className="text-xs text-[#53635D]">
                           <CheckCircle2 className="mr-1 inline h-3.5 w-3.5 text-[#164E3F]" />
                           {isVi
-                            ? `Chính sách hủy: ${formatCancellationPolicyLabel(b.cancellationPolicy, locale)}. Hoàn 100% phí nếu Wi-Fi sai cam kết.`
-                            : `Cancellation: ${formatCancellationPolicyLabel(b.cancellationPolicy, locale)}. Protected by 100% Wi-Fi refund guarantee.`}
+                            ? `Chính sách hủy: ${formatCancellationPolicyLabel(b.cancellationPolicy, locale)}.`
+                            : `Cancellation: ${formatCancellationPolicyLabel(b.cancellationPolicy, locale)}.`}
                         </span>
                         <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            disabled={busyId === b.id}
-                            onClick={() => handleWifiMismatchRefund(b.id)}
-                            className="inline-flex min-h-[36px] items-center gap-1 rounded-xl border border-[#A67C2E]/40 bg-[#FAF8F3] px-3 py-1.5 text-xs font-semibold text-[#A67C2E] hover:bg-[#F2EDE3]"
-                          >
-                            <AlertTriangle className="h-3.5 w-3.5" />
-                            {isVi ? 'Báo Wi-Fi chậm (Hoàn 100%)' : 'Report slow Wi-Fi (100% refund)'}
-                          </button>
                           <button
                             type="button"
                             disabled={busyId === b.id}

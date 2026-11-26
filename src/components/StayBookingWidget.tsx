@@ -479,12 +479,12 @@ export function StayBookingWidget({
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#164E3F]" />
         <div>
           <div className="font-bold text-[#164E3F]">
-            {isVi ? 'Hoàn 100% phí giữ chỗ nếu Wi-Fi không đạt' : '100% booking fee refund guarantee'}
+            {isVi ? 'Chính sách giữ chỗ và hủy phòng minh bạch' : 'Clear reservation and cancellation terms'}
           </div>
           <p className="mt-0.5 text-[#53635D]">
             {isVi
-              ? `Hoàn đủ ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} nếu Wi-Fi hoặc bàn làm việc không đúng chứng nhận. Áp dụng chính sách hủy ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)}.`
-              : `Full refund of your ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} booking fee if Wi-Fi or desk setup fails to match at check-in. ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)} cancellation rules apply.`}
+              ? `Tốc độ Wi-Fi và bàn làm việc được kiểm tra trước khi đăng. Phí giữ chỗ ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} áp dụng theo chính sách hủy ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)}.`
+              : `Wi-Fi speed and desk setup are verified prior to listing. Your ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} booking fee follows ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)} cancellation rules.`}
           </p>
         </div>
       </div>

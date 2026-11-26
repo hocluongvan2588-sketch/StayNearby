@@ -113,8 +113,9 @@ describe('VietNomad Stays PRD End-to-End PostgreSQL Workflows', () => {
     expect(checkedIn.status).toBe('CHECKED_IN_COMPLETED');
   });
 
-  it('refunds 100% of 12% online fee under Wi-Fi Mismatch Guarantee and unlocks room nights', async () => {
+  it('allows only admins to issue a verified booking fee refund and unlocks room nights', async () => {
     const member = await fetchSessionUserByEmail('nomad@vietnomad.demo');
+    const admin = await fetchSessionUserByEmail('admin@vietnomad.demo');
     const stay = await getStayDetailBySlug('tay-ho-jade-residence-hanoi');
     const room = stay!.rooms[0];
     const pkg = room.packages[0];
@@ -130,10 +131,14 @@ describe('VietNomad Stays PRD End-to-End PostgreSQL Workflows', () => {
     });
     expect(booking.status).toBe('RESERVED_LOCKED');
 
+    await expect(
+      refundWifiMismatch(member, booking.bookingId, 'Self-reported slow speed')
+    ).rejects.toThrow();
+
     const refund = await refundWifiMismatch(
-      member,
+      admin,
       booking.bookingId,
-      'Check-in speed measured 35 Mbps instead of 465 Mbps'
+      'Admin verified technical outage on check-in day'
     );
     expect(refund.status).toBe('REFUNDED_WIFI_MISMATCH');
     expect(refund.refundAmountVnd).toBe(booking.quote.feeOnlineVnd);

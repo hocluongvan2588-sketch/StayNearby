@@ -140,15 +140,15 @@ export function AdminConsoleClient({ data }: { data: AdminConsoleData }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        reason: 'Admin verified slow Wi-Fi speed and approved 100% booking fee refund',
+        reason: 'Admin verified exceptional technical case and approved booking fee refund',
       }),
     });
     const json = await res.json();
     if (json.ok) {
       setNotice(
         isVi
-          ? `Đã hoàn 100% phí giữ chỗ (${formatVndExact(json.refund.refundAmountVnd)}).`
-          : `Refunded 100% booking fee (${formatVndExact(json.refund.refundAmountVnd)}).`
+          ? `Đã hoàn phí giữ chỗ (${formatVndExact(json.refund.refundAmountVnd)}).`
+          : `Refunded booking fee (${formatVndExact(json.refund.refundAmountVnd)}).`
       );
       window.location.reload();
     }
@@ -385,7 +385,7 @@ export function AdminConsoleClient({ data }: { data: AdminConsoleData }) {
                         onClick={() => handleBookingMismatchRefund(b.id)}
                         className="rounded-lg border border-[#C25E28]/40 px-2.5 py-1 font-semibold text-[#C25E28] hover:bg-[#FAEDE5]"
                       >
-                        {isVi ? 'Hoàn 100% phí Wi-Fi' : 'Issue 100% Wi-Fi refund'}
+                        {isVi ? 'Hoàn phí (Admin)' : 'Admin fee refund'}
                       </button>
                     )}
                   </td>
