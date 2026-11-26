@@ -16,14 +16,14 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
   const [done, setDone] = useState(user?.membershipTier === 'premium');
 
   return (
-    <div className="mx-auto max-w-6xl space-y-14 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="grid items-center gap-8 rounded-3xl border border-[#E5DFD3] bg-[#0F392E] p-8 text-[#FAF8F3] lg:grid-cols-12 lacquer-shadow">
+    <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:px-6 lg:px-8">
+      <div className="grid items-center gap-8 rounded-2xl border border-[#E5DFD3] bg-[#0F392E] p-8 text-[#FAF8F3] lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-7">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-[#E6B87A]">
             <Sparkles className="h-3.5 w-3.5" />
             {isVi ? 'Thẻ hội viên Nomad Pass, 99 EUR một năm' : 'Nomad Pass, €99 / year'}
           </span>
-          <h1 className="font-serif-display text-4xl font-semibold leading-tight sm:text-5xl">
+          <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">
             {isVi
               ? `Nhận lại ${premiumRewardPct}% tiền thưởng và xuất hóa đơn miễn VAT.`
               : `Earn ${premiumRewardPct}% credit back and get VAT-free invoices.`}
@@ -57,7 +57,7 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
           ) : (
             <div className="space-y-4">
               <div className="flex items-baseline justify-between">
-                <span className="font-serif-display text-2xl font-bold text-[#164E3F]">€99 / {isVi ? 'năm' : 'year'}</span>
+                <span className="text-2xl font-bold text-[#164E3F]">€99 / {isVi ? 'năm' : 'year'}</span>
                 <span className="rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-xs font-semibold text-[#164E3F]">
                   {isVi ? 'Kích hoạt ngay' : 'Instant activation'}
                 </span>
@@ -103,7 +103,7 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-[#E5DFD3] bg-white lacquer-shadow">
+      <div className="overflow-hidden rounded-2xl border border-[#E5DFD3] bg-white">
         <table className="w-full text-left text-sm">
           <thead className="bg-[#FAF8F3] text-xs uppercase tracking-wider text-[#53635D]">
             <tr>

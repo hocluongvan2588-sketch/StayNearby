@@ -10,8 +10,10 @@ const schema = z.object({
   sessionKey: z.string().min(4).max(120),
   visitorId: z.string().max(120).optional(),
   // Client may never spoof server-verified 'booking_completed' events
-  eventName: z.enum(['page_view', 'search', 'stay_view', 'checkout_start']),
+  eventName: z.enum(['page_view', 'article_view', 'destination_view', 'search', 'stay_view', 'checkout_start']),
   stayId: z.string().nullable().optional(),
+  contentId: z.string().nullable().optional(),
+  destinationSlug: z.string().max(80).optional(),
   utmSource: z.string().max(80).optional(),
   utmMedium: z.string().max(80).optional(),
   utmCampaign: z.string().max(100).optional(),
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     if (!isInternal && user) {
       const staffRes = await dbQuery<{ role_id: string }>(
-        'SELECT role_id FROM admin_user_roles WHERE user_id = $1 LIMIT 1',
+        'SELECT role_id FROM admin_staff_profiles WHERE user_id = $1 AND is_active = TRUE LIMIT 1',
         [user.id]
       );
       if (staffRes.rows.length > 0) isInternal = true;
@@ -60,9 +62,10 @@ export async function POST(req: NextRequest) {
     await dbQuery(
       `INSERT INTO attribution_events (
         id, session_key, visitor_id, user_id, event_name, stay_id, booking_id,
+        content_id, destination_slug,
         utm_source, utm_medium, utm_campaign, utm_content, utm_term,
         referrer, landing_path, dedupe_key, is_internal
-      ) VALUES ($1,$2,$3,$4,$5,$6,NULL,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      ) VALUES ($1,$2,$3,$4,$5,$6,NULL,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [
         crypto.randomUUID(),
         d.sessionKey.trim(),
@@ -70,6 +73,8 @@ export async function POST(req: NextRequest) {
         user?.id ?? null,
         d.eventName,
         d.stayId && isValidUuid(d.stayId) ? d.stayId : null,
+        d.contentId && isValidUuid(d.contentId) ? d.contentId : null,
+        (d.destinationSlug ?? '').trim().slice(0, 80),
         (d.utmSource ?? '').trim().slice(0, 80),
         (d.utmMedium ?? '').trim().slice(0, 80),
         (d.utmCampaign ?? '').trim().slice(0, 100),

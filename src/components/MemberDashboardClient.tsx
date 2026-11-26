@@ -361,7 +361,7 @@ export function MemberDashboardClient({
 
   return (
     <div className="mx-auto max-w-7xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
-      <div className="flex flex-col justify-between gap-6 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-8 md:flex-row md:items-center lacquer-shadow">
+      <div className="flex flex-col justify-between gap-6 rounded-2xl border border-[#E5DFD3] bg-white p-6 sm:p-8 md:flex-row md:items-center">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
@@ -392,7 +392,7 @@ export function MemberDashboardClient({
               </Link>
             )}
           </div>
-          <h1 className="font-serif-display mt-2 text-3xl font-semibold text-[#17221E]">
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[#17221E] sm:text-3xl">
             {user.fullName}
           </h1>
           <p className="text-xs text-[#53635D]">
@@ -407,7 +407,7 @@ export function MemberDashboardClient({
               <Wallet className="h-4 w-4 text-[#164E3F]" />
               {isVi ? 'Số dư tiền thưởng' : 'Reward credit'}
             </div>
-            <div className="font-serif-display text-2xl font-bold text-[#164E3F]">
+            <div className="text-2xl font-bold text-[#164E3F]">
               {formatMoney(user.rewardCreditVnd)}
             </div>
           </div>
@@ -438,7 +438,7 @@ export function MemberDashboardClient({
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+          <h2 className="text-xl font-semibold tracking-tight text-[#17221E] sm:text-2xl">
             {isVi ? 'Đơn đặt phòng và thông tin nhận phòng' : 'Your stays & check-in details'}
           </h2>
           <Link href="/stays" className="text-sm font-semibold text-[#164E3F] hover:underline">
@@ -464,9 +464,9 @@ export function MemberDashboardClient({
               return (
                 <div
                   key={b.id}
-                  className="grid gap-5 rounded-3xl border border-[#E5DFD3] bg-white p-5 sm:grid-cols-12"
+                  className="grid gap-5 rounded-2xl border border-[#E5DFD3] bg-white p-5 sm:grid-cols-12"
                 >
-                  <div className="overflow-hidden rounded-2xl sm:col-span-3">
+                  <div className="overflow-hidden rounded-xl sm:col-span-3">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={b.heroImage}
@@ -484,14 +484,16 @@ export function MemberDashboardClient({
                           <span className={`rounded-full px-2.5 py-0.5 ${renderStatusBadge(b.status)}`}>
                             {formatBookingStatusLabel(b.status, locale, bookingFeePct)}
                           </span>
-                          <span className="text-[#53635D]">
-                            <Wifi className="mr-1 inline h-3.5 w-3.5 text-[#164E3F]" />
-                            {b.wifiDownloadMbps}/{b.wifiUploadMbps} Mbps ({b.wifiJitterMs}ms)
-                          </span>
+                          {b.wifiDownloadMbps > 0 && (
+                            <span className="text-[#53635D]">
+                              <Wifi className="mr-1 inline h-3.5 w-3.5 text-[#164E3F]" />
+                              {b.wifiDownloadMbps} Mbps
+                            </span>
+                          )}
                         </div>
                         <Link
                           href={`/stays/${b.staySlug}`}
-                          className="font-serif-display mt-1 block text-2xl font-semibold text-[#17221E] hover:text-[#164E3F]"
+                          className="mt-1.5 block text-xl font-semibold text-[#17221E] hover:text-[#164E3F]"
                         >
                           {isVi ? b.titleVi : b.titleEn}
                         </Link>
@@ -822,10 +824,10 @@ export function MemberDashboardClient({
       </section>
 
       {/* Unified Interactive Support Center (support_tickets & support_ticket_messages) */}
-      <section id="support-center" className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-6">
+      <section id="support-center" className="space-y-4 rounded-2xl border border-[#E5DFD3] bg-white p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="font-serif-display flex items-center gap-2 text-xl font-semibold text-[#17221E]">
+            <h3 className="flex items-center gap-2 text-xl font-semibold text-[#17221E]">
               <LifeBuoy className="h-5 w-5 text-[#164E3F]" />
               {isVi ? 'Trung tâm hỗ trợ & Xử lý sự cố' : 'Support Center & Issue Resolution'}
             </h3>
@@ -1191,8 +1193,8 @@ export function MemberDashboardClient({
       </section>
 
       <div className="grid gap-8 lg:grid-cols-2">
-        <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6">
-          <h3 className="font-serif-display mb-4 flex items-center gap-2 text-xl font-semibold text-[#17221E]">
+        <section className="rounded-2xl border border-[#E5DFD3] bg-white p-6">
+          <h3 className="mb-4 flex items-center gap-2 text-xl font-semibold text-[#17221E]">
             <Bookmark className="h-5 w-5 text-[#C25E28]" />
             {isVi ? 'Chỗ ở đã lưu' : 'Saved stays'}
           </h3>
@@ -1211,7 +1213,8 @@ export function MemberDashboardClient({
                   <div>
                     <div className="font-semibold text-[#17221E]">{isVi ? s.titleVi : s.titleEn}</div>
                     <div className="text-xs text-[#53635D]">
-                      {isVi ? s.destinationNameVi : s.destinationNameEn}, {s.wifiDownloadMbps} Mbps
+                      {isVi ? s.destinationNameVi : s.destinationNameEn}
+                      {s.wifiDownloadMbps > 0 ? ` · ${s.wifiDownloadMbps} Mbps` : ''}
                     </div>
                   </div>
                   <div className="text-sm font-bold text-[#164E3F]">
@@ -1223,8 +1226,8 @@ export function MemberDashboardClient({
           )}
         </section>
 
-        <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6">
-          <h3 className="font-serif-display mb-4 flex items-center gap-2 text-xl font-semibold text-[#17221E]">
+        <section className="rounded-2xl border border-[#E5DFD3] bg-white p-6">
+          <h3 className="mb-4 flex items-center gap-2 text-xl font-semibold text-[#17221E]">
             <Calendar className="h-5 w-5 text-[#164E3F]" />
             {isVi ? 'Sự kiện đã đăng ký' : 'Your meetup RSVPs'}
           </h3>

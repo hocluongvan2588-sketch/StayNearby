@@ -49,6 +49,10 @@ export interface StayCardItem {
   heroImage: string;
   mapX: number;
   mapY: number;
+  isEntirePlace: boolean;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  areaSqm: number | null;
   bedsCount: number;
   maxGuests: number;
   nearestCoworking: CoworkingSpot | null;
@@ -113,6 +117,9 @@ export interface StayRoomDetail {
   descriptionVi: string;
   maxGuests: number;
   bedsCount: number;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  areaSqm: number | null;
   unitsTotal: number;
   roomImage: string;
   roomFeatures: string[];
@@ -156,6 +163,8 @@ export interface LocalDiscoveryPlace {
   name: string;
   category: string;
   address: string;
+  lat: number | null;
+  lng: number | null;
   priceRange: string;
   openingHours: string;
   descriptionEn: string;
@@ -167,6 +176,8 @@ export interface LocalDiscoveryPlace {
   partnerPerk?: string | null;
   verificationStatus: string;
   distanceLabel?: string;
+  rating: number | null;
+  reviewCount: number | null;
 }
 
 export interface DestinationNeighborhood {
@@ -189,9 +200,16 @@ export interface DestinationLocalPartner {
 }
 
 export interface StayDetail extends StayCardItem {
+  hostId: string;
   hostName: string;
   hostNationality: string;
   hostWhatsapp: string;
+  hostBioEn: string;
+  hostBioVi: string;
+  hostAvatarUrl: string;
+  hostVerified: boolean;
+  lat: number | null;
+  lng: number | null;
   descriptionEn: string;
   descriptionVi: string;
   registrationCode: string;
@@ -229,6 +247,18 @@ function parseJsonArray<T>(raw: unknown): T[] {
     }
   }
   return [];
+}
+
+function toNullablePositiveInt(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+function toNullableNumber(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 function mapStayRowToCard(
@@ -332,6 +362,13 @@ function mapStayRowToCard(
     heroImage: String(row.hero_image),
     mapX: Number(row.map_x ?? 50),
     mapY: Number(row.map_y ?? 50),
+    isEntirePlace:
+      row.is_entire_place !== undefined && row.is_entire_place !== null
+        ? Boolean(row.is_entire_place)
+        : row.property_type !== 'coliving',
+    bedrooms: toNullablePositiveInt(row.bedrooms) ?? toNullablePositiveInt(row.room_bedrooms),
+    bathrooms: toNullablePositiveInt(row.bathrooms) ?? toNullablePositiveInt(row.room_bathrooms),
+    areaSqm: toNullablePositiveInt(row.area_sqm) ?? toNullablePositiveInt(row.room_area_sqm),
     bedsCount: toNum(row.beds_count, 1),
     maxGuests: toNum(row.max_guests, 2),
     nearestCoworking: coworking[0] ?? null,
@@ -433,6 +470,7 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
       `SELECT s.*,
               d.slug AS destination_slug, d.name_en AS destination_name_en, d.name_vi AS destination_name_vi,
               r.id AS default_room_id, r.beds_count, r.max_guests, r.units_total,
+              r.bedrooms AS room_bedrooms, r.bathrooms AS room_bathrooms, r.area_sqm AS room_area_sqm,
               p.wholesale_7_vnd, p.wholesale_14_vnd, p.wholesale_21_vnd, p.wholesale_30_vnd,
               p.compare_30_vnd, p.extra_night_vnd, p.is_deal_featured, p.deal_month_label,
               p.valid_from, p.valid_to
@@ -550,14 +588,16 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
   const [stayRes, feeConfig] = await Promise.all([
     dbQuery(
       `SELECT s.*,
-              u.full_name AS host_name, u.nationality AS host_nationality,
+              u.id AS host_user_id, u.full_name AS host_name, u.nationality AS host_nationality,
+              u.avatar_url AS user_avatar_url, u.bio_en AS user_bio_en, u.bio_vi AS user_bio_vi,
+              u.identity_verified AS user_identity_verified,
               d.id AS d_id, d.slug AS destination_slug, d.name_en AS destination_name_en,
               d.name_vi AS destination_name_vi, d.region_en, d.region_vi,
               d.tagline_en, d.tagline_vi, d.climate_en, d.climate_vi,
               d.visa_summary_en, d.visa_summary_vi, d.visa_details_en, d.visa_details_vi,
               d.monthly_cost_usd, d.avg_wifi_mbps, d.hero_image AS dest_hero_image,
               d.map_x AS dest_map_x, d.map_y AS dest_map_y,
-              r.beds_count, r.max_guests,
+              r.beds_count, r.max_guests, r.bedrooms AS room_bedrooms, r.bathrooms AS room_bathrooms, r.area_sqm AS room_area_sqm,
               p.wholesale_7_vnd, p.wholesale_14_vnd, p.wholesale_21_vnd, p.wholesale_30_vnd,
               p.compare_30_vnd, p.extra_night_vnd, p.is_deal_featured, p.deal_month_label
        FROM stays s
@@ -642,6 +682,8 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
       name: string;
       category: string;
       address: string;
+      lat: string | number | null;
+      lng: string | number | null;
       price_range: string;
       opening_hours: string;
       description_en: string;
@@ -650,18 +692,27 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
       verification_status: string;
       neighborhood_name_en: string | null;
       neighborhood_name_vi: string | null;
+      partner_name: string | null;
+      partner_perk: string | null;
       distance_label: string | null;
+      rating: string | number | null;
+      review_count: number | null;
     }>(
-      `SELECT p.id, p.slug, p.name, p.category, p.address, p.price_range, p.opening_hours,
+      `SELECT p.id, p.slug, p.name, p.category, p.address, p.lat, p.lng,
+              p.price_range, p.opening_hours,
               p.description_en, p.description_vi, p.image_url, p.verification_status,
+              p.rating, p.review_count,
               n.name_en AS neighborhood_name_en, n.name_vi AS neighborhood_name_vi,
+              CASE WHEN lp.partnership_status = 'active' THEN lp.business_name ELSE NULL END AS partner_name,
+              CASE WHEN lp.partnership_status = 'active' THEN lp.perk_offer ELSE NULL END AS partner_perk,
               snp.distance_label
        FROM places p
        LEFT JOIN neighborhoods n ON n.id = p.neighborhood_id
+       LEFT JOIN local_partners lp ON lp.id = p.partner_id
        LEFT JOIN stay_nearby_places snp ON snp.place_id = p.id AND snp.stay_id = $1
        WHERE p.destination_id = $2 AND p.verification_status = 'verified'
        ORDER BY (snp.place_id IS NOT NULL) DESC, p.is_featured DESC, p.name ASC
-       LIMIT 12`,
+       LIMIT 24`,
       [row.id, row.d_id]
     ).catch(() => ({ rows: [] })),
   ]);
@@ -672,6 +723,8 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     name: String(p.name),
     category: String(p.category),
     address: String(p.address ?? ''),
+    lat: toNullableNumber(p.lat),
+    lng: toNullableNumber(p.lng),
     priceRange: String(p.price_range ?? '$$'),
     openingHours: String(p.opening_hours ?? ''),
     descriptionEn: String(p.description_en ?? ''),
@@ -679,8 +732,12 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     imageUrl: String(p.image_url ?? ''),
     neighborhoodNameEn: p.neighborhood_name_en ? String(p.neighborhood_name_en) : null,
     neighborhoodNameVi: p.neighborhood_name_vi ? String(p.neighborhood_name_vi) : null,
+    partnerName: p.partner_name ? String(p.partner_name) : null,
+    partnerPerk: p.partner_perk ? String(p.partner_perk) : null,
     verificationStatus: String(p.verification_status ?? 'verified'),
     distanceLabel: p.distance_label ? String(p.distance_label) : undefined,
+    rating: toNullableNumber(p.rating),
+    reviewCount: toNullablePositiveInt(p.review_count),
   }));
 
   const rooms: StayRoomDetail[] = roomsRes.rows.map((rm) => {
@@ -744,6 +801,9 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
       descriptionVi: String(rm.description_vi),
       maxGuests: toNum(rm.max_guests, 2),
       bedsCount: toNum(rm.beds_count, 1),
+      bedrooms: toNullablePositiveInt(rm.bedrooms),
+      bathrooms: toNullablePositiveInt(rm.bathrooms),
+      areaSqm: toNullablePositiveInt(rm.area_sqm),
       unitsTotal,
       roomImage: String(rm.room_image),
       roomFeatures: parseJsonArray<string>(rm.room_features),
@@ -781,9 +841,16 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
 
   return {
     ...card,
+    hostId: String(row.host_user_id ?? row.host_id),
     hostName: String(row.host_name),
     hostNationality: String(row.host_nationality),
     hostWhatsapp: String(row.host_whatsapp ?? '+84901234567'),
+    hostBioEn: String(row.host_bio_en || row.user_bio_en || ''),
+    hostBioVi: String(row.host_bio_vi || row.user_bio_vi || ''),
+    hostAvatarUrl: String(row.host_avatar_url || row.user_avatar_url || ''),
+    hostVerified: Boolean(row.host_verified) || Boolean(row.user_identity_verified),
+    lat: toNullableNumber(row.lat),
+    lng: toNullableNumber(row.lng),
     descriptionEn: String(row.description_en),
     descriptionVi: String(row.description_vi),
     registrationCode: String(row.registration_code ?? ''),
@@ -840,19 +907,24 @@ export async function getDestinationLocalPlaces(destinationSlug: string): Promis
       name: string;
       category: string;
       address: string;
+      lat: string | number | null;
+      lng: string | number | null;
       price_range: string;
       opening_hours: string;
       description_en: string;
       description_vi: string;
       image_url: string;
       verification_status: string;
+      rating: string | number | null;
+      review_count: number | null;
       neighborhood_name_en: string | null;
       neighborhood_name_vi: string | null;
       partner_name: string | null;
       partner_perk: string | null;
     }>(
-      `SELECT p.id, p.slug, p.name, p.category, p.address, p.price_range, p.opening_hours,
+      `SELECT p.id, p.slug, p.name, p.category, p.address, p.lat, p.lng, p.price_range, p.opening_hours,
               p.description_en, p.description_vi, p.image_url, p.verification_status,
+              p.rating, p.review_count,
               n.name_en AS neighborhood_name_en, n.name_vi AS neighborhood_name_vi,
               CASE WHEN lp.partnership_status = 'active' THEN lp.business_name ELSE NULL END AS partner_name,
               CASE WHEN lp.partnership_status = 'active' THEN lp.perk_offer ELSE NULL END AS partner_perk
@@ -870,6 +942,8 @@ export async function getDestinationLocalPlaces(destinationSlug: string): Promis
       name: String(p.name),
       category: String(p.category),
       address: String(p.address ?? ''),
+      lat: toNullableNumber(p.lat),
+      lng: toNullableNumber(p.lng),
       priceRange: String(p.price_range ?? '$$'),
       openingHours: String(p.opening_hours ?? ''),
       descriptionEn: String(p.description_en ?? ''),
@@ -880,6 +954,8 @@ export async function getDestinationLocalPlaces(destinationSlug: string): Promis
       partnerName: p.partner_name ? String(p.partner_name) : null,
       partnerPerk: p.partner_perk ? String(p.partner_perk) : null,
       verificationStatus: String(p.verification_status ?? 'verified'),
+      rating: toNullableNumber(p.rating),
+      reviewCount: toNullablePositiveInt(p.review_count),
     }));
   } catch {
     return [];

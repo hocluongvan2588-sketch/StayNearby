@@ -1,25 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Laptop,
-  LayoutGrid,
-  X,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, LayoutGrid, X } from 'lucide-react';
 
 export interface GalleryPhotoItem {
   url: string;
   label: string;
-  isWorkspace?: boolean;
+  category?: string;
 }
 
 interface StayPhotoGalleryProps {
   title: string;
   heroImage: string;
   workspacePhotoUrl: string;
+  hasWorkspace?: boolean;
   galleryImages: string[];
+  roomPhotos?: Array<{ url: string; label: string }>;
   locale: 'vi' | 'en';
 }
 
@@ -27,7 +23,9 @@ export function StayPhotoGallery({
   title,
   heroImage,
   workspacePhotoUrl,
+  hasWorkspace = false,
   galleryImages,
+  roomPhotos = [],
   locale,
 }: StayPhotoGalleryProps) {
   const isVi = locale === 'vi';
@@ -39,36 +37,37 @@ export function StayPhotoGallery({
     const seen = new Set<string>();
     const items: GalleryPhotoItem[] = [];
 
-    const addUnique = (url: string, label: string, isWorkspace = false) => {
+    const addUnique = (url: string, label: string, category?: string) => {
       const clean = url?.trim();
-      if (!clean) return;
-      if (seen.has(clean)) {
-        if (isWorkspace) {
-          const existing = items.find((item) => item.url === clean);
-          if (existing) existing.isWorkspace = true;
-        }
-        return;
-      }
+      if (!clean || seen.has(clean)) return;
       seen.add(clean);
-      items.push({ url: clean, label, isWorkspace });
+      items.push({ url: clean, label, category });
     };
 
-    addUnique(heroImage, title, false);
-    addUnique(
-      workspacePhotoUrl,
-      isVi ? 'Ảnh góc làm việc thực tế' : 'Dedicated workspace',
-      true
-    );
+    addUnique(heroImage, title, isVi ? 'Không gian chính' : 'Primary space');
+
     galleryImages.forEach((img, idx) => {
       addUnique(
         img,
-        isVi ? `${title} - Ảnh ${idx + 1}` : `${title} - Photo ${idx + 1}`,
-        false
+        isVi ? `${title} · Không gian ${idx + 1}` : `${title} · Space ${idx + 1}`,
+        isVi ? 'Nội thất & Tiện ích' : 'Living space'
       );
     });
 
+    roomPhotos.forEach((rm) => {
+      addUnique(rm.url, rm.label, isVi ? 'Phòng ngủ' : 'Room');
+    });
+
+    if (hasWorkspace && workspacePhotoUrl) {
+      addUnique(
+        workspacePhotoUrl,
+        isVi ? 'Khu vực bàn làm việc' : 'Workspace area',
+        isVi ? 'Góc làm việc' : 'Workspace'
+      );
+    }
+
     return items;
-  }, [galleryImages, heroImage, isVi, title, workspacePhotoUrl]);
+  }, [galleryImages, hasWorkspace, heroImage, isVi, roomPhotos, title, workspacePhotoUrl]);
 
   const total = photos.length;
   const isOpen = activeIndex !== null && total > 0;
@@ -138,21 +137,14 @@ export function StayPhotoGallery({
         <div className="pointer-events-none absolute inset-0 bg-black/0 transition duration-300 group-hover:bg-black/10" />
       </button>
 
-      {photo.isWorkspace && (
-        <span className="pointer-events-none absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-[#164E3F]/90 px-3 py-1 text-xs font-semibold text-white shadow backdrop-blur-sm">
-          <Laptop className="h-3.5 w-3.5" />
-          {isVi ? 'Ảnh góc làm việc thực tế' : 'Workspace photo'}
-        </span>
-      )}
-
       {showAllButton && (
         <button
           type="button"
           onClick={() => setActiveIndex(0)}
-          className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-xl border border-[#17221E]/15 bg-white/95 px-3.5 py-2 text-xs font-semibold text-[#17221E] shadow-md backdrop-blur-sm transition hover:bg-white"
+          className="absolute bottom-3.5 right-3.5 inline-flex items-center gap-1.5 rounded-xl border border-[#17221E]/15 bg-white/95 px-3.5 py-2 text-xs font-semibold text-[#17221E] shadow-md backdrop-blur-sm transition hover:bg-white"
         >
-          <LayoutGrid className="h-3.5 w-3.5 text-[#164E3F]" />
-          {isVi ? `Xem tất cả ${total} ảnh` : `Show all ${total} photos`}
+          <LayoutGrid className="h-3.5 w-3.5 text-[#17221E]" />
+          {isVi ? `Hiển thị tất cả ${total} ảnh` : `Show all ${total} photos`}
         </button>
       )}
     </div>
@@ -163,13 +155,13 @@ export function StayPhotoGallery({
       {/* Mobile swipeable carousel */}
       <div className="mb-8 sm:hidden">
         <div className="relative">
-          <div className="flex snap-x snap-mandatory gap-2.5 overflow-x-auto rounded-2xl pb-1">
+          <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto rounded-2xl pb-1">
             {photos.map((photo, idx) => (
               <button
                 key={`${photo.url}-mobile-${idx}`}
                 type="button"
                 onClick={() => setActiveIndex(idx)}
-                className="relative aspect-[4/3] w-[88%] shrink-0 snap-center overflow-hidden rounded-2xl bg-[#F2EDE3] text-left"
+                className="relative aspect-[4/3] w-[90%] shrink-0 snap-center overflow-hidden rounded-2xl bg-[#F2EDE3] text-left"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -177,45 +169,44 @@ export function StayPhotoGallery({
                   alt={photo.label}
                   className="h-full w-full object-cover"
                 />
-                {photo.isWorkspace && (
-                  <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-[#164E3F]/90 px-2.5 py-1 text-[11px] font-semibold text-white">
-                    <Laptop className="h-3 w-3" />
-                    {isVi ? 'Góc làm việc' : 'Workspace'}
-                  </span>
-                )}
+                <span className="absolute bottom-2.5 right-2.5 rounded-full bg-black/65 px-2.5 py-0.5 text-[11px] font-medium text-white tabular-nums">
+                  {idx + 1} / {total}
+                </span>
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => setActiveIndex(0)}
-            className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#E5DFD3] bg-white px-4 py-2 text-xs font-semibold text-[#17221E]"
-          >
-            <LayoutGrid className="h-3.5 w-3.5 text-[#164E3F]" />
-            {isVi ? `Xem toàn bộ ${total} ảnh` : `View all ${total} photos`}
-          </button>
+          {total > 1 && (
+            <button
+              type="button"
+              onClick={() => setActiveIndex(0)}
+              className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#E5DFD3] bg-white px-4 py-2.5 text-xs font-semibold text-[#17221E]"
+            >
+              <LayoutGrid className="h-3.5 w-3.5 text-[#164E3F]" />
+              {isVi ? `Xem toàn bộ ${total} ảnh` : `Show all ${total} photos`}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Desktop / tablet adaptive Bento grid */}
       <div className="mb-10 hidden sm:block">
         {total === 1 && (
-          <div className="overflow-hidden rounded-3xl">
-            {renderPhotoTile(photos[0], 0, 'h-[380px] lg:h-[450px]')}
+          <div className="overflow-hidden rounded-2xl">
+            {renderPhotoTile(photos[0], 0, 'h-[380px] lg:h-[460px]')}
           </div>
         )}
 
         {total === 2 && (
-          <div className="grid grid-cols-2 gap-2.5 overflow-hidden rounded-3xl">
-            {renderPhotoTile(photos[0], 0, 'h-[380px] lg:h-[450px]')}
-            {renderPhotoTile(photos[1], 1, 'h-[380px] lg:h-[450px]', true)}
+          <div className="grid grid-cols-2 gap-2 overflow-hidden rounded-2xl">
+            {renderPhotoTile(photos[0], 0, 'h-[380px] lg:h-[460px]')}
+            {renderPhotoTile(photos[1], 1, 'h-[380px] lg:h-[460px]', true)}
           </div>
         )}
 
         {total === 3 && (
-          <div className="grid grid-cols-12 gap-2.5 overflow-hidden rounded-3xl">
-            {renderPhotoTile(photos[0], 0, 'col-span-7 h-[380px] lg:h-[450px]')}
-            <div className="col-span-5 grid h-[380px] grid-rows-2 gap-2.5 lg:h-[450px]">
+          <div className="grid grid-cols-12 gap-2 overflow-hidden rounded-2xl">
+            {renderPhotoTile(photos[0], 0, 'col-span-7 h-[380px] lg:h-[460px]')}
+            <div className="col-span-5 grid h-[380px] grid-rows-2 gap-2 lg:h-[460px]">
               {renderPhotoTile(photos[1], 1, 'h-full')}
               {renderPhotoTile(photos[2], 2, 'h-full', true)}
             </div>
@@ -223,11 +214,11 @@ export function StayPhotoGallery({
         )}
 
         {total === 4 && (
-          <div className="grid grid-cols-12 gap-2.5 overflow-hidden rounded-3xl">
-            {renderPhotoTile(photos[0], 0, 'col-span-6 h-[380px] lg:h-[450px]')}
-            <div className="col-span-6 grid h-[380px] grid-rows-2 gap-2.5 lg:h-[450px]">
+          <div className="grid grid-cols-12 gap-2 overflow-hidden rounded-2xl">
+            {renderPhotoTile(photos[0], 0, 'col-span-6 h-[380px] lg:h-[460px]')}
+            <div className="col-span-6 grid h-[380px] grid-rows-2 gap-2 lg:h-[460px]">
               {renderPhotoTile(photos[1], 1, 'h-full')}
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-2">
                 {renderPhotoTile(photos[2], 2, 'h-full')}
                 {renderPhotoTile(photos[3], 3, 'h-full', true)}
               </div>
@@ -236,9 +227,9 @@ export function StayPhotoGallery({
         )}
 
         {total >= 5 && (
-          <div className="grid grid-cols-12 gap-2.5 overflow-hidden rounded-3xl">
+          <div className="grid grid-cols-12 gap-2 overflow-hidden rounded-2xl">
             {renderPhotoTile(photos[0], 0, 'col-span-6 h-[400px] lg:h-[460px]')}
-            <div className="col-span-6 grid h-[400px] grid-cols-2 grid-rows-2 gap-2.5 lg:h-[460px]">
+            <div className="col-span-6 grid h-[400px] grid-cols-2 grid-rows-2 gap-2 lg:h-[460px]">
               {renderPhotoTile(photos[1], 1, 'h-full')}
               {renderPhotoTile(photos[2], 2, 'h-full')}
               {renderPhotoTile(photos[3], 3, 'h-full')}
@@ -257,7 +248,6 @@ export function StayPhotoGallery({
           className="fixed inset-0 z-50 flex flex-col bg-black/95 text-white backdrop-blur-sm"
           onClick={close}
         >
-          {/* Top bar */}
           <div
             className="flex items-center justify-between px-4 py-3.5 sm:px-6"
             onClick={(e) => e.stopPropagation()}
@@ -266,7 +256,7 @@ export function StayPhotoGallery({
               <span className="rounded-full bg-white/15 px-3 py-1 font-semibold tabular-nums">
                 {activeIndex + 1} / {total}
               </span>
-              <span className="hidden truncate font-medium text-white/85 sm:inline">
+              <span className="hidden truncate font-medium text-white/90 sm:inline">
                 {photos[activeIndex].label}
               </span>
             </div>
@@ -281,7 +271,6 @@ export function StayPhotoGallery({
             </button>
           </div>
 
-          {/* Main photo viewport */}
           <div
             className="relative flex flex-1 items-center justify-center px-3 sm:px-16"
             onClick={(e) => e.stopPropagation()}
@@ -329,7 +318,6 @@ export function StayPhotoGallery({
             )}
           </div>
 
-          {/* Bottom horizontal thumbnail strip */}
           {total > 1 && (
             <div
               className="border-t border-white/10 bg-black/60 px-4 py-3"
@@ -344,12 +332,10 @@ export function StayPhotoGallery({
                     }}
                     type="button"
                     onClick={() => setActiveIndex(idx)}
-                    aria-label={
-                      isVi ? `Chọn ảnh ${idx + 1}` : `Select photo ${idx + 1}`
-                    }
+                    aria-label={isVi ? `Chọn ảnh ${idx + 1}` : `Select photo ${idx + 1}`}
                     className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition ${
                       idx === activeIndex
-                        ? 'border-white opacity-100 scale-105'
+                        ? 'scale-105 border-white opacity-100'
                         : 'border-transparent opacity-55 hover:opacity-90'
                     }`}
                   >

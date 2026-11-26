@@ -597,6 +597,12 @@ export interface UpdateHostStayFullInput {
   checkinInstructionsEn?: string;
   checkinInstructionsVi?: string;
   propertyType?: 'apartment' | 'coliving' | 'boutique_hotel' | 'villa' | 'eco_lodge';
+  isEntirePlace?: boolean;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  areaSqm?: number | null;
+  hostBioEn?: string;
+  hostBioVi?: string;
   cancellationPolicy?: 'flexible' | 'moderate' | 'strict';
   isInstantBook?: boolean;
   workspaceSummaryEn?: string;
@@ -718,7 +724,13 @@ export async function updateHostStayConfiguration(
            house_rules = $32::jsonb,
            checkin_from = $33,
            checkout_before = $34,
-           default_min_nights = $35
+           default_min_nights = $35,
+           is_entire_place = $36,
+           bedrooms = $37,
+           bathrooms = $38,
+           area_sqm = $39,
+           host_bio_en = $40,
+           host_bio_vi = $41
        WHERE id = $30`,
       [
         input.titleEn?.trim() || String(current.title_en),
@@ -758,6 +770,12 @@ export async function updateHostStayConfiguration(
         input.defaultMinNights !== undefined
           ? Math.max(7, Math.min(90, Math.round(input.defaultMinNights)))
           : Math.max(7, toNum(current.default_min_nights, 7)),
+        input.isEntirePlace ?? (current.is_entire_place !== undefined && current.is_entire_place !== null ? Boolean(current.is_entire_place) : true),
+        input.bedrooms !== undefined ? input.bedrooms : (current.bedrooms ?? null),
+        input.bathrooms !== undefined ? input.bathrooms : (current.bathrooms ?? null),
+        input.areaSqm !== undefined ? input.areaSqm : (current.area_sqm ?? null),
+        input.hostBioEn !== undefined ? input.hostBioEn.trim() : String(current.host_bio_en ?? ''),
+        input.hostBioVi !== undefined ? input.hostBioVi.trim() : String(current.host_bio_vi ?? ''),
       ]
     );
 

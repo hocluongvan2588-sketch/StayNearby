@@ -151,23 +151,68 @@ export function formatPlaceCategoryLabel(category: string, locale: Locale): stri
   const map: Record<string, { en: string; vi: string }> = {
     beach: { en: 'Beach', vi: 'Bãi biển' },
     landmark: { en: 'Landmark', vi: 'Địa danh' },
-    attraction: { en: 'Attraction', vi: 'Điểm tham quan' },
-    restaurant: { en: 'Dining', vi: 'Ẩm thực' },
-    dining: { en: 'Dining', vi: 'Ẩm thực' },
-    cafe: { en: 'Cafe', vi: 'Cà phê' },
-    cafe_roastery: { en: 'Cafe & Roastery', vi: 'Quán cà phê' },
-    coworking: { en: 'Workspace', vi: 'Không gian làm việc' },
-    workspace: { en: 'Workspace', vi: 'Không gian làm việc' },
-    fitness: { en: 'Fitness', vi: 'Thể thao & Gym' },
-    wellness: { en: 'Wellness', vi: 'Thư giãn & Spa' },
-    grocery: { en: 'Groceries', vi: 'Siêu thị & Tạp hóa' },
-    daily_essential: { en: 'Daily essentials', vi: 'Tiện ích thiết yếu' },
-    essentials: { en: 'Daily essentials', vi: 'Tiện ích thiết yếu' },
-    clinic: { en: 'Healthcare', vi: 'Y tế' },
+    attraction: { en: 'Attractions', vi: 'Điểm tham quan' },
+    restaurant: { en: 'Food & Restaurants', vi: 'Ẩm thực & Nhà hàng' },
+    dining: { en: 'Food & Restaurants', vi: 'Ẩm thực & Nhà hàng' },
+    cafe: { en: 'Coffee & Cafés', vi: 'Quán cà phê' },
+    cafe_roastery: { en: 'Coffee & Cafés', vi: 'Quán cà phê' },
+    coworking: { en: 'Coworking', vi: 'Coworking' },
+    workspace: { en: 'Coworking', vi: 'Coworking' },
+    gym_yoga: { en: 'Wellness & Fitness', vi: 'Sức khỏe & Thể thao' },
+    fitness: { en: 'Wellness & Fitness', vi: 'Sức khỏe & Thể thao' },
+    wellness: { en: 'Wellness & Fitness', vi: 'Sức khỏe & Thể thao' },
+    entertainment: { en: 'Entertainment', vi: 'Giải trí & Buổi tối' },
+    shopping: { en: 'Shopping', vi: 'Mua sắm & Thủ công' },
+    experience: { en: 'Local Experiences', vi: 'Trải nghiệm bản địa' },
+    event_venue: { en: 'Things to Do', vi: 'Hoạt động & Sự kiện' },
+    grocery: { en: 'Daily Essentials', vi: 'Tiện ích thiết yếu' },
+    essential: { en: 'Daily Essentials', vi: 'Tiện ích thiết yếu' },
+    daily_essential: { en: 'Daily Essentials', vi: 'Tiện ích thiết yếu' },
+    essentials: { en: 'Daily Essentials', vi: 'Tiện ích thiết yếu' },
+    clinic: { en: 'Daily Essentials', vi: 'Y tế & Thiết yếu' },
     transit: { en: 'Transit', vi: 'Di chuyển' },
-    transport: { en: 'Transport', vi: 'Di chuyển' },
+    transport: { en: 'Transit', vi: 'Di chuyển' },
   };
   return map[category]?.[locale] ?? category.replace(/_/g, ' ');
+}
+
+export function normalizePlaceExploreGroup(category: string): string {
+  switch (category) {
+    case 'restaurant':
+    case 'dining':
+      return 'food';
+    case 'cafe':
+    case 'cafe_roastery':
+      return 'coffee';
+    case 'attraction':
+    case 'beach':
+    case 'landmark':
+      return 'attractions';
+    case 'entertainment':
+      return 'entertainment';
+    case 'shopping':
+      return 'shopping';
+    case 'gym_yoga':
+    case 'fitness':
+    case 'wellness':
+      return 'wellness';
+    case 'coworking':
+    case 'workspace':
+      return 'coworking';
+    case 'essential':
+    case 'daily_essential':
+    case 'essentials':
+    case 'grocery':
+    case 'clinic':
+    case 'transport':
+    case 'transit':
+      return 'essentials';
+    case 'experience':
+    case 'event_venue':
+      return 'experiences';
+    default:
+      return 'things_to_do';
+  }
 }
 
 export function formatStayAxisStatusLabel(status: string, locale: Locale): string {

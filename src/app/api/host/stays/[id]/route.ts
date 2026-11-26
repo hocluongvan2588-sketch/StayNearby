@@ -36,6 +36,12 @@ const schema = z.object({
   propertyType: z
     .enum(['apartment', 'coliving', 'boutique_hotel', 'villa', 'eco_lodge'])
     .optional(),
+  isEntirePlace: z.boolean().optional(),
+  bedrooms: z.number().int().min(1).max(30).nullable().optional(),
+  bathrooms: z.number().int().min(1).max(30).nullable().optional(),
+  areaSqm: z.number().int().min(8).max(5000).nullable().optional(),
+  hostBioEn: z.string().max(1000).optional(),
+  hostBioVi: z.string().max(1000).optional(),
   cancellationPolicy: z.enum(['flexible', 'moderate', 'strict']).optional(),
   isInstantBook: z.boolean().optional(),
   workspaceSummaryEn: z.string().min(4).max(1500).optional(),

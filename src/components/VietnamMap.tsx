@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowRight, MapPin, ShieldCheck, Wifi } from 'lucide-react';
+import { ArrowRight, MapPin, ShieldCheck, Sun } from 'lucide-react';
 import type { DestinationSummary } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
 
@@ -12,7 +12,7 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
   const [selected, setSelected] = useState<DestinationSummary>(destinations[0]);
 
   return (
-    <div className="grid items-center gap-8 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-8 lg:grid-cols-12 lacquer-shadow">
+    <div className="grid items-center gap-8 rounded-2xl border border-[#E5DFD3] bg-white p-6 sm:p-8 lg:grid-cols-12">
       <div className="relative flex items-center justify-center rounded-2xl bg-[#FAF8F3] p-4 lg:col-span-5">
         <svg viewBox="0 0 100 100" className="h-[340px] w-full max-w-[320px]">
           <defs>
@@ -28,7 +28,15 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
             strokeWidth="0.9"
             strokeLinejoin="round"
           />
-          <ellipse cx="29.5" cy="85" rx="2.6" ry="3.8" fill="#DCECE5" stroke="#164E3F" strokeWidth="0.8" />
+          <ellipse
+            cx="29.5"
+            cy="85"
+            rx="2.6"
+            ry="3.8"
+            fill="#DCECE5"
+            stroke="#164E3F"
+            strokeWidth="0.8"
+          />
           <circle cx="84" cy="44" r="1.1" fill="#164E3F" opacity="0.45" />
           <circle cx="87" cy="46" r="0.8" fill="#164E3F" opacity="0.45" />
           <circle cx="85" cy="76" r="1.1" fill="#164E3F" opacity="0.45" />
@@ -72,8 +80,8 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
             );
           })}
         </svg>
-        <div className="absolute bottom-3 left-3 rounded-lg bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#53635D] shadow-sm">
-          {isVi ? 'Bấm vào thành phố để xem chi tiết' : 'Click any city to view details'}
+        <div className="absolute bottom-3 left-3 rounded-lg bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#53635D]">
+          {isVi ? 'Chọn thành phố trên bản đồ' : 'Click any city to preview'}
         </div>
       </div>
 
@@ -81,51 +89,46 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
         <div className="space-y-5 lg:col-span-7">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#C25E28]">
+              <span className="text-xs font-semibold text-[#C25E28]">
                 {isVi ? selected.regionVi : selected.regionEn}
               </span>
-              <h3 className="font-serif-display text-3xl font-semibold text-[#17221E]">
+              <h3 className="mt-0.5 text-2xl font-semibold text-[#17221E] sm:text-3xl">
                 {isVi ? selected.nameVi : selected.nameEn}
               </h3>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
-                <Wifi className="h-3.5 w-3.5" />~{selected.avgWifiMbps} Mbps
-              </span>
-              <span className="rounded-full bg-[#F2EDE3] px-3 py-1 text-xs font-semibold text-[#17221E]">
-                {selected.liveStaysCount} {isVi ? 'chỗ ở sẵn sàng' : 'open stays'}
-              </span>
-            </div>
+            <span className="rounded-full bg-[#FAF8F3] px-3 py-1 text-xs font-semibold text-[#17221E]">
+              {selected.liveStaysCount} {isVi ? 'chỗ ở sẵn sàng' : 'open stays'}
+            </span>
           </div>
 
           <p className="text-sm leading-relaxed text-[#53635D]">
             {isVi ? selected.taglineVi : selected.taglineEn}
           </p>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4">
-              <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#164E3F]">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5 border-l-2 border-[#E5DFD3] pl-4">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#164E3F]">
+                <Sun className="h-4 w-4" />
+                {isVi ? 'Thời tiết & Chi phí' : 'Season & Living Cost'}
+              </div>
+              <div className="text-sm font-semibold text-[#17221E]">
+                ~${selected.monthlyCostUsd} / {isVi ? 'tháng sinh hoạt' : 'month average'}
+              </div>
+              <p className="text-xs leading-relaxed text-[#53635D]">
+                {isVi ? selected.climateVi : selected.climateEn}
+              </p>
+            </div>
+
+            <div className="space-y-1.5 border-l-2 border-[#E5DFD3] pl-4">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-[#164E3F]">
                 <ShieldCheck className="h-4 w-4" />
-                {isVi ? 'Thông tin Visa' : 'Visa & Entry'}
+                {isVi ? 'Thủ tục & Lưu trú' : 'Entry & Stay Tips'}
               </div>
               <div className="text-sm font-semibold text-[#17221E]">
                 {isVi ? selected.visaSummaryVi : selected.visaSummaryEn}
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-[#53635D]">
+              <p className="text-xs leading-relaxed text-[#53635D]">
                 {isVi ? selected.visaDetailsVi : selected.visaDetailsEn}
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4">
-              <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#A67C2E]">
-                <MapPin className="h-4 w-4" />
-                {isVi ? 'Thời tiết & Chi phí' : 'Weather & Cost'}
-              </div>
-              <div className="text-sm font-semibold text-[#17221E]">
-                ~${selected.monthlyCostUsd} / {isVi ? 'tháng sinh hoạt' : 'month living cost'}
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-[#53635D]">
-                {isVi ? selected.climateVi : selected.climateEn}
               </p>
             </div>
           </div>
@@ -136,15 +139,16 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
               className="inline-flex items-center gap-2 rounded-xl bg-[#164E3F] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0F392E]"
             >
               {isVi
-                ? `Xem chỗ ở tại ${selected.nameVi}`
-                : `Browse ${selected.nameEn} stays`}
+                ? `Khám phá ${selected.nameVi}`
+                : `Explore ${selected.nameEn}`}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href={`/stays?destination=${selected.slug}`}
-              className="rounded-xl border border-[#E5DFD3] bg-white px-4 py-2.5 text-sm font-medium text-[#17221E] hover:bg-[#FAF8F3]"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5DFD3] bg-white px-4 py-2.5 text-sm font-medium text-[#17221E] hover:bg-[#FAF8F3]"
             >
-              {isVi ? 'Xem giá theo tuần và tháng' : 'Compare weekly & monthly rates'}
+              <MapPin className="h-3.5 w-3.5 text-[#53635D]" />
+              {isVi ? 'Xem phòng trống' : 'View available stays'}
             </Link>
           </div>
         </div>

@@ -45,16 +45,16 @@ export default async function LifestyleDetailPage({
         {isVi ? 'Xem tất cả chỗ ở' : 'Browse all stays'}
       </Link>
 
-      <div className="mb-10 overflow-hidden rounded-3xl border border-[#E5DFD3] bg-[#0F392E] text-white">
+      <div className="mb-10 overflow-hidden rounded-2xl bg-[#0F392E] text-white">
         <div className="grid items-center gap-6 md:grid-cols-12">
           <div className="space-y-3 p-8 md:col-span-7">
-            <span className="text-xs font-semibold uppercase tracking-widest text-[#E6B87A]">
+            <span className="text-xs font-semibold text-[#E6B87A]">
               {isVi ? 'Phong cách lưu trú' : 'Stay style'}
             </span>
-            <h1 className="font-serif-display text-4xl font-semibold">
+            <h1 className="font-serif-display text-3xl font-semibold sm:text-4xl">
               {isVi ? lifestyle.nameVi : lifestyle.nameEn}
             </h1>
-            <p className="text-sm text-[#DCECE5]">
+            <p className="text-sm leading-relaxed text-[#DCECE5]">
               {isVi ? lifestyle.descriptionVi : lifestyle.descriptionEn}
             </p>
           </div>

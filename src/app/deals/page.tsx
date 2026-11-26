@@ -33,29 +33,29 @@ export default async function DealsPage() {
   const dealStays = stays.filter((s) => s.dealSavingsPct > 0 || s.isDealFeatured);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 space-y-10">
+    <div className="mx-auto max-w-7xl space-y-10 px-4 py-12 sm:px-6 lg:px-8">
       <div className="max-w-3xl space-y-2">
         <span className="inline-block rounded-full bg-[#FAEDE5] px-3 py-1 text-xs font-semibold text-[#C25E28]">
-          {isVi ? 'Giá tốt khi thuê 1 tháng' : 'Monthly Deals'}
+          {isVi ? 'Ưu đãi lưu trú 1 tháng' : 'Monthly Deals'}
         </span>
-        <h1 className="font-serif-display text-4xl font-semibold text-[#17221E]">
+        <h1 className="text-[30px] font-semibold tracking-tight text-[#17221E] sm:text-[36px]">
           {isVi
-            ? 'Thuê tròn 1 tháng tại Việt Nam, ưu đãi nhiều nhất xếp trước'
+            ? 'Thuê trọn 1 tháng tại Việt Nam, ưu đãi nhiều nhất xếp trước'
             : 'Month-long stays across Vietnam, sorted by biggest savings'}
         </h1>
         <p className="text-sm text-[#53635D]">
           {isVi
-            ? `Tất cả chỗ ở dưới đây đang còn phòng cho gói 30 đêm, hiển thị sẵn phí dịch vụ ${serviceFeePct}% online và phần trả chủ nhà khi nhận phòng.`
-            : `All places below are open for 30-night stays, with reported Wi-Fi speeds and upfront ${serviceFeePct}% service fee vs host check-in rent.`}
+            ? `Hiển thị sẵn giá 30 đêm, phí dịch vụ ${serviceFeePct}% trả online và phần tiền thuê trả chủ nhà khi nhận phòng.`
+            : `All stays below are available for 30-night stays, with upfront ${serviceFeePct}% online fee and check-in rent breakdown.`}
         </p>
       </div>
 
       {publicPromos.length > 0 && (
-        <section className="rounded-3xl border border-[#164E3F]/20 bg-[#FAF8F3] p-6">
+        <section className="rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-6">
           <div className="mb-4 flex items-center gap-2">
             <Tag className="h-4 w-4 text-[#C25E28]" />
-            <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? 'Mã ưu đãi công khai đang áp dụng' : 'Active Public Promo Codes'}
+            <h2 className="text-lg font-semibold text-[#17221E]">
+              {isVi ? 'Mã ưu đãi đang mở áp dụng' : 'Active Public Promo Codes'}
             </h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -72,13 +72,17 @@ export default async function DealsPage() {
                     <span className="rounded-full bg-[#FAEDE5] px-2.5 py-0.5 text-[11px] font-semibold text-[#C25E28]">
                       {promo.discountType === 'percent'
                         ? `-${promo.discountValue}%`
-                        : `-${formatMoneyFromVnd(promo.discountValue, prefs.currency, { fxRates: feeConfig.fxRates })}`}
+                        : `-${formatMoneyFromVnd(promo.discountValue, prefs.currency, {
+                            fxRates: feeConfig.fxRates,
+                          })}`}
                     </span>
                   </div>
-                  <div className="font-semibold text-sm text-[#17221E]">{promo.name}</div>
+                  <div className="text-sm font-semibold text-[#17221E]">{promo.name}</div>
                   {(promo.descriptionEn || promo.descriptionVi) && (
                     <p className="text-xs text-[#53635D]">
-                      {isVi ? promo.descriptionVi || promo.descriptionEn : promo.descriptionEn || promo.descriptionVi}
+                      {isVi
+                        ? promo.descriptionVi || promo.descriptionEn
+                        : promo.descriptionEn || promo.descriptionVi}
                     </p>
                   )}
                 </div>

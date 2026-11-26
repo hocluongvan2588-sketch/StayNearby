@@ -2,12 +2,18 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Clock, MapPin, Search, Wifi } from 'lucide-react';
-import { getTodayIsoVietnam, addDaysIso } from '@/lib/dates';
-import type { DestinationSummary } from '@/modules/catalog';
+import { Calendar, Clock, Compass, MapPin, Search } from 'lucide-react';
+import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
+import type { DestinationSummary, LifestyleItem } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
 
-export function HomeSearchBar({ destinations }: { destinations: DestinationSummary[] }) {
+export function HomeSearchBar({
+  destinations,
+  lifestyles = [],
+}: {
+  destinations: DestinationSummary[];
+  lifestyles?: LifestyleItem[];
+}) {
   const router = useRouter();
   const { locale } = usePreferences();
   const isVi = locale === 'vi';
@@ -15,36 +21,36 @@ export function HomeSearchBar({ destinations }: { destinations: DestinationSumma
   const defaultCheckIn = addDaysIso(getTodayIsoVietnam(), 7);
   const [destination, setDestination] = useState('all');
   const [checkIn, setCheckIn] = useState(defaultCheckIn);
-  const [nights, setNights] = useState('30');
-  const [minWifi, setMinWifi] = useState('');
+  const [nights, setNights] = useState('14');
+  const [lifestyle, setLifestyle] = useState('all');
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const params = new URLSearchParams();
     if (destination !== 'all') params.set('destination', destination);
+    if (lifestyle !== 'all') params.set('lifestyle', lifestyle);
     params.set('nights', nights);
     if (checkIn) params.set('checkIn', checkIn);
-    if (minWifi) params.set('minWifi', minWifi);
     router.push(`/stays?${params.toString()}`);
   }
 
   return (
     <form
       onSubmit={handleSearch}
-      className="flex flex-col gap-2 rounded-2xl border border-[#E5DFD3] bg-white p-2 shadow-2xl lg:max-w-5xl lg:flex-row lg:items-center lg:gap-1 lg:rounded-full lg:p-1.5"
+      className="flex flex-col gap-2 rounded-2xl border border-[#E5DFD3] bg-white p-2 shadow-xl lg:max-w-5xl lg:flex-row lg:items-center lg:gap-1 lg:rounded-full lg:p-1.5"
     >
       <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="flex cursor-pointer flex-col justify-center border-b border-[#E5DFD3] px-4 py-2 transition hover:bg-[#FAF8F3] sm:rounded-tl-xl sm:border-r lg:rounded-full lg:border-b-0 lg:px-5">
+        <label className="flex cursor-pointer flex-col justify-center border-b border-[#E5DFD3] px-4 py-2.5 transition hover:bg-[#FAF8F3] sm:rounded-tl-xl sm:border-r lg:rounded-full lg:border-b-0 lg:px-5">
           <span className="mb-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
             <MapPin className="h-3.5 w-3.5 shrink-0 text-[#164E3F]" />
-            {isVi ? 'Thành phố' : 'Location'}
+            {isVi ? 'Điểm đến' : 'Destination'}
           </span>
           <select
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
             className="w-full cursor-pointer truncate bg-transparent text-sm font-semibold text-[#17221E] outline-none"
           >
-            <option value="all">{isVi ? 'Tất cả thành phố' : 'All cities'}</option>
+            <option value="all">{isVi ? 'Khắp Việt Nam' : 'Anywhere in Vietnam'}</option>
             {destinations.map((d) => (
               <option key={d.id} value={d.slug}>
                 {isVi ? d.nameVi : d.nameEn}
@@ -53,7 +59,7 @@ export function HomeSearchBar({ destinations }: { destinations: DestinationSumma
           </select>
         </label>
 
-        <label className="flex cursor-pointer flex-col justify-center border-b border-[#E5DFD3] px-4 py-2 transition hover:bg-[#FAF8F3] sm:rounded-tr-xl lg:rounded-full lg:border-b-0 lg:border-r lg:px-5">
+        <label className="flex cursor-pointer flex-col justify-center border-b border-[#E5DFD3] px-4 py-2.5 transition hover:bg-[#FAF8F3] sm:rounded-tr-xl lg:rounded-full lg:border-b-0 lg:border-r lg:px-5">
           <span className="mb-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
             <Calendar className="h-3.5 w-3.5 shrink-0 text-[#164E3F]" />
             {isVi ? 'Nhận phòng' : 'Check-in'}
@@ -67,37 +73,39 @@ export function HomeSearchBar({ destinations }: { destinations: DestinationSumma
           />
         </label>
 
-        <label className="flex cursor-pointer flex-col justify-center border-b border-[#E5DFD3] px-4 py-2 transition hover:bg-[#FAF8F3] sm:rounded-bl-xl sm:border-b-0 sm:border-r lg:rounded-full lg:px-5">
+        <label className="flex cursor-pointer flex-col justify-center border-b border-[#E5DFD3] px-4 py-2.5 transition hover:bg-[#FAF8F3] sm:rounded-bl-xl sm:border-b-0 sm:border-r lg:rounded-full lg:px-5">
           <span className="mb-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
             <Clock className="h-3.5 w-3.5 shrink-0 text-[#164E3F]" />
-            {isVi ? 'Thời gian ở' : 'Stay length'}
+            {isVi ? 'Thời gian lưu trú' : 'Stay length'}
           </span>
           <select
             value={nights}
             onChange={(e) => setNights(e.target.value)}
             className="w-full cursor-pointer truncate bg-transparent text-sm font-semibold text-[#17221E] outline-none"
           >
-            <option value="7">{isVi ? '1 tuần' : '1 week'}</option>
-            <option value="14">{isVi ? '2 tuần' : '2 weeks'}</option>
-            <option value="21">{isVi ? '3 tuần' : '3 weeks'}</option>
-            <option value="30">{isVi ? '1 tháng' : '1 month'}</option>
+            <option value="7">{isVi ? '1 tuần (7 đêm)' : '1 week (7 nights)'}</option>
+            <option value="14">{isVi ? '2 tuần (14 đêm)' : '2 weeks (14 nights)'}</option>
+            <option value="21">{isVi ? '3 tuần (21 đêm)' : '3 weeks (21 nights)'}</option>
+            <option value="30">{isVi ? '1 tháng (30 đêm)' : '1 month (30 nights)'}</option>
           </select>
         </label>
 
-        <label className="flex cursor-pointer flex-col justify-center px-4 py-2 transition hover:bg-[#FAF8F3] sm:rounded-br-xl lg:rounded-full lg:px-5">
+        <label className="flex cursor-pointer flex-col justify-center px-4 py-2.5 transition hover:bg-[#FAF8F3] sm:rounded-br-xl lg:rounded-full lg:px-5">
           <span className="mb-0.5 flex items-center gap-1.5 whitespace-nowrap text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
-            <Wifi className="h-3.5 w-3.5 shrink-0 text-[#164E3F]" />
-            {isVi ? 'Wi-Fi tối thiểu' : 'Min Wi-Fi'}
+            <Compass className="h-3.5 w-3.5 shrink-0 text-[#164E3F]" />
+            {isVi ? 'Phong cách' : 'Travel style'}
           </span>
           <select
-            value={minWifi}
-            onChange={(e) => setMinWifi(e.target.value)}
+            value={lifestyle}
+            onChange={(e) => setLifestyle(e.target.value)}
             className="w-full cursor-pointer truncate bg-transparent text-sm font-semibold text-[#17221E] outline-none"
           >
-            <option value="">{isVi ? 'Mọi tốc độ' : 'Any speed'}</option>
-            <option value="100">100+ Mbps</option>
-            <option value="250">250+ Mbps</option>
-            <option value="400">400+ Mbps</option>
+            <option value="all">{isVi ? 'Mọi phong cách' : 'Any experience'}</option>
+            {lifestyles.map((l) => (
+              <option key={l.id} value={l.slug}>
+                {isVi ? l.nameVi : l.nameEn}
+              </option>
+            ))}
           </select>
         </label>
       </div>
@@ -107,7 +115,7 @@ export function HomeSearchBar({ destinations }: { destinations: DestinationSumma
         className="flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#164E3F] px-7 py-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#0F392E] lg:rounded-full"
       >
         <Search className="h-4 w-4" />
-        {isVi ? 'Tìm phòng' : 'Search'}
+        {isVi ? 'Tìm chỗ ở' : 'Search stays'}
       </button>
     </form>
   );

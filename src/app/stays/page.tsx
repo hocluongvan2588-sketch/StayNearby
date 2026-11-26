@@ -28,7 +28,7 @@ export default async function StaysPage({
   const kitchen = pick('kitchen') === '1';
   const laundry = pick('laundry') === '1';
   const pet = pick('pet') === '1';
-  const sort = (pick('sort') || 'wifi_desc') as 'wifi_desc' | 'price_asc' | 'savings_desc' | 'rating_desc';
+  const sort = (pick('sort') || 'featured') as 'featured' | 'wifi_desc' | 'price_asc' | 'savings_desc' | 'rating_desc';
 
   const [user, destinations, lifestyles, stays] = await Promise.all([
     getCurrentUser(),

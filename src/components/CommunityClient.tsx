@@ -102,14 +102,14 @@ export function CommunityClient({
 
   return (
     <div className="mx-auto max-w-7xl space-y-16 px-4 py-12 sm:px-6 lg:px-8">
-      <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-10 lacquer-shadow">
+      <section className="rounded-2xl border border-[#E5DFD3] bg-white p-6 sm:p-10">
         <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
           <div className="space-y-3 lg:col-span-6">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
               <ShieldCheck className="h-3.5 w-3.5" />
               {isVi ? 'Thông tin Visa Việt Nam 2026' : 'Vietnam Visa Checker'}
             </span>
-            <h1 className="font-serif-display text-3xl font-semibold text-[#17221E] sm:text-4xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-[#17221E] sm:text-4xl">
               {isVi
                 ? 'Hướng dẫn Visa nhập cảnh và lưu trú dài ngày'
                 : 'Simple 30 to 90-day stays in Vietnam'}
@@ -154,10 +154,7 @@ export function CommunityClient({
 
       <section className="space-y-6">
         <div className="max-w-2xl">
-          <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
-            {isVi ? 'Gặp mặt cộng đồng' : 'Community Meetups'}
-          </span>
-          <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
+          <h2 className="text-2xl font-semibold tracking-tight text-[#17221E] sm:text-3xl">
             {isVi
               ? 'Gặp gỡ cộng đồng tại Đà Nẵng, TP.HCM và Hà Nội'
               : 'Weekly meetups in Da Nang, Saigon, and Hanoi'}
@@ -176,7 +173,7 @@ export function CommunityClient({
             return (
               <div
                 key={ev.id}
-                className="flex flex-col overflow-hidden rounded-3xl border border-[#E5DFD3] bg-white lacquer-shadow"
+                className="flex flex-col overflow-hidden rounded-2xl border border-[#E5DFD3] bg-white"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -192,7 +189,7 @@ export function CommunityClient({
                         <Users className="h-3.5 w-3.5" /> {taken}/{ev.spotsTotal}
                       </span>
                     </div>
-                    <h3 className="font-serif-display text-xl font-semibold text-[#17221E]">
+                    <h3 className="text-lg font-semibold text-[#17221E]">
                       {isVi ? ev.titleVi : ev.titleEn}
                     </h3>
                     <div className="text-xs text-[#53635D]">
@@ -237,12 +234,12 @@ export function CommunityClient({
 
       <section id="marketplace" className="space-y-6">
         <div className="max-w-2xl">
-          <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-[#164E3F]">
-            <ShoppingBag className="h-3.5 w-3.5" /> {isVi ? 'Dịch vụ bổ trợ' : 'Gear & Connectivity'}
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#164E3F]">
+            <ShoppingBag className="h-3.5 w-3.5" /> {isVi ? 'Tiện ích bổ trợ' : 'Local Services & Extras'}
           </span>
-          <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#17221E] sm:text-3xl">
             {isVi
-              ? 'Thuê màn hình 4K, mua eSIM 5G và bảo hiểm du lịch'
+              ? 'eSIM 5G, bảo hiểm du lịch và thuê thiết bị tại Việt Nam'
               : 'Essential gear and connectivity in Vietnam'}
           </h2>
         </div>
@@ -251,13 +248,13 @@ export function CommunityClient({
           {marketplace.map((m) => (
             <div
               key={m.id}
-              className="flex flex-col justify-between rounded-3xl border border-[#E5DFD3] bg-white p-5"
+              className="flex flex-col justify-between rounded-2xl border border-[#E5DFD3] bg-white p-5"
             >
               <div>
                 <span className="rounded-full bg-[#FAF8F3] px-2.5 py-0.5 text-[11px] font-semibold uppercase text-[#C25E28]">
                   {m.category}
                 </span>
-                <h3 className="font-serif-display mt-2 text-lg font-semibold text-[#17221E]">
+                <h3 className="mt-2.5 text-base font-semibold text-[#17221E]">
                   {isVi ? m.titleVi : m.titleEn}
                 </h3>
                 <p className="mt-1.5 text-xs leading-relaxed text-[#53635D]">

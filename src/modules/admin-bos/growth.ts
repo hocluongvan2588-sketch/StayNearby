@@ -1,4 +1,6 @@
 import crypto from 'node:crypto';
+import { computeReadingMetrics, legacyTextToTiptapDoc } from '@/lib/cms-core/schema';
+import { analyzeSeoContent } from '@/lib/cms-core/seo-analyzer';
 import { isValidUuid } from '@/lib/dates';
 import { dbQuery, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
@@ -409,6 +411,8 @@ export async function createOrUpdateCmsContent(
       | 'article'
       | 'landing_page'
       | 'destination_guide'
+      | 'neighborhood_guide'
+      | 'local_guide'
       | 'faq'
       | 'announcement'
       | 'hero_banner'
@@ -436,15 +440,34 @@ export async function createOrUpdateCmsContent(
     .replace(/[^a-z0-9-]+/g, '-')
     .replace(/(^-|-$)/g, '');
 
+  const docEn = legacyTextToTiptapDoc(input.bodyEn.trim());
+  const docVi = legacyTextToTiptapDoc(input.bodyVi?.trim() || input.bodyEn.trim());
+  const metrics = computeReadingMetrics(docEn);
+  const seo = analyzeSeoContent({
+    title: input.titleEn.trim(),
+    slug,
+    seoTitle: input.seoTitle?.trim() ?? '',
+    seoDescription: input.seoDescription?.trim() ?? '',
+    doc: docEn,
+  });
+
   await dbQuery(
     `INSERT INTO cms_contents (
       id, content_type, category, slug, title_en, title_vi, body_en, body_vi,
+      body_doc_en, body_doc_vi, published_doc_en, published_doc_vi,
+      word_count, reading_time_minutes, seo_score, translation_group_id,
       destination_id, seo_title, seo_description, canonical_url, redirect_to,
       robots_index, status, author_id, published_at, publish_start_at, publish_end_at, updated_at
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,
-      CASE WHEN $15 = 'published' THEN NOW() ELSE NULL END,
-      $17::timestamptz, $18::timestamptz, NOW()
+      $1,$2,$3,$4,$5,$6,$7,$8,
+      $9::jsonb,$10::jsonb,
+      CASE WHEN $19 = 'published' THEN $9::jsonb ELSE NULL END,
+      CASE WHEN $19 = 'published' THEN $10::jsonb ELSE NULL END,
+      $11,$12,$13,$1,
+      $14,$15,$16,$17,$18,
+      $20,$19,$21,
+      CASE WHEN $19 = 'published' THEN NOW() ELSE NULL END,
+      $22::timestamptz, $23::timestamptz, NOW()
     )
     ON CONFLICT (id) DO UPDATE SET
       content_type = EXCLUDED.content_type,
@@ -454,6 +477,13 @@ export async function createOrUpdateCmsContent(
       title_vi = EXCLUDED.title_vi,
       body_en = EXCLUDED.body_en,
       body_vi = EXCLUDED.body_vi,
+      body_doc_en = EXCLUDED.body_doc_en,
+      body_doc_vi = EXCLUDED.body_doc_vi,
+      published_doc_en = COALESCE(EXCLUDED.published_doc_en, cms_contents.published_doc_en),
+      published_doc_vi = COALESCE(EXCLUDED.published_doc_vi, cms_contents.published_doc_vi),
+      word_count = EXCLUDED.word_count,
+      reading_time_minutes = EXCLUDED.reading_time_minutes,
+      seo_score = EXCLUDED.seo_score,
       destination_id = EXCLUDED.destination_id,
       seo_title = EXCLUDED.seo_title,
       seo_description = EXCLUDED.seo_description,
@@ -474,13 +504,18 @@ export async function createOrUpdateCmsContent(
       input.titleVi.trim(),
       input.bodyEn.trim(),
       input.bodyVi?.trim() ?? '',
+      JSON.stringify(docEn),
+      JSON.stringify(docVi),
+      metrics.wordCount,
+      metrics.readingTimeMinutes,
+      seo.score,
       input.destinationId && isValidUuid(input.destinationId) ? input.destinationId : null,
       input.seoTitle?.trim() ?? '',
       input.seoDescription?.trim() ?? '',
       input.canonicalUrl?.trim() ?? '',
       input.redirectTo?.trim() ?? '',
-      input.robotsIndex ?? true,
       input.status,
+      input.robotsIndex ?? true,
       actor.user.id,
       input.publishStartAt?.trim() || null,
       input.publishEndAt?.trim() || null,

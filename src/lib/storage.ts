@@ -6,7 +6,7 @@ import { AppError } from './errors';
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
 
-export type AllowedImageMime = 'image/jpeg' | 'image/png' | 'image/webp';
+export type AllowedImageMime = 'image/jpeg' | 'image/png' | 'image/webp' | 'image/avif';
 
 export interface UploadedMediaResult {
   url: string;
@@ -14,6 +14,8 @@ export interface UploadedMediaResult {
   storageMode: 'supabase' | 'local';
   mimeType: AllowedImageMime;
   sizeBytes: number;
+  width?: number;
+  height?: number;
 }
 
 export function getMediaStorageStatus() {
@@ -51,8 +53,60 @@ function detectImageType(buffer: Buffer): { mime: AllowedImageMime; ext: string 
   ) {
     return { mime: 'image/webp', ext: 'webp' };
   }
+  // AVIF: ....ftypavif
+  if (
+    buffer.subarray(4, 8).toString('ascii') === 'ftyp' &&
+    buffer.subarray(8, 12).toString('ascii').toLowerCase().startsWith('avif')
+  ) {
+    return { mime: 'image/avif', ext: 'avif' };
+  }
 
   return null;
+}
+
+function extractImageDimensions(
+  buffer: Buffer,
+  mime: AllowedImageMime
+): { width?: number; height?: number } {
+  try {
+    if (mime === 'image/png' && buffer.length >= 24) {
+      const width = buffer.readUInt32BE(16);
+      const height = buffer.readUInt32BE(20);
+      if (width > 0 && height > 0 && width < 20000 && height < 20000) {
+        return { width, height };
+      }
+    }
+    if (mime === 'image/jpeg') {
+      let i = 2;
+      while (i + 9 < buffer.length) {
+        if (buffer[i] !== 0xff) {
+          i += 1;
+          continue;
+        }
+        const marker = buffer[i + 1];
+        if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
+          const height = buffer.readUInt16BE(i + 5);
+          const width = buffer.readUInt16BE(i + 7);
+          if (width > 0 && height > 0) return { width, height };
+          break;
+        }
+        const segLen = buffer.readUInt16BE(i + 2);
+        if (segLen < 2) break;
+        i += 2 + segLen;
+      }
+    }
+    if (mime === 'image/webp' && buffer.length >= 30) {
+      const chunk = buffer.subarray(12, 16).toString('ascii');
+      if (chunk === 'VP8X' && buffer.length >= 30) {
+        const width = 1 + buffer.readUIntLE(24, 3);
+        const height = 1 + buffer.readUIntLE(27, 3);
+        return { width, height };
+      }
+    }
+  } catch {
+    return {};
+  }
+  return {};
 }
 
 function sanitizeSegment(raw: string): string {
@@ -218,10 +272,135 @@ export async function readLocalUploadFile(segments: string[]): Promise<{
         ? 'image/png'
         : ext === '.webp'
           ? 'image/webp'
-          : 'image/jpeg';
+          : ext === '.avif'
+            ? 'image/avif'
+            : 'image/jpeg';
     return { buffer, contentType };
   } catch {
     return null;
+  }
+}
+
+export async function uploadCmsMediaBuffer(input: {
+  folder?: string;
+  buffer: Buffer;
+  originalName?: string;
+}): Promise<UploadedMediaResult> {
+  if (input.buffer.length === 0) {
+    throw new AppError('VALIDATION_ERROR', 'Uploaded file is empty.');
+  }
+  if (input.buffer.length > MAX_UPLOAD_BYTES) {
+    throw new AppError('VALIDATION_ERROR', 'Image exceeds the 10 MB maximum file size.');
+  }
+
+  const detected = detectImageType(input.buffer);
+  if (!detected) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      'Only JPEG, PNG, WebP, and AVIF images are supported.'
+    );
+  }
+
+  const dims = extractImageDimensions(input.buffer, detected.mime);
+  const safeFolder = sanitizeSegment(input.folder?.trim() || 'editorial');
+  const stamp = Date.now();
+  const rand = crypto.randomBytes(6).toString('hex');
+  const filename = `${stamp}-${rand}.${detected.ext}`;
+  const objectPath = `cms-media/${safeFolder}/${filename}`;
+
+  const cfg = getConfig();
+  if (cfg.supabaseUrl && cfg.supabaseServiceRoleKey) {
+    const uploadUrl = `${cfg.supabaseUrl}/storage/v1/object/${encodeURIComponent(cfg.supabaseStorageBucket)}/${objectPath}`;
+    let res = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${cfg.supabaseServiceRoleKey}`,
+        apikey: cfg.supabaseServiceRoleKey,
+        'Content-Type': detected.mime,
+        'x-upsert': 'true',
+      },
+      body: new Uint8Array(input.buffer),
+    });
+
+    if (res.status === 404 || res.status === 400) {
+      await ensureSupabaseBucketExists(
+        cfg.supabaseUrl,
+        cfg.supabaseServiceRoleKey,
+        cfg.supabaseStorageBucket
+      );
+      res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cfg.supabaseServiceRoleKey}`,
+          apikey: cfg.supabaseServiceRoleKey,
+          'Content-Type': detected.mime,
+          'x-upsert': 'true',
+        },
+        body: new Uint8Array(input.buffer),
+      });
+    }
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new AppError(
+        'PAYMENT_GATEWAY_ERROR',
+        `Supabase Storage upload failed (${res.status}): ${errText.slice(0, 140)}`,
+        502
+      );
+    }
+
+    const publicUrl = `${cfg.supabaseUrl}/storage/v1/object/public/${encodeURIComponent(cfg.supabaseStorageBucket)}/${objectPath}`;
+    return {
+      url: publicUrl,
+      objectPath,
+      storageMode: 'supabase',
+      mimeType: detected.mime,
+      sizeBytes: input.buffer.length,
+      width: dims.width,
+      height: dims.height,
+    };
+  }
+
+  const fullDir = path.join(cfg.localUploadsDir, 'cms-media', safeFolder);
+  await mkdir(/*turbopackIgnore: true*/ fullDir, { recursive: true });
+  const targetFile = path.join(fullDir, filename);
+  await writeFile(/*turbopackIgnore: true*/ targetFile, input.buffer);
+
+  return {
+    url: `/api/uploads/${objectPath}`,
+    objectPath,
+    storageMode: 'local',
+    mimeType: detected.mime,
+    sizeBytes: input.buffer.length,
+    width: dims.width,
+    height: dims.height,
+  };
+}
+
+export async function deleteCmsUploadedMedia(objectPath: string): Promise<void> {
+  if (!objectPath || !objectPath.startsWith('cms-media/')) return;
+  const segments = objectPath.split('/');
+  const safeRel = normalizeSafeUploadSegments(segments);
+  if (!safeRel) return;
+
+  const cfg = getConfig();
+  const base = path.resolve(cfg.localUploadsDir);
+  const resolved = path.resolve(base, safeRel);
+  if (resolved.startsWith(base + path.sep)) {
+    await rm(/*turbopackIgnore: true*/ resolved, { force: true }).catch(() => undefined);
+  }
+
+  if (cfg.supabaseUrl && cfg.supabaseServiceRoleKey) {
+    await fetch(
+      `${cfg.supabaseUrl}/storage/v1/object/${encodeURIComponent(cfg.supabaseStorageBucket)}/${objectPath}`,
+      {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${cfg.supabaseServiceRoleKey}`,
+          apikey: cfg.supabaseServiceRoleKey,
+        },
+      }
+    ).catch(() => undefined);
   }
 }
 
