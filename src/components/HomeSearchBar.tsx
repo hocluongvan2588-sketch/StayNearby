@@ -77,10 +77,10 @@ export function HomeSearchBar({ destinations }: { destinations: DestinationSumma
             onChange={(e) => setNights(e.target.value)}
             className="w-full cursor-pointer truncate bg-transparent text-sm font-semibold text-[#17221E] outline-none"
           >
-            <option value="7">{isVi ? '7 đêm (1 tuần)' : '7 nights (1 wk)'}</option>
-            <option value="14">{isVi ? '14 đêm (2 tuần)' : '14 nights (2 wks)'}</option>
-            <option value="21">{isVi ? '21 đêm (3 tuần)' : '21 nights (3 wks)'}</option>
-            <option value="30">{isVi ? '30 đêm (1 tháng)' : '30 nights (1 mo)'}</option>
+            <option value="7">{isVi ? '1 tuần' : '1 week'}</option>
+            <option value="14">{isVi ? '2 tuần' : '2 weeks'}</option>
+            <option value="21">{isVi ? '3 tuần' : '3 weeks'}</option>
+            <option value="30">{isVi ? '1 tháng' : '1 month'}</option>
           </select>
         </label>
 

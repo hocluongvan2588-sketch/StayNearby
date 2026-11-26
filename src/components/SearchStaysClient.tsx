@@ -156,7 +156,7 @@ export function SearchStaysClient({
                       : 'border border-[#E5DFD3] bg-[#FAF8F3] text-[#17221E] hover:bg-[#E7F1EC]'
                   }`}
                 >
-                  {n === 30 ? (isVi ? '1 tháng (30 đêm)' : '1 month') : `${n / 7} ${isVi ? 'tuần' : n === 7 ? 'week' : 'weeks'}`}
+                  {n === 30 ? (isVi ? '1 tháng' : '1 month') : `${n / 7} ${isVi ? 'tuần' : n === 7 ? 'week' : 'weeks'}`}
                 </button>
               ))}
             </div>

@@ -122,7 +122,7 @@ export function CompareDrawer() {
                   </tr>
                   <tr>
                     <td className="py-3 pr-4 font-medium text-[#53635D]">
-                      {isVi ? 'Giá 1 tháng (30 đêm)' : '1 month (30 nights)'}
+                      {isVi ? 'Giá 1 tháng' : '1 month'}
                     </td>
                     {compareList.map((s) => (
                       <td key={s.id} className="px-3 py-3 font-bold text-[#17221E]">
