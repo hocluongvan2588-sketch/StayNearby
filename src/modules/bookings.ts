@@ -225,7 +225,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       if (balance < referralFeeVnd) {
         throw new AppError(
           'INSUFFICIENT_WALLET',
-          'Host StayDirect™ ad wallet is low. Please check back soon or choose a 12% BookingFlow stay.'
+          'Host direct-booking balance is low. Please try again later or book directly on VietNomad.'
         );
       }
 
@@ -289,7 +289,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       };
     }
 
-    // BookingFlow: 12% Booking & Verification Fee collected online; 88% (P_host) paid directly at check-in
+    // BookingFlow: mandatory 12% Booking & Verification Fee collected online; 100% of host net rate (P_host) paid directly at check-in
     const unitsTotal = toNum(meta.units_total, 1);
     const paymentIntentId = `pi_vn_${crypto.randomBytes(8).toString('hex')}`;
 
@@ -412,7 +412,7 @@ export async function confirmBookingFeePayment(user: SessionUser, bookingId: str
       };
     }
     if (b.status !== 'PENDING_PAYMENT') {
-      throw new AppError('CONFLICT', `Booking in status ${b.status} cannot be paid.`);
+      throw new AppError('CONFLICT', 'This booking does not require online payment.');
     }
 
     const checkInIso =
@@ -562,7 +562,7 @@ export async function refundWifiMismatch(
     await tx.query(
       `INSERT INTO booking_notifications (
         id, booking_id, recipient_role, channel, recipient_contact, subject, payload_json, status
-      ) VALUES ($1,$2,'guest','email','member','100% Booking Fee Refund Initiated — Wi-Fi Guarantee',$3,'sent')`,
+      ) VALUES ($1,$2,'guest','email','member','100% Booking Fee Refund Issued (Wi-Fi Guarantee)',$3,'sent')`,
       [
         crypto.randomUUID(),
         b.id,

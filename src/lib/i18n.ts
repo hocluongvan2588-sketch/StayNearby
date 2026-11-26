@@ -79,10 +79,65 @@ export function pickText(locale: Locale, enText: string | null | undefined, viTe
 export function formatPropertyTypeLabel(type: string, locale: Locale): string {
   const map: Record<string, { en: string; vi: string }> = {
     apartment: { en: 'Serviced Apartment', vi: 'Căn hộ dịch vụ' },
-    coliving: { en: 'Coliving House', vi: 'Nhà ở Coliving' },
-    boutique_hotel: { en: 'Boutique Hotel', vi: 'Khách sạn Boutique' },
-    villa: { en: 'Garden / Sea Villa', vi: 'Biệt thự riêng' },
-    eco_lodge: { en: 'Eco Sanctuary', vi: 'Eco Lodge Yên Tĩnh' },
+    coliving: { en: 'Coliving House', vi: 'Nhà ở chung (Coliving)' },
+    boutique_hotel: { en: 'Boutique Hotel', vi: 'Khách sạn nhỏ' },
+    villa: { en: 'Private Villa', vi: 'Biệt thự riêng' },
+    eco_lodge: { en: 'Nature Lodge', vi: 'Nhà gỗ nghỉ dưỡng' },
   };
   return map[type]?.[locale] ?? type;
+}
+
+export function formatBookingStatusLabel(status: string, locale: Locale): string {
+  const map: Record<string, { en: string; vi: string }> = {
+    PENDING_PAYMENT: { en: 'Awaiting 12% fee', vi: 'Chờ trả phí 12%' },
+    RESERVED_LOCKED: { en: 'Dates locked', vi: 'Đã giữ phòng' },
+    confirmed: { en: 'Dates locked', vi: 'Đã giữ phòng' },
+    CHECKED_IN_COMPLETED: { en: 'Checked in', vi: 'Đã nhận phòng' },
+    completed: { en: 'Checked in', vi: 'Đã nhận phòng' },
+    REFUNDED_WIFI_MISMATCH: { en: 'Wi-Fi fee refunded', vi: 'Đã hoàn phí Wi-Fi' },
+    cancelled: { en: 'Cancelled', vi: 'Đã hủy' },
+    direct_referral: { en: 'Sent to host website', vi: 'Đã mở trang chủ nhà' },
+  };
+  return map[status]?.[locale] ?? status;
+}
+
+export function formatVerificationTierLabel(tier: string, locale: Locale): string {
+  if (tier === 'VIETNOMAD_CERTIFIED') {
+    return locale === 'vi' ? 'VietNomad đã kiểm tra' : 'VietNomad Verified';
+  }
+  return locale === 'vi' ? 'Chủ nhà gửi thông số' : 'Host Submitted';
+}
+
+export function formatBusinessModelLabel(model: string, locale: Locale): string {
+  if (model === 'stay_direct') {
+    return locale === 'vi' ? 'Đặt trực tiếp chủ nhà' : 'Direct Booking';
+  }
+  return locale === 'vi' ? 'Đặt qua VietNomad' : 'Book on VietNomad';
+}
+
+export function formatCancellationPolicyLabel(policy: string, locale: Locale): string {
+  const map: Record<string, { en: string; vi: string }> = {
+    flexible: { en: 'Flexible', vi: 'Linh hoạt' },
+    moderate: { en: 'Moderate', vi: 'Tiêu chuẩn' },
+    strict: { en: 'Strict', vi: 'Chặt chẽ' },
+  };
+  return map[policy]?.[locale] ?? policy;
+}
+
+export function formatApplicationStatusLabel(status: string, locale: Locale): string {
+  const map: Record<string, { en: string; vi: string }> = {
+    submitted: { en: 'Pending review', vi: 'Chờ duyệt' },
+    approved: { en: 'Approved', vi: 'Đã duyệt' },
+    rejected: { en: 'Rejected', vi: 'Từ chối' },
+  };
+  return map[status]?.[locale] ?? status;
+}
+
+export function formatIcalSyncStatusLabel(status: string, locale: Locale): string {
+  const map: Record<string, { en: string; vi: string }> = {
+    ok: { en: 'Synced', vi: 'Đã đồng bộ' },
+    idle: { en: 'Not connected', vi: 'Chưa kết nối' },
+    error: { en: 'Sync error', vi: 'Lỗi kết nối' },
+  };
+  return map[status]?.[locale] ?? status;
 }

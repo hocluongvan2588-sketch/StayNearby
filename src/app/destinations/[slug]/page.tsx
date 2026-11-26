@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, MapPin, ShieldCheck, Wifi } from 'lucide-react';
+import { ArrowLeft, ArrowRight, MapPin, ShieldCheck, Wifi } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
+import { dbQuery } from '@/lib/db';
 import { getServerPreferences } from '@/lib/preferences';
 import { getDestinations, searchStays } from '@/modules/catalog';
-import { StayCard } from '@/components/StayCard';
+import { PaginatedStayGrid } from '@/components/PaginatedStayGrid';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,15 @@ export default async function DestinationDetailPage({
   const dest = destinations.find((d) => d.slug === slug);
   if (!dest) notFound();
   const isVi = prefs.locale === 'vi';
+
+  let savedIds: string[] = [];
+  if (user) {
+    const sv = await dbQuery<{ stay_id: string }>(
+      'SELECT stay_id FROM saved_stays WHERE user_id = $1',
+      [user.id]
+    );
+    savedIds = sv.rows.map((r) => r.stay_id);
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -54,7 +64,7 @@ export default async function DestinationDetailPage({
             </span>
           </div>
           <h1 className="font-serif-display text-4xl font-semibold text-[#17221E]">
-            {isVi ? `Digital Nomad tại ${dest.nameVi}` : `Digital Nomad Stays in ${dest.nameEn}`}
+            {isVi ? `Chỗ ở làm việc từ xa tại ${dest.nameVi}` : `Remote work stays in ${dest.nameEn}`}
           </h1>
           <p className="text-sm leading-relaxed text-[#53635D]">
             {isVi ? dest.taglineVi : dest.taglineEn}
@@ -86,17 +96,26 @@ export default async function DestinationDetailPage({
         </div>
       </div>
 
-      <h2 className="font-serif-display mb-6 text-2xl font-semibold text-[#17221E]">
-        {isVi
-          ? `${stays.length} chỗ ở sẵn sàng làm việc tại ${dest.nameVi}`
-          : `${stays.length} Live Work-Ready Stays in ${dest.nameEn}`}
-      </h2>
-
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {stays.map((s) => (
-          <StayCard key={s.id} stay={s} isAuthenticated={Boolean(user)} />
-        ))}
+      <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+        <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+          {isVi
+            ? `${stays.length} chỗ ở sẵn sàng làm việc tại ${dest.nameVi}`
+            : `${stays.length} Live Work-Ready Stays in ${dest.nameEn}`}
+        </h2>
+        <Link
+          href={`/stays?destination=${dest.slug}`}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#164E3F] hover:underline"
+        >
+          {isVi ? 'Lọc theo ngày và tiện ích' : 'Filter by dates & amenities'}
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </div>
+
+      <PaginatedStayGrid
+        stays={stays}
+        savedIds={savedIds}
+        isAuthenticated={Boolean(user)}
+      />
     </div>
   );
 }

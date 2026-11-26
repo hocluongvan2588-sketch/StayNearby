@@ -12,7 +12,13 @@ import {
   Wallet,
   Wifi,
 } from 'lucide-react';
-import { formatMoneyFromVnd, formatVndExact } from '@/lib/i18n';
+import {
+  formatBookingStatusLabel,
+  formatIcalSyncStatusLabel,
+  formatMoneyFromVnd,
+  formatVerificationTierLabel,
+  formatVndExact,
+} from '@/lib/i18n';
 import { getTodayIsoVietnam, addDaysIso } from '@/lib/dates';
 import { usePreferences } from './PreferencesProvider';
 
@@ -121,7 +127,11 @@ export function HostConsoleClient({
     const json = await res.json();
     if (json.ok) {
       setWalletVnd(json.balanceVnd);
-      setMessage(`Added $${amountUsd} to StayDirect™ advertising wallet.`);
+      setMessage(
+        isVi
+          ? `Đã nạp thêm $${amountUsd} vào số dư quảng cáo chủ nhà.`
+          : `Added $${amountUsd} to your host ad balance.`
+      );
     }
   }
 
@@ -147,9 +157,9 @@ export function HostConsoleClient({
     setMessage(
       json.ok
         ? isVi
-          ? `Đã cập nhật giá gói net 7/14/21/30 đêm cho ${stay.titleVi}.`
-          : `Updated 7/14/21/30-night net pricing for ${stay.titleEn}.`
-        : json.error?.message ?? 'Update failed'
+          ? `Đã lưu bảng giá 7, 14, 21, 30 đêm cho ${stay.titleVi}.`
+          : `Saved weekly and monthly prices for ${stay.titleEn}.`
+        : json.error?.message ?? (isVi ? 'Không thể lưu thay đổi.' : 'Could not save changes.')
     );
   }
 
@@ -163,12 +173,12 @@ export function HostConsoleClient({
         jitterMs: Number(form.get('jitter')),
         speedtestProofUrl: String(form.get('proofUrl') ?? ''),
         workspaceVideoUrl: String(form.get('videoUrl') ?? ''),
-        note: 'Verified speed check & proof media updated in Host Console',
+        note: 'Speed check and desk details updated by host',
       }),
     });
     const json = await res.json();
     if (json.ok) {
-      setMessage(isVi ? 'Đã cập nhật tốc độ Wi-Fi & link chứng thực.' : 'Verified Wi-Fi & proof URLs updated.');
+      setMessage(isVi ? 'Đã cập nhật tốc độ Wi-Fi và chứng nhận.' : 'Updated Wi-Fi speed and proof links.');
       window.location.reload();
     }
   }
@@ -182,11 +192,13 @@ export function HostConsoleClient({
     const json = await res.json();
     if (json.ok) {
       setMessage(
-        `iCal sync (${json.sync.status}): ${json.sync.blockedDaysCount} future days locked.`
+        isVi
+          ? `Đã đồng bộ lịch phòng: khóa ${json.sync.blockedDaysCount} ngày bận sắp tới.`
+          : `Calendar synced: locked ${json.sync.blockedDaysCount} busy days.`
       );
       window.location.reload();
     } else {
-      setMessage(json.error?.message ?? 'iCal sync failed.');
+      setMessage(json.error?.message ?? (isVi ? 'Không thể đồng bộ lịch phòng.' : 'Calendar sync failed.'));
     }
   }
 
@@ -194,10 +206,14 @@ export function HostConsoleClient({
     const res = await fetch(`/api/bookings/${bookingId}/checkin`, { method: 'POST' });
     const json = await res.json();
     if (json.ok) {
-      setMessage('Check-in & direct host payment marked completed (CHECKED_IN_COMPLETED).');
+      setMessage(
+        isVi
+          ? 'Đã xác nhận khách nhận phòng và thanh toán tiền thuê trực tiếp.'
+          : 'Marked checked in and direct rent received.'
+      );
       window.location.reload();
     } else {
-      setMessage(json.error?.message ?? 'Action failed.');
+      setMessage(json.error?.message ?? (isVi ? 'Thao tác thất bại.' : 'Action failed.'));
     }
   }
 
@@ -210,30 +226,29 @@ export function HostConsoleClient({
     });
     const json = await res.json();
     if (json.ok) {
-      setMessage(block ? `Blocked ${blockDate}` : `Unblocked ${blockDate}`);
+      setMessage(block ? `${isVi ? 'Đã khóa ngày' : 'Blocked'} ${blockDate}` : `${isVi ? 'Đã mở lại ngày' : 'Unblocked'} ${blockDate}`);
       window.location.reload();
     } else {
-      setMessage(json.error?.message ?? 'Could not update calendar.');
+      setMessage(json.error?.message ?? (isVi ? 'Không thể cập nhật lịch.' : 'Could not update calendar.'));
     }
   }
 
   return (
     <div className="mx-auto max-w-7xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
-      {/* Header + Prepaid Ad Wallet */}
       <div className="grid gap-6 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-8 lg:grid-cols-12 lacquer-shadow">
         <div className="space-y-2 lg:col-span-7">
           <span className="rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
             {isVi
-              ? 'Cổng Đối tác · 0% Hoa hồng · Thu 100% giá thuê tại Check-in'
-              : 'Stay Partner Console · 0% Commission · Collect 100% Net Rent at Check-in'}
+              ? 'Trang quản lý chủ nhà, 0% hoa hồng, nhận đủ 100% tiền nhà khi khách đến'
+              : 'Host Portal, 0% commission, keep 100% of check-in rent'}
           </span>
           <h1 className="font-serif-display text-3xl font-semibold text-[#17221E]">
             {hostName}
           </h1>
           <p className="text-sm text-[#53635D]">
             {isVi
-              ? 'Quản lý giá net 7/14/21/30 đêm, chứng thực Speedtest/Video góc làm việc, đồng bộ lịch iCal (Airbnb/Booking) và xác nhận khách check-in.'
-              : 'Manage 7–30N net rates, Speedtest & Workspace proof, automated iCal sync (Airbnb/Booking.com), and check-in settlement.'}
+              ? 'Cập nhật giá thuê 7 đến 30 đêm, thông số Wi-Fi, kết nối lịch từ Airbnb hoặc Booking.com và xác nhận khi khách nhận phòng.'
+              : 'Manage weekly and monthly rates, Wi-Fi proof, calendar sync with Airbnb or Booking.com, and check-in settlement.'}
           </p>
           <div className="pt-2">
             <Link
@@ -241,7 +256,7 @@ export function HostConsoleClient({
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#164E3F] px-4 py-2 text-xs font-semibold text-white"
             >
               <PlusCircle className="h-4 w-4" />
-              {isVi ? 'Nộp đơn thêm chỗ ở mới' : 'Apply Additional Stay'}
+              {isVi ? 'Đăng thêm chỗ ở mới' : 'Add another property'}
             </Link>
           </div>
         </div>
@@ -249,9 +264,9 @@ export function HostConsoleClient({
         <div className="space-y-3 rounded-2xl border border-[#C25E28]/25 bg-[#FAF8F3] p-5 lg:col-span-5">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#C25E28]">
-              <Wallet className="h-4 w-4" /> StayDirect™ Advertising Wallet
+              <Wallet className="h-4 w-4" /> {isVi ? 'Ví quảng cáo (Đặt trực tiếp)' : 'Host ad balance (Direct Booking)'}
             </span>
-            <span className="text-xs text-[#53635D]">1% / referral</span>
+            <span className="text-xs text-[#53635D]">{isVi ? 'Phí 1% / lượt đặt' : '1% per referral'}</span>
           </div>
           <div className="font-serif-display text-3xl font-bold text-[#17221E]">
             {formatMoneyFromVnd(walletVnd, currency)}
@@ -279,10 +294,9 @@ export function HostConsoleClient({
         </div>
       )}
 
-      {/* Property Packages, Wi-Fi Verification Proof & iCal Sync */}
       <section className="space-y-5">
         <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-          {isVi ? 'Chỗ ở, Giá Net 7–30 đêm, Chứng thực Wi-Fi & iCal' : 'Properties, Net Tiers, Verification Media & iCal Sync'}
+          {isVi ? 'Danh sách chỗ ở, giá thuê và đồng bộ lịch' : 'Properties, rates, Wi-Fi proof, and calendar sync'}
         </h2>
 
         <div className="grid gap-6">
@@ -291,14 +305,24 @@ export function HostConsoleClient({
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5DFD3] pb-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                    <span className="rounded-full bg-[#164E3F] px-2.5 py-0.5 text-white uppercase">
-                      {stay.status}
+                    <span className="rounded-full bg-[#164E3F] px-2.5 py-0.5 text-white">
+                      {stay.status === 'live'
+                        ? isVi
+                          ? 'Đang mở đặt'
+                          : 'Live'
+                        : stay.status === 'limited'
+                          ? isVi
+                            ? 'Giới hạn'
+                            : 'Limited'
+                          : isVi
+                            ? 'Tạm ẩn'
+                            : 'Paused'}
                     </span>
                     <span className="rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-[#164E3F]">
-                      {stay.verificationTier}
+                      {formatVerificationTierLabel(stay.verificationTier, locale)}
                     </span>
                     <span className="text-[#53635D]">
-                      {isVi ? stay.destinationNameVi : stay.destinationNameEn} · {stay.unitsTotal} units
+                      {isVi ? stay.destinationNameVi : stay.destinationNameEn}, {stay.unitsTotal} {isVi ? 'phòng' : 'units'}
                     </span>
                   </div>
                   <Link
@@ -310,7 +334,6 @@ export function HostConsoleClient({
                   </Link>
                 </div>
 
-                {/* Wi-Fi + Proof Media Form */}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -326,7 +349,7 @@ export function HostConsoleClient({
                     className="w-16 rounded-lg border border-[#E5DFD3] bg-white px-2 py-1 font-semibold"
                     title="Download Mbps"
                   />
-                  <span>↓</span>
+                  <span>{isVi ? 'xuống' : 'down'}</span>
                   <input
                     name="up"
                     type="number"
@@ -334,7 +357,7 @@ export function HostConsoleClient({
                     className="w-16 rounded-lg border border-[#E5DFD3] bg-white px-2 py-1 font-semibold"
                     title="Upload Mbps"
                   />
-                  <span>↑</span>
+                  <span>{isVi ? 'lên' : 'up'}</span>
                   <input
                     name="jitter"
                     type="number"
@@ -346,26 +369,25 @@ export function HostConsoleClient({
                     name="proofUrl"
                     type="text"
                     defaultValue={stay.speedtestProofUrl}
-                    placeholder="Speedtest Proof URL"
+                    placeholder={isVi ? 'Link ảnh Speedtest' : 'Speedtest link'}
                     className="w-40 rounded-lg border border-[#E5DFD3] bg-white px-2 py-1"
                   />
                   <input
                     name="videoUrl"
                     type="text"
                     defaultValue={stay.workspaceVideoUrl}
-                    placeholder="Workspace Video URL"
+                    placeholder={isVi ? 'Link video góc làm việc' : 'Desk tour link'}
                     className="w-40 rounded-lg border border-[#E5DFD3] bg-white px-2 py-1"
                   />
                   <button
                     type="submit"
                     className="rounded-lg bg-[#164E3F] px-3 py-1 font-semibold text-white"
                   >
-                    {isVi ? 'Lưu Proof & Speedtest' : 'Save Proof'}
+                    {isVi ? 'Lưu thông số Wi-Fi' : 'Save Wi-Fi proof'}
                   </button>
                 </form>
               </div>
 
-              {/* Package Pricing & Channel Mode Form */}
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -374,45 +396,57 @@ export function HostConsoleClient({
                 className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7 lg:items-end"
               >
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">Model</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">
+                    {isVi ? 'Hình thức đặt' : 'Booking method'}
+                  </label>
                   <select
                     name="businessModel"
                     defaultValue={stay.businessModel}
                     className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold"
                   >
-                    <option value="booking_flow">BookingFlow (0%)</option>
-                    <option value="stay_direct">StayDirect™ (1%)</option>
+                    <option value="booking_flow">{isVi ? 'Đặt qua VietNomad (0%)' : 'VietNomad (0% fee)'}</option>
+                    <option value="stay_direct">{isVi ? 'Đặt trực tiếp (1%)' : 'Direct Booking (1%)'}</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">7N Net (VND)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">
+                    {isVi ? 'Giá 7 đêm (VND)' : '7N Host Rate (VND)'}
+                  </label>
                   <input name="w7" type="number" defaultValue={stay.wholesale7Vnd} className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">14N Net (VND)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">
+                    {isVi ? 'Giá 14 đêm (VND)' : '14N Host Rate (VND)'}
+                  </label>
                   <input name="w14" type="number" defaultValue={stay.wholesale14Vnd} className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">21N Net (VND)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">
+                    {isVi ? 'Giá 21 đêm (VND)' : '21N Host Rate (VND)'}
+                  </label>
                   <input name="w21" type="number" defaultValue={stay.wholesale21Vnd} className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">30N Net (VND)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">
+                    {isVi ? 'Giá 30 đêm (VND)' : '30N Host Rate (VND)'}
+                  </label>
                   <input name="w30" type="number" defaultValue={stay.wholesale30Vnd} className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">Extra/Nt (VND)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">
+                    {isVi ? 'Mỗi đêm thêm (VND)' : 'Extra night (VND)'}
+                  </label>
                   <input name="extra" type="number" defaultValue={stay.extraNightVnd} className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold" />
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-1.5 text-xs">
                     <input type="checkbox" name="deal" defaultChecked={stay.isDealFeatured} className="accent-[#C25E28]" />
-                    Featured Deal
+                    {isVi ? 'Hiện mục Ưu đãi' : 'Feature in Deals'}
                   </label>
                   <button type="submit" className="rounded-xl bg-[#164E3F] px-3 py-2 text-xs font-semibold text-white">
-                    {isVi ? 'Lưu gói' : 'Save Tiers'}
+                    {isVi ? 'Lưu bảng giá' : 'Save prices'}
                   </button>
                 </div>
 
@@ -421,13 +455,12 @@ export function HostConsoleClient({
                     name="directBookingUrl"
                     type="text"
                     defaultValue={stay.directBookingUrl}
-                    placeholder="Direct booking URL (required if using StayDirect™)"
+                    placeholder={isVi ? 'Link đặt phòng website riêng (chỉ cần nếu chọn Đặt trực tiếp)' : 'Your direct booking URL (if using Direct Booking)'}
                     className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-1.5 text-xs"
                   />
                 </div>
               </form>
 
-              {/* iCal Calendar Sync Bar */}
               {stay.roomId && (
                 <form
                   onSubmit={(e) => {
@@ -439,7 +472,7 @@ export function HostConsoleClient({
                 >
                   <span className="inline-flex items-center gap-1.5 font-semibold text-[#164E3F] shrink-0">
                     <CalendarSync className="h-4 w-4" />
-                    iCal Sync ({stay.icalSyncStatus})
+                    {isVi ? 'Đồng bộ lịch phòng Airbnb / Booking' : 'Calendar sync (Airbnb, Booking.com)'} ({formatIcalSyncStatusLabel(stay.icalSyncStatus, locale)})
                   </span>
                   <input
                     name="icalUrl"
@@ -452,7 +485,7 @@ export function HostConsoleClient({
                     type="submit"
                     className="rounded-xl bg-[#164E3F] px-3.5 py-1.5 font-semibold text-white"
                   >
-                    {isVi ? 'Đồng bộ iCal' : 'Sync External Calendar'}
+                    {isVi ? 'Đồng bộ ngay' : 'Sync calendar'}
                   </button>
                 </form>
               )}
@@ -461,12 +494,11 @@ export function HostConsoleClient({
         </div>
       </section>
 
-      {/* Availability Control + Bookings & Host Collection */}
       <div className="grid gap-8 lg:grid-cols-2">
         <section className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-6">
           <h3 className="font-serif-display flex items-center gap-2 text-xl font-semibold text-[#17221E]">
             <CalendarX className="h-5 w-5 text-[#C25E28]" />
-            {isVi ? 'Quản lý khóa ngày trống tức thì' : 'Live Availability Blocker'}
+            {isVi ? 'Đóng hoặc mở ngày trống' : 'Block or open room dates'}
           </h3>
           <div className="flex flex-wrap gap-2">
             <select
@@ -478,7 +510,7 @@ export function HostConsoleClient({
                 .filter((s) => s.roomId)
                 .map((s) => (
                   <option key={s.roomId!} value={s.roomId!}>
-                    {s.titleEn} · {s.roomNameEn}
+                    {s.titleEn} ({s.roomNameEn})
                   </option>
                 ))}
             </select>
@@ -494,28 +526,30 @@ export function HostConsoleClient({
               onClick={() => handleBlockToggle(true)}
               className="rounded-xl bg-[#C25E28] px-3 py-2 text-xs font-semibold text-white"
             >
-              Block
+              {isVi ? 'Khóa ngày' : 'Block'}
             </button>
             <button
               type="button"
               onClick={() => handleBlockToggle(false)}
               className="rounded-xl border border-[#E5DFD3] px-3 py-2 text-xs font-semibold"
             >
-              Unblock
+              {isVi ? 'Mở ngày' : 'Unblock'}
             </button>
           </div>
 
           <div className="max-h-52 space-y-1.5 overflow-y-auto pt-2 text-xs">
             {data.availabilityLocks.length === 0 ? (
-              <p className="text-[#53635D]">All dates open for Instant Booking.</p>
+              <p className="text-[#53635D]">
+                {isVi ? 'Tất cả các ngày sắp tới đều đang mở đón khách.' : 'All upcoming dates are open for booking.'}
+              </p>
             ) : (
               data.availabilityLocks.map((l) => (
                 <div key={l.id} className="flex justify-between rounded-xl bg-[#FAF8F3] px-3 py-2">
                   <span>
-                    <strong>{l.stayDate}</strong> · {l.stayTitleEn}
+                    <strong>{l.stayDate}</strong> ({l.stayTitleEn})
                   </span>
                   <span className="text-[#53635D]">
-                    Booked: {l.bookedUnits} · Blocked: {l.blockedUnits}
+                    {isVi ? `Đã đặt: ${l.bookedUnits}, Đã khóa: ${l.blockedUnits}` : `Booked: ${l.bookedUnits}, Blocked: ${l.blockedUnits}`}
                   </span>
                 </div>
               ))
@@ -525,23 +559,23 @@ export function HostConsoleClient({
 
         <section className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-6">
           <h3 className="font-serif-display text-xl font-semibold text-[#17221E]">
-            {isVi ? 'Đơn đặt & Thu tiền trực tiếp khi Check-in' : 'Locked Reservations & Check-in Collection'}
+            {isVi ? 'Đơn đặt phòng và thu tiền khi khách nhận phòng' : 'Bookings and check-in collection'}
           </h3>
           <div className="max-h-72 space-y-2.5 overflow-y-auto text-xs">
             {data.bookings.map((b) => (
               <div key={b.id} className="space-y-1.5 rounded-2xl bg-[#FAF8F3] p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 font-bold text-[#17221E]">
                   <span>
-                    {b.bookingCode} · {b.guestName} ({b.nationality})
+                    {b.bookingCode}, {b.guestName} ({b.nationality})
                   </span>
                   <span className="text-[#164E3F]">
-                    Collect at Check-in: {formatVndExact(b.payAtCheckinVnd)}
+                    {isVi ? 'Thu khi nhận phòng:' : 'Collect at check-in:'} {formatVndExact(b.payAtCheckinVnd)}
                   </span>
                 </div>
                 <div className="text-[#53635D]">
-                  {b.stayTitleEn} · {b.checkIn} → {b.checkOut} ({b.nights}N) ·{' '}
-                  <strong className="text-[#164E3F]">{b.status}</strong> · 12% Online Paid:{' '}
-                  {formatVndExact(b.feeOnlineVnd)}
+                  {b.stayTitleEn}, {b.checkIn} {isVi ? 'đến' : 'to'} {b.checkOut} ({b.nights} {isVi ? 'đêm' : 'nights'}).{' '}
+                  <strong className="text-[#164E3F]">{formatBookingStatusLabel(b.status, locale)}</strong>.{' '}
+                  {isVi ? 'Khách đã đóng 12% online:' : '12% fee paid online:'} {formatVndExact(b.feeOnlineVnd)}
                 </div>
                 {(b.status === 'RESERVED_LOCKED' || b.status === 'confirmed') && (
                   <button
@@ -549,7 +583,7 @@ export function HostConsoleClient({
                     onClick={() => handleConfirmCheckin(b.id)}
                     className="rounded-lg bg-[#164E3F] px-3 py-1 font-semibold text-white"
                   >
-                    {isVi ? 'Xác nhận Đã Check-in & Thu đủ 100%' : 'Mark Checked-in & Direct Payment Received'}
+                    {isVi ? 'Xác nhận khách đã nhận phòng và trả đủ tiền' : 'Confirm check-in and rent received'}
                   </button>
                 )}
               </div>
@@ -557,11 +591,11 @@ export function HostConsoleClient({
             {data.referrals.map((r) => (
               <div key={r.id} className="rounded-2xl bg-[#FAEDE5] p-3">
                 <div className="flex justify-between font-bold text-[#C25E28]">
-                  <span>StayDirect™ Click · {r.memberName}</span>
+                  <span>{isVi ? 'Lượt đặt trực tiếp' : 'Direct booking'} ({r.memberName})</span>
                   <span>-{formatVndExact(r.referralFeeVnd)} (1%)</span>
                 </div>
                 <div className="text-[#53635D]">
-                  {r.stayTitleEn} · {r.nights}N retail {formatVndExact(r.retailTotalVnd)}
+                  {r.stayTitleEn}, {r.nights} {isVi ? 'đêm' : 'nights'}, {formatVndExact(r.retailTotalVnd)}
                 </div>
               </div>
             ))}
@@ -569,12 +603,11 @@ export function HostConsoleClient({
         </section>
       </div>
 
-      {/* Host Notifications Log */}
       {data.notifications.length > 0 && (
         <section className="space-y-3 rounded-3xl border border-[#E5DFD3] bg-white p-6">
           <h3 className="font-serif-display flex items-center gap-2 text-xl font-semibold text-[#17221E]">
             <Bell className="h-5 w-5 text-[#164E3F]" />
-            {isVi ? 'Thông báo giữ phòng đã gửi Chủ nhà' : 'Host Reservation Alerts'}
+            {isVi ? 'Thông báo đặt phòng gần đây' : 'Recent booking alerts'}
           </h3>
           <div className="space-y-2 text-xs">
             {data.notifications.map((n) => (

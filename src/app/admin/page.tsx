@@ -15,25 +15,25 @@ export default async function AdminPage() {
       <div className="mx-auto max-w-xl px-4 py-16">
         <div className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-8 text-center lacquer-shadow">
           <span className="rounded-full bg-[#FAEDE5] px-3 py-1 text-xs font-semibold text-[#C25E28]">
-            Admin & CRM Workspace
+            {isVi ? 'Khu vực kiểm duyệt' : 'Admin Portal'}
           </span>
           <h1 className="font-serif-display text-3xl font-semibold text-[#17221E]">
-            {isVi ? 'Chuyển sang tài khoản Quản trị viên' : 'Switch to Admin Account'}
+            {isVi ? 'Đăng nhập bằng tài khoản quản trị' : 'Log in with an admin account'}
           </h1>
           <p className="text-sm text-[#53635D]">
             {user
               ? isVi
-                ? `Bạn đang đăng nhập bằng ${user.email} (${user.role}). Vui lòng chuyển sang admin@vietnomad.demo để kiểm duyệt đơn đăng ký và xem CRM.`
-                : `Signed in as ${user.email} (${user.role}). Switch to the Admin account to review Stay Applications, audit Wi-Fi, and manage CRM.`
+                ? `Bạn đang đăng nhập bằng ${user.email}. Hãy chuyển sang tài khoản quản trị để duyệt hồ sơ chỗ ở mới và kiểm tra tốc độ Wi-Fi.`
+                : `You are signed in as ${user.email}. Switch to an admin account to review property applications and Wi-Fi checks.`
               : isVi
-                ? 'Vui lòng đăng nhập bằng tài khoản Admin để truy cập.'
-                : 'Sign in as Platform Admin to continue.'}
+                ? 'Vui lòng đăng nhập bằng tài khoản quản trị để tiếp tục.'
+                : 'Sign in with an admin account to continue.'}
           </p>
           <Link
             href="/login?next=/admin"
             className="inline-block rounded-xl bg-[#C25E28] px-5 py-2.5 text-sm font-semibold text-white"
           >
-            {isVi ? 'Chuyển sang tài khoản Admin →' : 'Switch to Admin Account →'}
+            {isVi ? 'Chuyển sang tài khoản quản trị' : 'Switch to admin account'}
           </Link>
         </div>
       </div>

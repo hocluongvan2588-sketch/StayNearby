@@ -45,8 +45,8 @@ export async function GET(
   const jitter = toNum(s.wifi_jitter_ms, 3);
   const tierLabel =
     s.verification_tier === 'VIETNOMAD_CERTIFIED'
-      ? 'VIETNOMAD CERTIFIED · ON-SITE TESTED'
-      : 'HOST VERIFIED · SPEEDTEST SUBMITTED';
+      ? 'VIETNOMAD CERTIFIED (ON-SITE TESTED)'
+      : 'HOST VERIFIED (SPEEDTEST SUBMITTED)';
   const verifiedIso = new Date(String(s.verified_at ?? Date.now())).toISOString().slice(0, 10);
 
   const svg =
@@ -60,18 +60,18 @@ export async function GET(
   </defs>
   <rect width="960" height="540" rx="20" fill="url(#bg)"/>
   <rect x="36" y="36" width="888" height="468" rx="16" fill="#f7f3eb" fill-opacity="0.06" stroke="#c89d54" stroke-opacity="0.45"/>
-  <text x="64" y="92" fill="#e6c486" font-family="system-ui, sans-serif" font-size="14" font-weight="700" letter-spacing="2">WORKSPACE AUDIT &amp; DESK WALKTHROUGH</text>
+  <text x="64" y="92" fill="#e6c486" font-family="system-ui, sans-serif" font-size="14" font-weight="700" letter-spacing="2">WORKSPACE CHECK AND DESK DETAILS</text>
   <text x="64" y="138" fill="#ffffff" font-family="Georgia, serif" font-size="34" font-weight="700">${escapeXml(String(s.title_en))}</text>
-  <text x="64" y="170" fill="#cbe3db" font-family="system-ui, sans-serif" font-size="16">${escapeXml(String(s.neighborhood_en))} · Reg ${escapeXml(String(s.registration_code))}</text>
+  <text x="64" y="170" fill="#cbe3db" font-family="system-ui, sans-serif" font-size="16">${escapeXml(String(s.neighborhood_en))}, Code ${escapeXml(String(s.registration_code))}</text>
   <rect x="64" y="210" width="832" height="120" rx="14" fill="#ffffff" fill-opacity="0.1"/>
-  <text x="88" y="246" fill="#e6c486" font-family="system-ui, sans-serif" font-size="13" font-weight="700">VERIFIED ERGONOMIC SETUP</text>
+  <text x="88" y="246" fill="#e6c486" font-family="system-ui, sans-serif" font-size="13" font-weight="700">DESK SETUP</text>
   <text x="88" y="282" fill="#ffffff" font-family="system-ui, sans-serif" font-size="18">${escapeXml(String(s.workspace_summary_en).slice(0, 86))}</text>
-  <text x="88" y="310" fill="#cbe3db" font-family="system-ui, sans-serif" font-size="14">Wi-Fi Confirmed: ${down} Mbps Down / ${up} Mbps Up · ${jitter}ms Jitter · Verified ${verifiedIso}</text>
+  <text x="88" y="310" fill="#cbe3db" font-family="system-ui, sans-serif" font-size="14">Wi-Fi: ${down} Mbps down, ${up} Mbps up, ${jitter}ms latency, checked ${verifiedIso}</text>
   <rect x="64" y="360" width="380" height="96" rx="12" fill="#134e3f" stroke="#5bb397" stroke-opacity="0.5"/>
-  <text x="88" y="396" fill="#9de2c8" font-family="system-ui, sans-serif" font-size="13" font-weight="700">100% BOOKING FEE REFUND GUARANTEE</text>
-  <text x="88" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14">Only 12% online today · Pay 88% directly to Host</text>
+  <text x="88" y="396" fill="#9de2c8" font-family="system-ui, sans-serif" font-size="13" font-weight="700">100% FEE REFUND GUARANTEE</text>
+  <text x="88" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14">Pay 12% fee online, pay rent to host at check-in</text>
   <rect x="468" y="360" width="428" height="96" rx="12" fill="#c89d54" fill-opacity="0.18" stroke="#c89d54" stroke-opacity="0.6"/>
-  <text x="492" y="396" fill="#f5deb3" font-family="system-ui, sans-serif" font-size="13" font-weight="700">VERIFICATION TIER</text>
+  <text x="492" y="396" fill="#f5deb3" font-family="system-ui, sans-serif" font-size="13" font-weight="700">VERIFICATION LEVEL</text>
   <text x="492" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" font-weight="700">${escapeXml(tierLabel)}</text>
 </svg>`
       : `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
@@ -83,9 +83,9 @@ export async function GET(
   </defs>
   <rect width="960" height="540" rx="20" fill="url(#sp)"/>
   <rect x="36" y="36" width="888" height="468" rx="16" fill="#ffffff" fill-opacity="0.04" stroke="#36d399" stroke-opacity="0.45"/>
-  <text x="64" y="88" fill="#5ce1b3" font-family="system-ui, sans-serif" font-size="14" font-weight="700" letter-spacing="2">VIETNOMAD STAYS · SPEEDTEST VERIFICATION CERTIFICATE</text>
+  <text x="64" y="88" fill="#5ce1b3" font-family="system-ui, sans-serif" font-size="14" font-weight="700" letter-spacing="2">VIETNOMAD STAYS WI-FI CERTIFICATE</text>
   <text x="64" y="132" fill="#ffffff" font-family="Georgia, serif" font-size="32" font-weight="700">${escapeXml(String(s.title_en))}</text>
-  <text x="64" y="164" fill="#9fb9c4" font-family="system-ui, sans-serif" font-size="15">${escapeXml(tierLabel)} · Verified ${verifiedIso}</text>
+  <text x="64" y="164" fill="#9fb9c4" font-family="system-ui, sans-serif" font-size="15">${escapeXml(tierLabel)}, Checked ${verifiedIso}</text>
 
   <rect x="64" y="200" width="260" height="146" rx="14" fill="#102b36" stroke="#36d399" stroke-opacity="0.5"/>
   <text x="88" y="236" fill="#82a7b4" font-family="system-ui, sans-serif" font-size="13" font-weight="700">DOWNLOAD SPEED</text>
@@ -102,8 +102,8 @@ export async function GET(
   <text x="660" y="302" fill="#93c5fd" font-family="system-ui, sans-serif" font-size="48" font-weight="800">${jitter}</text>
   <text x="742" y="302" fill="#cfe6ed" font-family="system-ui, sans-serif" font-size="18" font-weight="600">ms</text>
 
-  <text x="64" y="394" fill="#d5e5ea" font-family="system-ui, sans-serif" font-size="15">Audit Note: ${escapeXml(String(s.wifi_tester_note))}</text>
-  <text x="64" y="424" fill="#82a7b4" font-family="system-ui, sans-serif" font-size="14">Registry ID: ${escapeXml(String(s.registration_code))} · Covered by 100% Booking Fee Refund Guarantee if actual speed drops below benchmark at check-in.</text>
+  <text x="64" y="394" fill="#d5e5ea" font-family="system-ui, sans-serif" font-size="15">Tester note: ${escapeXml(String(s.wifi_tester_note))}</text>
+  <text x="64" y="424" fill="#82a7b4" font-family="system-ui, sans-serif" font-size="14">Code: ${escapeXml(String(s.registration_code))}. Protected by 100% booking fee refund guarantee if actual speed falls short.</text>
 </svg>`;
 
   return new Response(svg, {

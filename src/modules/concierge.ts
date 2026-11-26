@@ -107,10 +107,10 @@ export async function runAiStayConcierge(params: {
   const summary =
     params.locale === 'vi'
       ? top.length > 0
-        ? `${relaxed ? 'Gợi ý gần sát tiêu chí của bạn nhất' : 'Mình tìm thấy'} ${top.length} chỗ ở sẵn sàng làm việc từ xa: dẫn đầu là ${top[0].titleVi} tại ${top[0].destinationNameVi} (${top[0].wifiDownloadMbps} Mbps · Đặt cọc ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency)} hôm nay, trả ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency)} trực tiếp cho chủ nhà khi nhận phòng).`
+        ? `${relaxed ? 'Gợi ý gần nhất với yêu cầu của bạn:' : 'Tìm thấy'} ${top.length} chỗ ở phù hợp. Nổi bật là ${top[0].titleVi} tại ${top[0].destinationNameVi} (Wi-Fi ${top[0].wifiDownloadMbps} Mbps, đặt cọc ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency)} hôm nay và trả ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency)} cho chủ nhà khi nhận phòng).`
         : 'Hiện chưa có chỗ ở phù hợp mô tả đó.'
       : top.length > 0
-        ? `${relaxed ? 'Showing closest available matches' : 'Found'} ${top.length} live work-ready Vietnam stays: leading with ${top[0].titleEn} in ${top[0].destinationNameEn} (${top[0].wifiDownloadMbps} Mbps · Pay ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency)} today to reserve, ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency)} due directly to host at check-in).`
+        ? `${relaxed ? 'Closest matches:' : 'Found'} ${top.length} available stays. Top match is ${top[0].titleEn} in ${top[0].destinationNameEn} (${top[0].wifiDownloadMbps} Mbps Wi-Fi, pay ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency)} today to reserve and ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency)} to host at check-in).`
         : 'No matching stays are currently available.';
 
   return {

@@ -40,7 +40,7 @@ export function LoginClient({
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(json.error?.message ?? 'Invalid credentials.');
+        setError(json.error?.message ?? (isVi ? 'Email hoặc mật khẩu chưa đúng.' : 'Invalid email or password.'));
         return;
       }
       const fallback =
@@ -51,7 +51,7 @@ export function LoginClient({
             : '/dashboard';
       window.location.assign(nextPath || fallback);
     } catch {
-      setError('Network error.');
+      setError(isVi ? 'Lỗi kết nối. Vui lòng thử lại.' : 'Network error. Please retry.');
     } finally {
       setLoading(false);
     }
@@ -69,15 +69,15 @@ export function LoginClient({
         <div className={`space-y-5 ${hasDemos ? 'lg:col-span-6' : ''}`}>
           <div>
             <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
-              VietNomad Account
+              {isVi ? 'Tài khoản VietNomad' : 'VietNomad Account'}
             </span>
             <h1 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
-              {isVi ? 'Đăng nhập vào VietNomad' : 'Welcome back, Nomad'}
+              {isVi ? 'Đăng nhập' : 'Log in'}
             </h1>
             <p className="mt-1 text-sm text-[#53635D]">
               {isVi
-                ? 'Quản lý đặt phòng dài ngày, Reward Credit, hoặc cổng Chủ nhà / Quản trị.'
-                : 'Access your bookings, Reward Credit, StayDirect™ referrals, or Host Console.'}
+                ? 'Xem lịch đặt phòng, tiền thưởng hoàn lại hoặc trang quản lý nhà.'
+                : 'Manage your bookings, reward credit, or host listings.'}
             </p>
           </div>
 
@@ -125,29 +125,28 @@ export function LoginClient({
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#164E3F] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0F392E] disabled:opacity-60"
             >
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isVi ? 'Đăng nhập' : 'Sign In'}
+              {isVi ? 'Đăng nhập' : 'Log in'}
             </button>
           </form>
 
           <p className="text-xs text-[#53635D]">
-            {isVi ? 'Chưa có tài khoản?' : 'New to VietNomad?'}{' '}
+            {isVi ? 'Chưa có tài khoản?' : 'New here?'}{' '}
             <Link href="/register" className="font-semibold text-[#164E3F] hover:underline">
-              {isVi ? 'Tạo tài khoản miễn phí' : 'Join Free'}
+              {isVi ? 'Tạo tài khoản miễn phí' : 'Create a free account'}
             </Link>
           </p>
         </div>
 
-        {/* One-click Demo Switcher (only shown when NEXT_PUBLIC_ENABLE_DEMO=true or on /admin/demo) */}
         {hasDemos && (
           <div className="space-y-3 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-5 lg:col-span-6">
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#A67C2E]">
               <Sparkles className="h-4 w-4" />
-              {isVi ? 'Trải nghiệm nhanh 1 chạm (Demo)' : 'One-Click Demo Role Switcher'}
+              {isVi ? 'Đăng nhập nhanh tài khoản mẫu' : 'Quick demo login'}
             </div>
             <p className="text-xs text-[#53635D]">
               {isVi
-                ? 'Chọn nhanh bất kỳ vai trò nào để kiểm tra toàn bộ quy trình khách quốc tế, BookingFlow, StayDirect™ và Admin:'
-                : 'Test every NomadStays persona immediately — Free, Premium Pass, BookingFlow Host, StayDirect™ Wallet Host, and Admin:'}
+                ? 'Chọn một tài khoản bên dưới để dùng thử tính năng cho khách thuê, chủ nhà và quản trị viên:'
+                : 'Choose a sample account below to test guest, host, and admin workflows:'}
             </p>
 
             <div className="space-y-2 pt-1">
@@ -166,7 +165,7 @@ export function LoginClient({
                     <div className="text-[11px] text-[#53635D]">{acc.email}</div>
                   </div>
                   <span className="rounded-lg bg-[#164E3F] px-2.5 py-1 text-[11px] font-semibold text-white">
-                    {isVi ? 'Vào ngay' : 'Enter'}
+                    {isVi ? 'Chọn' : 'Select'}
                   </span>
                 </button>
               ))}
@@ -202,12 +201,12 @@ export function RegisterClient() {
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(json.error?.message ?? 'Could not register.');
+        setError(json.error?.message ?? (isVi ? 'Không thể tạo tài khoản.' : 'Could not register.'));
         return;
       }
       window.location.assign(role === 'host' ? '/list-your-stay' : '/dashboard');
     } catch {
-      setError('Network error.');
+      setError(isVi ? 'Lỗi kết nối. Vui lòng thử lại.' : 'Network error. Please retry.');
     } finally {
       setLoading(false);
     }
@@ -218,22 +217,22 @@ export function RegisterClient() {
       <div className="space-y-6 rounded-3xl border border-[#E5DFD3] bg-white p-8 lacquer-shadow">
         <div>
           <span className="text-xs font-semibold uppercase tracking-widest text-[#164E3F]">
-            Join Free
+            {isVi ? 'Đăng ký miễn phí' : 'Sign up free'}
           </span>
           <h1 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
-            {isVi ? 'Tạo tài khoản VietNomad miễn phí' : 'Become a free member today'}
+            {isVi ? 'Tạo tài khoản VietNomad' : 'Create your VietNomad account'}
           </h1>
           <p className="mt-1 text-sm text-[#53635D]">
             {isVi
-              ? 'Mở khóa đặt phòng StayDirect™ không phí sàn, lưu danh sách yêu thích và RSVP meetup.'
-              : 'Unlock StayDirect™ zero-markup referrals, saved stays, and Vietnam Brunch Club RSVPs.'}
+              ? 'Đặt phòng trực tiếp chủ nhà, lưu chỗ ở yêu thích và đăng ký tham gia sự kiện.'
+              : 'Unlock direct host bookings, save favorite stays, and join local meetups.'}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-xs font-semibold text-[#53635D]">
-              {isVi ? 'Họ tên' : 'Full Name'}
+              {isVi ? 'Họ và tên' : 'Full name'}
             </label>
             <input
               type="text"
@@ -269,22 +268,22 @@ export function RegisterClient() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-semibold text-[#53635D]">
-                {isVi ? 'Mục đích chính' : 'Account Type'}
+                {isVi ? 'Loại tài khoản' : 'Account type'}
               </label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as 'nomad' | 'host')}
                 className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5 text-sm font-medium"
               >
-                <option value="nomad">{isVi ? 'Khách Digital Nomad' : 'Digital Nomad Traveler'}</option>
-                <option value="host">{isVi ? 'Chủ nhà đối tác' : 'Stay Partner / Host'}</option>
+                <option value="nomad">{isVi ? 'Khách thuê phòng' : 'Guest'}</option>
+                <option value="host">{isVi ? 'Chủ nhà cho thuê' : 'Host'}</option>
               </select>
             </div>
           </div>
 
           <div>
             <label className="mb-1 block text-xs font-semibold text-[#53635D]">
-              {isVi ? 'Mật khẩu (tối thiểu 8 ký tự)' : 'Password (8+ chars)'}
+              {isVi ? 'Mật khẩu (tối thiểu 8 ký tự)' : 'Password (8+ characters)'}
             </label>
             <input
               type="password"
@@ -308,7 +307,7 @@ export function RegisterClient() {
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#164E3F] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0F392E]"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            {isVi ? 'Hoàn tất đăng ký' : 'Create Free Account'}
+            {isVi ? 'Tạo tài khoản' : 'Create account'}
           </button>
         </form>
       </div>

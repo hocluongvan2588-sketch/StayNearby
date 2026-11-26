@@ -15,32 +15,32 @@ export default async function HostPage() {
       <div className="mx-auto max-w-xl px-4 py-16">
         <div className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-8 text-center lacquer-shadow">
           <span className="rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
-            Host Partner Workspace
+            {isVi ? 'Khu vực dành cho chủ nhà' : 'Host Portal'}
           </span>
           <h1 className="font-serif-display text-3xl font-semibold text-[#17221E]">
-            {isVi ? 'Chuyển sang tài khoản Chủ nhà đối tác' : 'Switch to a Host Partner Account'}
+            {isVi ? 'Đăng nhập bằng tài khoản chủ nhà' : 'Log in with a host account'}
           </h1>
           <p className="text-sm text-[#53635D]">
             {user
               ? isVi
-                ? `Bạn đang đăng nhập bằng ${user.email} (${user.role}). Hãy chuyển sang host@vietnomad.demo hoặc direct@vietnomad.demo để quản lý phòng & ví StayDirect™.`
-                : `Signed in as ${user.email} (${user.role}). Switch to a Host account or submit a Stay Application first.`
+                ? `Bạn đang đăng nhập bằng tài khoản ${user.email}. Hãy chuyển sang tài khoản chủ nhà hoặc gửi duyệt chỗ ở mới.`
+                : `You are signed in as ${user.email}. Switch to a host account or submit a property for review first.`
               : isVi
-                ? 'Vui lòng đăng nhập bằng tài khoản Chủ nhà để truy cập Host Console.'
-                : 'Sign in with a Host Partner account to manage packages, Wi-Fi tests, and wallets.'}
+                ? 'Vui lòng đăng nhập bằng tài khoản chủ nhà để quản lý phòng, lịch và bảng giá.'
+                : 'Sign in with a host account to manage your listings, rates, and calendar.'}
           </p>
           <div className="flex flex-wrap justify-center gap-3 pt-2">
             <Link
               href="/login?next=/host"
               className="rounded-xl bg-[#164E3F] px-5 py-2.5 text-sm font-semibold text-white"
             >
-              {isVi ? 'Chọn tài khoản Host (1 chạm)' : 'Switch to Host Account →'}
+              {isVi ? 'Đăng nhập tài khoản chủ nhà' : 'Switch to host account'}
             </Link>
             <Link
               href="/list-your-stay"
               className="rounded-xl border border-[#E5DFD3] px-5 py-2.5 text-sm font-semibold text-[#17221E]"
             >
-              {isVi ? 'Đăng ký làm Chủ nhà mới' : 'Apply to List Your Stay'}
+              {isVi ? 'Đăng cho thuê chỗ ở mới' : 'List a new property'}
             </Link>
           </div>
         </div>

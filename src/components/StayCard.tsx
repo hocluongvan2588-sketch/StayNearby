@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import {
-  ArrowLeftRight,
   Bookmark,
   CheckCircle2,
   MapPin,
@@ -13,7 +12,12 @@ import {
   Wifi,
   Zap,
 } from 'lucide-react';
-import { formatMoneyFromVnd, formatPropertyTypeLabel } from '@/lib/i18n';
+import {
+  formatBusinessModelLabel,
+  formatMoneyFromVnd,
+  formatPropertyTypeLabel,
+  formatVerificationTierLabel,
+} from '@/lib/i18n';
 import type { StayCardItem } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
 
@@ -26,12 +30,11 @@ export function StayCard({
   initialSaved?: boolean;
   isAuthenticated?: boolean;
 }) {
-  const { locale, currency, compareList, toggleCompare } = usePreferences();
+  const { locale, currency } = usePreferences();
   const [saved, setSaved] = useState(initialSaved);
   const [saving, setSaving] = useState(false);
 
   const isVi = locale === 'vi';
-  const isCompared = compareList.some((c) => c.id === stay.id);
 
   async function handleSaveToggle(e: React.MouseEvent) {
     e.preventDefault();
@@ -54,15 +57,8 @@ export function StayCard({
     }
   }
 
-  function handleCompareToggle(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleCompare(stay);
-  }
-
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-[#E5DFD3] bg-white transition duration-300 hover:-translate-y-0.5 hover:border-[#164E3F]/40 lacquer-shadow">
-      {/* Photo + Verified Wi-Fi & Model Badges */}
       <Link href={`/stays/${stay.slug}`} className="relative block aspect-[4/3] overflow-hidden bg-[#F2EDE3]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -72,75 +68,53 @@ export function StayCard({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/15" />
 
-        {/* Top Row: Tested Wi-Fi + Verification Tier + Save Deal */}
         <div className="absolute left-3 right-3 top-3 flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#164E3F] px-2.5 py-1 text-xs font-semibold text-white shadow">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#164E3F] px-2.5 py-1 text-xs font-semibold text-white shadow">
               <Wifi className="h-3.5 w-3.5" />
               {stay.wifiDownloadMbps} Mbps
             </span>
             <span
-              className={`rounded-full px-2 py-1 text-[10px] font-bold shadow ${
+              className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold shadow ${
                 stay.verificationTier === 'VIETNOMAD_CERTIFIED'
-                  ? 'bg-[#0F392E]/90 text-[#9CE3C7] border border-[#9CE3C7]/30'
-                  : 'bg-[#FAF8F3]/95 text-[#A67C2E] border border-[#A67C2E]/35'
+                  ? 'border border-[#9CE3C7]/30 bg-[#0F392E]/90 text-[#9CE3C7]'
+                  : 'border border-[#A67C2E]/35 bg-[#FAF8F3]/95 text-[#A67C2E]'
               }`}
             >
-              {stay.verificationTier === 'VIETNOMAD_CERTIFIED'
-                ? isVi
-                  ? '✓ VietNomad Certified'
-                  : '✓ Verified by VietNomad'
-                : isVi
-                  ? '✓ Chủ nhà kiểm chứng'
-                  : '✓ Host Verified'}
+              {formatVerificationTierLabel(stay.verificationTier, locale)}
             </span>
             {stay.dealSavingsPct > 0 && (
-              <span className="rounded-full bg-[#C25E28] px-2.5 py-1 text-xs font-semibold text-white shadow">
+              <span className="whitespace-nowrap rounded-full bg-[#C25E28] px-2.5 py-1 text-xs font-semibold text-white shadow">
                 {isVi ? `Giảm ${stay.dealSavingsPct}%` : `Save ${stay.dealSavingsPct}%`}
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={handleCompareToggle}
-              title={isVi ? 'So sánh' : 'Compare'}
-              className={`rounded-full px-2 py-1 text-[11px] font-semibold backdrop-blur-md transition ${
-                isCompared
-                  ? 'bg-[#A67C2E] text-white'
-                  : 'bg-white/90 text-[#17221E] hover:bg-white'
-              }`}
-            >
-              <ArrowLeftRight className="mr-1 inline h-3 w-3" />
-              {isCompared ? (isVi ? 'Đã chọn' : 'Added') : isVi ? 'So sánh' : 'Compare'}
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveToggle}
-              disabled={saving}
-              aria-label={isVi ? 'Lưu chỗ ở' : 'Save stay'}
-              className={`rounded-full p-1.5 backdrop-blur-md transition ${
-                saved ? 'bg-[#C25E28] text-white' : 'bg-white/90 text-[#17221E] hover:bg-white'
-              }`}
-            >
-              <Bookmark className="h-3.5 w-3.5" fill={saved ? 'currentColor' : 'none'} />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSaveToggle}
+            disabled={saving}
+            title={isVi ? 'Lưu chỗ ở' : 'Save stay'}
+            aria-label={isVi ? 'Lưu chỗ ở' : 'Save stay'}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full backdrop-blur-md transition ${
+              saved ? 'bg-[#C25E28] text-white' : 'bg-white/90 text-[#17221E] hover:bg-white'
+            }`}
+          >
+            <Bookmark className="h-3.5 w-3.5" fill={saved ? 'currentColor' : 'none'} />
+          </button>
         </div>
 
-        {/* Bottom Row: Instant Book / StayDirect + Google Rating */}
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs font-medium text-white">
           <span className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
             {stay.businessModel === 'booking_flow' ? (
               <>
                 <Zap className="h-3 w-3 text-[#F2D399]" />
-                {isVi ? 'Đặt ngay Instant' : 'Instant book'}
+                {isVi ? 'Giữ phòng ngay' : 'Instant booking'}
               </>
             ) : (
               <>
                 <CheckCircle2 className="h-3 w-3 text-[#9CE3C7]" />
-                StayDirect™ · 0% Markup
+                {formatBusinessModelLabel(stay.businessModel, locale)}
               </>
             )}
           </span>
@@ -151,15 +125,14 @@ export function StayCard({
         </div>
       </Link>
 
-      {/* Card Body */}
       <div className="flex flex-1 flex-col justify-between p-4">
         <div>
           <div className="mb-1 flex items-center justify-between text-xs text-[#53635D]">
             <span className="inline-flex items-center gap-1 font-medium text-[#164E3F]">
-              <MapPin className="h-3.5 w-3.5" />
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
               {isVi ? stay.destinationNameVi : stay.destinationNameEn}
             </span>
-            <span>{formatPropertyTypeLabel(stay.propertyType, locale)}</span>
+            <span className="truncate">{formatPropertyTypeLabel(stay.propertyType, locale)}</span>
           </div>
 
           <Link href={`/stays/${stay.slug}`} className="block">
@@ -172,11 +145,10 @@ export function StayCard({
             {isVi ? stay.subtitleVi : stay.subtitleEn}
           </p>
 
-          {/* Nomad Work-Ready Kit Pills */}
           <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-medium text-[#17221E]">
             {stay.hasExternalMonitor && (
               <span className="inline-flex items-center gap-1 rounded-md bg-[#E7F1EC] px-2 py-0.5 text-[#164E3F]">
-                <Monitor className="h-3 w-3" /> 4K Monitor
+                <Monitor className="h-3 w-3" /> {isVi ? 'Màn hình 4K' : '4K Monitor'}
               </span>
             )}
             <span className="inline-flex items-center gap-1 rounded-md bg-[#F2EDE3] px-2 py-0.5">
@@ -190,70 +162,63 @@ export function StayCard({
                   : 'Shared kitchen'}
             </span>
             {stay.nearestCoworking && (
-              <span className="rounded-md bg-[#F2EDE3] px-2 py-0.5 text-[#53635D]">
-                {stay.nearestCoworking.distanceKm} km → {stay.nearestCoworking.name}
+              <span className="max-w-full truncate rounded-md bg-[#F2EDE3] px-2 py-0.5 text-[#53635D]">
+                {stay.nearestCoworking.distanceKm} km, {stay.nearestCoworking.name}
               </span>
             )}
           </div>
         </div>
 
-        {/* NomadStays Signature Upfront Weekly & Monthly Pricing Footer */}
-        <div className="mt-4 border-t border-[#E5DFD3] pt-3">
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-[#FAF8F3] px-2.5 py-2">
-              <div className="text-[11px] text-[#53635D]">
-                {isVi ? '1 tuần (7 đêm)' : '1 week'}
-              </div>
-              <div className="text-sm font-bold text-[#17221E]">
-                {formatMoneyFromVnd(stay.weekDisplayVnd, currency)}
-              </div>
-              <div className="text-[10px] text-[#53635D]">
-                {formatMoneyFromVnd(stay.weekNightVnd, currency)}/{isVi ? 'đêm' : 'night'}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-[#164E3F]/20 bg-[#E7F1EC]/55 px-2.5 py-2">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-[#164E3F]">
-                  {isVi ? '1 tháng (30 đêm)' : '1 month'}
-                </span>
-                {stay.stayLongerSavingsPct > 0 && (
-                  <span className="rounded bg-[#164E3F] px-1 text-[9px] font-bold text-white">
-                    -{stay.stayLongerSavingsPct}%
-                  </span>
-                )}
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold text-[#164E3F]">
-                  {formatMoneyFromVnd(stay.monthDisplayVnd, currency)}
-                </span>
-                {stay.compareMonthDisplayVnd && (
-                  <span className="text-[10px] text-[#53635D] line-through">
-                    {formatMoneyFromVnd(stay.compareMonthDisplayVnd, currency)}
-                  </span>
-                )}
-              </div>
-              <div className="text-[10px] text-[#164E3F]">
-                {formatMoneyFromVnd(stay.monthNightVnd, currency)}/{isVi ? 'đêm' : 'night'} ·{' '}
-                {isVi ? 'Trọn gói' : 'All-incl.'}
-              </div>
-            </div>
+        <Link
+          href={`/stays/${stay.slug}`}
+          className="mt-4 block rounded-xl border border-[#164E3F]/15 bg-[#FAF8F3] p-3 transition group-hover:border-[#164E3F]/35 group-hover:bg-[#E7F1EC]/50"
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] font-medium text-[#53635D]">
+              {isVi ? 'Gói từ 7 đêm' : '7 nights from'}
+            </span>
+            <span className="font-serif-display text-base font-bold text-[#17221E]">
+              {formatMoneyFromVnd(stay.weekDisplayVnd, currency)}
+            </span>
           </div>
-
-          {stay.businessModel === 'booking_flow' ? (
-            <div className="mt-2 rounded-lg bg-[#FAF8F3] px-2.5 py-1.5 text-[11px] font-medium text-[#164E3F]">
-              {isVi
-                ? `Trả ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} hôm nay để giữ chỗ · ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} trả tại chỗ`
-                : `Pay ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} today to reserve · ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} due at check-in`}
-            </div>
-          ) : (
-            <div className="mt-2 rounded-lg bg-[#FAEDE5]/70 px-2.5 py-1.5 text-[11px] font-medium text-[#C25E28]">
-              {isVi
-                ? 'StayDirect™ · Đặt trực tiếp với chủ nhà, 0% phí trung gian'
-                : 'StayDirect™ · Book directly with host, 0% platform markup'}
-            </div>
-          )}
-        </div>
+          <p className="mt-1.5 border-t border-[#E5DFD3]/80 pt-1.5 text-xs font-medium text-[#164E3F]">
+            {stay.businessModel === 'booking_flow' ? (
+              isVi ? (
+                <>
+                  Trả{' '}
+                  <span className="font-bold text-[#0F392E]">
+                    {formatMoneyFromVnd(stay.weekFeeOnlineVnd, currency)}
+                  </span>{' '}
+                  giữ chỗ hôm nay
+                </>
+              ) : (
+                <>
+                  Pay{' '}
+                  <span className="font-bold text-[#0F392E]">
+                    {formatMoneyFromVnd(stay.weekFeeOnlineVnd, currency)}
+                  </span>{' '}
+                  to reserve today
+                </>
+              )
+            ) : isVi ? (
+              <>
+                Đặt trực tiếp chủ nhà,{' '}
+                <span className="font-bold text-[#0F392E]">
+                  {formatMoneyFromVnd(0, currency)}
+                </span>{' '}
+                giữ chỗ
+              </>
+            ) : (
+              <>
+                Book direct with host,{' '}
+                <span className="font-bold text-[#0F392E]">
+                  {formatMoneyFromVnd(0, currency)}
+                </span>{' '}
+                fee
+              </>
+            )}
+          </p>
+        </Link>
       </div>
     </article>
   );

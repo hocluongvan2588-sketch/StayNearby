@@ -23,7 +23,7 @@ import {
 } from '@/modules/catalog';
 import { AiConciergeBox } from '@/components/AiConciergeBox';
 import { HomeSearchBar } from '@/components/HomeSearchBar';
-import { StayCard } from '@/components/StayCard';
+import { PaginatedStayGrid } from '@/components/PaginatedStayGrid';
 import { VietnamMap } from '@/components/VietnamMap';
 
 export const dynamic = 'force-dynamic';
@@ -62,44 +62,44 @@ export default async function HomePage() {
   const faqs = isVi
     ? [
         {
-          q: 'Mô hình thanh toán 12% giữ chỗ online hoạt động thế nào?',
-          a: 'Với mọi đặt phòng BookingFlow, bạn chỉ thanh toán Phí Đặt chỗ & Xác minh 12% trực tuyến để khóa lịch và mở địa chỉ chi tiết. Toàn bộ 88% giá thuê gốc (Host Net) còn lại được thanh toán trực tiếp cho chủ nhà khi nhận phòng.',
+          q: 'Cách thanh toán phí giữ chỗ 12% hoạt động thế nào?',
+          a: 'Khi đặt phòng qua VietNomad, bạn chỉ thanh toán trước 12% phí giữ chỗ và kiểm định (tính trên giá thuê chủ nhà) để khóa lịch và mở địa chỉ thật. Toàn bộ tiền thuê nhà bạn trả trực tiếp cho chủ nhà khi nhận phòng.',
         },
         {
-          q: 'Nếu tốc độ Wi-Fi thực tế lúc check-in không đạt chứng nhận thì sao?',
-          a: 'Bạn được bảo vệ bởi Cam kết Hoàn 100% Phí Giữ Chỗ (Wi-Fi Guarantee). Nếu kiểm tra lúc nhận phòng thấy Wi-Fi hoặc góc làm việc không đúng chứng nhận, VietNomad hoàn trả 100% phí 12% ngay lập tức và hỗ trợ chuyển sang căn khác cùng khu vực.',
+          q: 'Nếu tốc độ Wi-Fi khi nhận phòng không đúng như cam kết thì sao?',
+          a: 'Bạn được hoàn lại 100% khoản phí giữ chỗ 12% nếu tốc độ Wi-Fi hoặc bàn làm việc thực tế không đạt chứng nhận, kèm hỗ trợ đổi sang căn hộ khác cùng khu vực.',
         },
         {
-          q: 'Thời gian đặt phòng tối thiểu là bao lâu?',
-          a: 'Tối thiểu 7 đêm (1 tuần). Nền tảng được thiết kế riêng cho người làm việc từ xa lưu trú theo tuần và tháng (7, 14, 21 hoặc 30 đêm + thêm ngày lẻ linh hoạt), không bán phòng nghỉ ngắn 1–2 đêm.',
+          q: 'Thời gian thuê tối thiểu là bao nhiêu đêm?',
+          a: 'Tối thiểu 7 đêm (1 tuần). Các gói giá được tính sẵn theo mốc 7, 14, 21 hoặc 30 đêm và cộng thêm từng đêm lẻ linh hoạt.',
         },
         {
-          q: 'BookingFlow (0% hoa hồng) và StayDirect™ (1% referral) khác nhau thế nào?',
-          a: 'BookingFlow khóa phòng tức thì với 12% phí đặt chỗ online (Chủ nhà nhận đủ 100% giá net khi bạn check-in, 0% hoa hồng). StayDirect™ chuyển thành viên sang website của chủ nhà ở mức giá bán lẻ 0% phí nền tảng.',
+          q: 'Đặt qua VietNomad và đặt trực tiếp chủ nhà khác nhau thế nào?',
+          a: 'Đặt qua VietNomad cho phép giữ phòng ngay với phí 12% online và hưởng bảo chứng hoàn tiền Wi-Fi. Đặt trực tiếp chủ nhà sẽ chuyển bạn sang website riêng của chủ nhà với giá niêm yết gốc.',
         },
       ]
     : [
         {
-          q: 'How does the 12% online booking fee & pay-at-check-in model work?',
-          a: 'For BookingFlow stays, you only pay the 12% Booking & Verification Fee online today to lock your dates and receive the exact address. You pay the remaining host net rate directly to the host upon check-in — never risking 100% of monthly rent upfront.',
+          q: 'How does the 12% booking fee work?',
+          a: 'To confirm a stay on VietNomad, you pay only the 12% booking and verification fee online to lock your dates and unlock the exact address. You pay the full host rent directly to your host when you check in.',
         },
         {
-          q: 'What happens if the Wi-Fi speed at check-in does not match the listing?',
-          a: 'Every BookingFlow reservation includes our 100% Booking Fee Refund Guarantee. If on-site Wi-Fi speeds or workspace setup fail to match the verified certificate at check-in, you get a 100% refund of your online booking fee plus concierge relocation help.',
+          q: 'What if the Wi-Fi at check-in is slower than promised?',
+          a: 'You receive a 100% refund of your 12% booking fee if the Wi-Fi speed or desk setup fails to match the certificate at check-in, plus support finding a replacement nearby.',
         },
         {
           q: 'What is the minimum stay?',
-          a: '7 nights (1 week). VietNomad is built for remote workers staying 1–4+ weeks with standardized 7, 14, 21, and 30-night packages plus flexible extra nights — never weekend tourist room flips.',
+          a: '7 nights (1 week). Pricing is ready upfront for 7, 14, 21, and 30-night stays, and you can add extra nights as needed.',
         },
         {
-          q: 'How do BookingFlow and StayDirect™ differ?',
-          a: 'BookingFlow provides instant confirmation by paying just the 12% reservation fee online (0% commission deducted from host net rate at check-in). StayDirect™ sends logged-in members directly to the host’s own booking engine with 0% traveler markup.',
+          q: 'What is the difference between Book on VietNomad and Direct Booking?',
+          a: 'Book on VietNomad locks your dates immediately with a 12% online fee and full Wi-Fi refund protection. Direct Booking sends signed-in members straight to the host website with zero markup.',
         },
       ];
 
   return (
     <div className="space-y-20 pb-10">
-      {/* 1. Contemporary Vietnamese Hero + Search Widget */}
+      {/* Hero + Search Bar */}
       <section className="relative overflow-hidden border-b border-[#E5DFD3] bg-[#0F392E]">
         <div className="absolute inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -116,20 +116,20 @@ export default async function HomePage() {
             <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-md">
               <span className="h-2 w-2 rounded-full bg-[#68D391]" />
               {isVi
-                ? 'Nền tảng lưu trú dài ngày chuẩn Digital Nomad tại Việt Nam'
-                : 'Vietnam’s Work-Ready Extended Stay Platform for Digital Nomads'}
+                ? 'Chỗ ở thuê theo tuần và tháng tại Việt Nam'
+                : 'Weekly and monthly stays across Vietnam'}
             </div>
 
             <h1 className="font-serif-display text-4xl font-semibold leading-[1.1] tracking-tight sm:text-6xl">
               {isVi
-                ? 'Sống sâu tại Việt Nam. Làm việc vững vàng khắp thế giới.'
-                : 'Digital nomad stays across Vietnam — built for real remote work.'}
+                ? 'Thuê nhà ở dài ngày tại Việt Nam. Làm việc ổn định mỗi ngày.'
+                : 'Extended stays in Vietnam, built for remote work.'}
             </h1>
 
             <p className="max-w-2xl text-base leading-relaxed text-[#DCECE5] sm:text-lg">
               {isVi
-                ? 'Chỉ đặt cọc 12% online để khóa phòng (trả phần còn lại trực tiếp cho chủ nhà khi check-in). Wi-Fi kiểm định thực tế 250–680 Mbps, bảo chứng hoàn tiền 100% nếu sai cam kết.'
-                : 'Lock your stay with just a 12% online booking fee and pay the host directly at check-in. Independently speed-tested Wi-Fi, ergonomic desks, kitchens, and our 100% Booking Fee Refund Guarantee.'}
+                ? 'Chỉ trả phí giữ chỗ 12% online để khóa phòng và trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng. Wi-Fi đo thực tế từ 250 đến 680 Mbps, hoàn lại 100% phí nếu không đúng cam kết.'
+                : 'Pay only a 12% booking fee online to hold your dates, then pay rent directly to your host at check-in. Verified Wi-Fi speeds from 250 to 680 Mbps with a 100% fee refund guarantee.'}
             </p>
           </div>
 
@@ -137,91 +137,89 @@ export default async function HomePage() {
             <HomeSearchBar destinations={destinations} />
           </div>
 
-          {/* Quick Intent Shortcuts */}
           <div className="mt-5 flex flex-wrap items-center gap-2 text-xs">
             <Link
               href="/deals"
               className="rounded-full bg-[#C25E28] px-3.5 py-1.5 font-semibold text-white hover:bg-[#ad5020]"
             >
-              {isVi ? 'Ưu đãi 1 tháng giảm sâu →' : 'Monthly Long-Stay Deals →'}
+              {isVi ? 'Xem ưu đãi thuê 1 tháng' : 'View monthly deals'}
             </Link>
             <Link
               href="/stays?destination=da-nang&minWifi=400"
               className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[#FAF8F3] backdrop-blur-sm hover:bg-white/20"
             >
-              {isVi ? 'Biển Đà Nẵng · 400+ Mbps' : 'Da Nang Beach · 400+ Mbps'}
+              {isVi ? 'Biển Đà Nẵng, 400+ Mbps' : 'Da Nang Beach, 400+ Mbps'}
             </Link>
             <Link
               href="/stays?lifestyle=heritage-slow"
               className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[#FAF8F3] backdrop-blur-sm hover:bg-white/20"
             >
-              {isVi ? 'Di sản Hội An · Sống chậm' : 'Hoi An Heritage · Quiet Focus'}
+              {isVi ? 'Hội An yên tĩnh' : 'Hoi An quiet stays'}
             </Link>
             <Link
               href="/stays?model=stay_direct"
               className="rounded-full border border-white/25 bg-white/10 px-3.5 py-1.5 text-[#FAF8F3] backdrop-blur-sm hover:bg-white/20"
             >
-              StayDirect™ · 0% Traveler Markup
+              {isVi ? 'Đặt trực tiếp chủ nhà' : 'Direct host booking'}
             </Link>
           </div>
 
-          {/* NomadStays 4 Trust Guarantees + Live Metrics */}
           <div className="mt-10 grid gap-3 border-t border-white/15 pt-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Zap className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Chỉ trả 12% giữ chỗ · 88% trả tại quầy' : 'Pay only 12% today · Pay host at check-in'}</span>
+              <span>{isVi ? 'Chỉ trả 12% giữ chỗ, phần thuê trả khi nhận phòng' : 'Pay 12% online, pay host at check-in'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Wifi className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Chứng nhận Speedtest & Hoàn phí 100%' : 'Verified Wi-Fi + 100% Fee Refund Guarantee'}</span>
+              <span>{isVi ? 'Wi-Fi đo thật, hoàn 100% phí nếu sai' : 'Tested Wi-Fi with 100% fee refund protection'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Clock className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Giá gói 7–30 đêm minh bạch trước' : 'Weekly & monthly split prices upfront'}</span>
+              <span>{isVi ? 'Báo giá sẵn theo gói 7 đến 30 đêm' : 'Clear weekly and monthly pricing upfront'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Utensils className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Bắt buộc bàn làm việc, bếp & giặt' : 'Workspaces, kitchens & laundry standard'}</span>
+              <span>{isVi ? 'Đủ bàn làm việc, bếp và máy giặt' : 'Dedicated desk, kitchen, and laundry'}</span>
             </div>
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-4 rounded-2xl border border-white/15 bg-white/10 p-4 text-center text-[#FAF8F3] backdrop-blur-md sm:grid-cols-4">
             <div>
               <div className="font-serif-display text-2xl font-bold">{community.stats.members.toLocaleString()}</div>
-              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Thành viên Nomad' : 'Nomad Members'}</div>
+              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Thành viên' : 'Members'}</div>
             </div>
             <div>
               <div className="font-serif-display text-2xl font-bold">{community.stats.destinations}</div>
-              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Thủ phủ Việt Nam' : 'Vietnam Hubs'}</div>
+              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Thành phố' : 'Cities'}</div>
             </div>
             <div>
               <div className="font-serif-display text-2xl font-bold">{community.stats.liveStays}</div>
-              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Cơ sở đã kiểm định' : 'Verified Stays'}</div>
+              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Chỗ ở đang mở' : 'Verified stays'}</div>
             </div>
             <div>
               <div className="font-serif-display text-2xl font-bold">{community.stats.totalUnits}</div>
-              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Phòng & Villa sẵn sàng' : 'Work-Ready Units'}</div>
+              <div className="text-xs text-[#CDE0D9]">{isVi ? 'Phòng & biệt thự' : 'Open units'}</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. Real stays, live right now */}
+      {/* Live Inventory */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
-              {isVi ? 'Phòng trống thực tế ngay lúc này' : 'Real stays, live right now'}
+              {isVi ? 'Phòng đang còn trống' : 'Open right now'}
             </span>
             <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E] sm:text-4xl">
               {isVi
-                ? 'Wi-Fi đáng tin cậy. Giá dài ngày minh bạch.'
-                : 'Wi-Fi you can trust. Rates you’ll love.'}
+                ? 'Wi-Fi rõ tốc độ. Giá thuê minh bạch.'
+                : 'Tested Wi-Fi speeds. Clear monthly prices.'}
             </h2>
             <p className="mt-1 text-sm text-[#53635D]">
               {isVi
-                ? 'Xếp hạng theo tốc độ Wi-Fi đã đo kiểm, hiển thị sẵn tổng chi phí 1 tuần và 1 tháng.'
-                : 'Independently tested speeds, with weekly and monthly totals shown upfront.'}
+                ? 'Sắp xếp theo tốc độ Wi-Fi thực tế, hiển thị đủ tiền giữ chỗ 12% và tiền trả chủ nhà.'
+                : 'Sorted by verified Wi-Fi speed with upfront 1-week and 1-month totals.'}
             </p>
           </div>
           <Link
@@ -233,28 +231,23 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {stays.slice(0, 6).map((stay) => (
-            <StayCard
-              key={stay.id}
-              stay={stay}
-              initialSaved={savedIds.has(stay.id)}
-              isAuthenticated={Boolean(user)}
-            />
-          ))}
-        </div>
+        <PaginatedStayGrid
+          stays={stays}
+          savedIds={Array.from(savedIds)}
+          isAuthenticated={Boolean(user)}
+        />
       </section>
 
-      {/* 3. Deals — Biggest savings first */}
+      {/* Monthly Deals */}
       <section className="border-y border-[#E5DFD3] bg-[#F2EDE3]/70 py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
-                {isVi ? 'Ưu đãi lưu trú 1 tháng' : 'Plan your next base'}
+                {isVi ? 'Gói thuê 1 tháng' : 'Monthly stays'}
               </span>
               <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E] sm:text-4xl">
-                {isVi ? 'Ưu đãi lớn nhất cho hợp đồng tháng' : 'Monthly Deals — Biggest savings first'}
+                {isVi ? 'Chỗ ở giảm giá tốt nhất khi thuê 30 đêm' : 'Biggest savings on 30-night stays'}
               </h2>
             </div>
             <Link
@@ -289,7 +282,7 @@ export default async function HomePage() {
                 </div>
                 <div className="p-4">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-[#A67C2E]">
-                    {s.dealMonthLabel} · {isVi ? s.destinationNameVi : s.destinationNameEn}
+                    {s.dealMonthLabel}, {isVi ? s.destinationNameVi : s.destinationNameEn}
                   </div>
                   <h3 className="font-serif-display mt-0.5 text-lg font-semibold text-[#17221E]">
                     {isVi ? s.titleVi : s.titleEn}
@@ -303,7 +296,7 @@ export default async function HomePage() {
                         {formatMoneyFromVnd(s.compareMonthDisplayVnd, currency)}
                       </span>
                     )}
-                    <span className="text-xs text-[#53635D]">/ 1 {isVi ? 'tháng' : 'month'}</span>
+                    <span className="text-xs text-[#53635D]">/ 30 {isVi ? 'đêm' : 'nights'}</span>
                   </div>
                 </div>
               </Link>
@@ -312,19 +305,19 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 4. Proof in the Price: Stay longer, pay less */}
+      {/* Stay Longer Proof */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 max-w-2xl">
           <span className="text-xs font-semibold uppercase tracking-widest text-[#164E3F]">
-            {isVi ? 'Chính sách giá dài ngày' : 'Proof in the price'}
+            {isVi ? 'Ưu đãi theo độ dài lưu trú' : 'Lower nightly rates'}
           </span>
           <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E] sm:text-4xl">
-            {isVi ? 'Ở càng lâu, đơn giá mỗi đêm càng rẻ.' : 'Stay longer, pay less per night.'}
+            {isVi ? 'Thuê càng lâu, giá mỗi đêm càng giảm.' : 'Stay longer and pay less per night.'}
           </h2>
           <p className="mt-1 text-sm text-[#53635D]">
             {isVi
-              ? 'Giá giảm tự động từ gói 1 tuần sang 1 tháng — không cần bắt đầu quy trình thanh toán mới thấy giá thật.'
-              : 'Dynamic multi-week pricing rewards longer stays automatically — weekly and monthly totals always visible upfront.'}
+              ? 'Giá tự động giảm khi bạn chuyển từ gói 1 tuần sang 1 tháng, không ẩn phụ phí.'
+              : 'Rates drop automatically from 1-week to 1-month stays, with total costs visible right away.'}
           </p>
         </div>
 
@@ -337,7 +330,7 @@ export default async function HomePage() {
             >
               <div className="mb-3 flex items-center justify-between">
                 <span className="rounded-full bg-[#E7F1EC] px-2.5 py-1 text-xs font-bold text-[#164E3F]">
-                  {isVi ? `Tiết kiệm ${s.stayLongerSavingsPct}%/đêm` : `Save ${s.stayLongerSavingsPct}%`}
+                  {isVi ? `Giảm ${s.stayLongerSavingsPct}%/đêm` : `Save ${s.stayLongerSavingsPct}%`}
                 </span>
                 <span className="text-xs text-[#53635D]">
                   {isVi ? s.destinationNameVi : s.destinationNameEn}
@@ -366,34 +359,34 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 5. Interactive AI Stay Concierge */}
+      {/* Smart Stay Finder */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <AiConciergeBox isAuthenticated={Boolean(user)} />
       </div>
 
-      {/* 6. Vietnam Map & Visa Readiness */}
+      {/* Map */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 max-w-2xl">
           <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
-            {isVi ? '6 Thủ phủ Remote Work Việt Nam' : 'Destinations & Visa Readiness'}
+            {isVi ? '6 thành phố tại Việt Nam' : 'Cities and Visa Guide'}
           </span>
           <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E] sm:text-4xl">
-            {isVi ? 'Bạn sẽ làm việc từ đâu tại Việt Nam?' : 'Where will you work from in Vietnam?'}
+            {isVi ? 'Bạn muốn ở thành phố nào tại Việt Nam?' : 'Where will you stay in Vietnam?'}
           </h2>
         </div>
         <VietnamMap destinations={destinations} />
       </section>
 
-      {/* 7. How We Are Different + Comparison Table */}
+      {/* Comparison Table */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 max-w-2xl">
           <span className="text-xs font-semibold uppercase tracking-widest text-[#164E3F]">
-            {isVi ? 'Sự khác biệt' : 'Life-ready, not tourist-ready'}
+            {isVi ? 'Vì sao chọn VietNomad' : 'Built for long stays'}
           </span>
           <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E] sm:text-4xl">
             {isVi
-              ? 'Nhà để sống & làm việc thật — không phải phòng du lịch ngắn ngày.'
-              : 'Built for multi-week remote living, not 2-night holiday turnovers.'}
+              ? 'Thiết kế cho làm việc dài ngày, khác biệt hoàn toàn phòng du lịch ngắn hạn.'
+              : 'Made for multi-week remote work, not short weekend trips.'}
           </h2>
         </div>
 
@@ -401,46 +394,46 @@ export default async function HomePage() {
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-[#FAF8F3] text-xs uppercase tracking-wider text-[#53635D]">
               <tr>
-                <th className="px-6 py-4">{isVi ? 'Nhu cầu Digital Nomad' : 'What Nomads Need'}</th>
+                <th className="px-6 py-4">{isVi ? 'Tiêu chí' : 'Feature'}</th>
                 <th className="px-6 py-4 font-bold text-[#164E3F]">VietNomad Stays</th>
-                <th className="px-6 py-4">{isVi ? 'Trang đặt phòng du lịch thông thường' : 'Typical Holiday Booking Sites'}</th>
+                <th className="px-6 py-4">{isVi ? 'Nền tảng du lịch thông thường' : 'Typical booking sites'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5DFD3]">
               {[
                 [
-                  isVi ? 'Thanh toán & Rủi ro' : 'Payment & Risk',
+                  isVi ? 'Thanh toán và rủi ro' : 'Payment & risk',
                   isVi
-                    ? 'Chỉ trả 12% phí giữ chỗ online; trả 88% trực tiếp cho chủ nhà khi nhận phòng + Hoàn 100% nếu Wi-Fi sai cam kết'
-                    : 'Pay only 12% today to reserve; pay host directly at check-in + 100% Wi-Fi refund guarantee',
+                    ? 'Chỉ trả phí giữ chỗ 12% online. Trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng và được hoàn 100% phí nếu Wi-Fi sai cam kết.'
+                    : 'Pay only a 12% booking fee online. Pay rent to the host at check-in with a 100% Wi-Fi refund guarantee.',
                   isVi
-                    ? 'Khóa 100% tiền thuê ngay khi đặt; quy trình khiếu nại & hoàn tiền phức tạp'
-                    : '100% upfront lock-in with slow dispute refunds',
+                    ? 'Phải trả trước 100% tiền thuê ngay khi đặt, thủ tục hoàn tiền phức tạp.'
+                    : 'Pay 100% upfront with slow refund disputes.',
                 ],
                 [
-                  isVi ? 'Kiểm định Wi-Fi' : 'Wi-Fi Speed',
-                  isVi ? 'Đo Download/Upload/Jitter thực tế kèm chứng nhận Speedtest' : 'Tested Download/Upload/Jitter + Speedtest proof upfront',
-                  isVi ? 'Chủ nhà tự đánh dấu "có Wi-Fi"' : 'Self-claimed or theoretical',
+                  isVi ? 'Tốc độ Wi-Fi' : 'Wi-Fi speed',
+                  isVi ? 'Đo thực tế tốc độ tải xuống, tải lên và độ trễ trước khi đăng.' : 'Tested download, upload, and latency speeds shown upfront.',
+                  isVi ? 'Chủ nhà tự điền thông tin, không có số đo cụ thể.' : 'Self-reported without speed measurements.',
                 ],
                 [
-                  isVi ? 'Giá hiển thị' : 'Pricing Transparency',
-                  isVi ? 'Hiển thị rõ khoản trả hôm nay (12%) & khoản trả tại quầy cho gói 7–30 đêm' : 'Upfront 7–30N split: due today (12%) vs due directly to host',
-                  isVi ? 'Phải chọn ngày mới hiện phí dịch vụ & thuế' : 'Hidden cleaning/service fees until checkout',
+                  isVi ? 'Minh bạch giá' : 'Pricing',
+                  isVi ? 'Hiện sẵn tiền giữ chỗ 12% và tiền trả chủ nhà cho gói 7 đến 30 đêm.' : '7 to 30-night totals split clearly between online fee and host check-in rent.',
+                  isVi ? 'Đến bước thanh toán cuối mới hiện thêm phí dọn phòng và thuế.' : 'Extra service and cleaning fees added at checkout.',
                 ],
                 [
-                  isVi ? 'Góc làm việc & Coworking' : 'Workspaces',
-                  isVi ? 'Bắt buộc có ảnh bàn ghế riêng + bản đồ Coworking lân cận' : 'Mandatory with workspace photos + nearby coworking km',
-                  isVi ? 'Bộ lọc tùy chọn, ít khi chụp rõ bàn làm việc' : 'Optional checkbox, rarely photographed',
+                  isVi ? 'Bàn làm việc' : 'Workspaces',
+                  isVi ? 'Bắt buộc có ảnh thực tế góc làm việc và khoảng cách tới coworking gần nhất.' : 'Required workspace photos plus distance to nearby coworking.',
+                  isVi ? 'Ít ảnh chi tiết về bàn ghế làm việc.' : 'Optional filter, rarely photographed.',
                 ],
                 [
-                  isVi ? 'Tiện ích sinh hoạt' : 'Living Kit',
-                  isVi ? '100% có bếp nấu và máy giặt/giặt ủi dài ngày' : 'Kitchen and laundry mandatory across all listings',
-                  isVi ? 'Phòng khách sạn thiếu bếp và giặt ủi đắt đỏ' : 'Holiday setup lacking kitchen or laundry',
+                  isVi ? 'Tiện ích sinh hoạt' : 'Daily living',
+                  isVi ? 'Tất cả chỗ ở đều có bếp nấu và máy giặt.' : 'Kitchen and laundry required in every listing.',
+                  isVi ? 'Nhiều phòng khách sạn không có bếp và giặt ủi.' : 'Often lacks kitchen or laundry.',
                 ],
                 [
-                  isVi ? 'Chính sách cho Chủ nhà' : 'Partner Model',
-                  isVi ? 'Chủ nhà giữ 100% giá thuê thu tại check-in (0% hoa hồng) hoặc 1% StayDirect™' : 'Hosts keep 100% of check-in rent (0% commission) or 1% StayDirect™',
-                  isVi ? 'Thu 15%–20% hoa hồng mỗi đơn đặt phòng' : '15%–20%+ OTA commission per booking',
+                  isVi ? 'Quyền lợi chủ nhà' : 'For hosts',
+                  isVi ? 'Chủ nhà nhận đủ 100% tiền thuê tại check-in, không mất hoa hồng.' : 'Hosts keep 100% of check-in rent with 0% commission.',
+                  isVi ? 'Thu 15% đến 20% hoa hồng trên mỗi đơn.' : 'Charges 15% to 20% commission per booking.',
                 ],
               ].map(([k, good, bad]) => (
                 <tr key={k}>
@@ -457,15 +450,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 8. Nomad Lifestyles in Vietnam */}
+      {/* Lifestyles */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
-              {isVi ? 'Phong cách sống' : 'Lifestyles'}
+              {isVi ? 'Phong cách ở' : 'Lifestyles'}
             </span>
             <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E] sm:text-4xl">
-              {isVi ? 'Chọn nhịp sống hợp với bạn.' : 'Don’t just pick a map pin. Pick your lifestyle.'}
+              {isVi ? 'Chọn không gian phù hợp nhịp sống của bạn.' : 'Pick a place that fits how you work and live.'}
             </h2>
           </div>
         </div>
@@ -497,83 +490,83 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 9. Nomad Pass + Vietnam Brunch Club + Host CTA */}
+      {/* Membership + Community + Host CTA */}
       <section className="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
         <div className="flex flex-col justify-between rounded-3xl border border-[#A67C2E]/30 bg-white p-7 lacquer-shadow">
           <div className="space-y-3">
             <span className="inline-flex items-center gap-1 rounded-full bg-[#FAF8F3] px-3 py-1 text-xs font-semibold text-[#A67C2E]">
-              <Sparkles className="h-3.5 w-3.5" /> Nomad Pass · €99/yr
+              <Sparkles className="h-3.5 w-3.5" /> {isVi ? 'Thẻ hội viên 99 EUR/năm' : 'Nomad Pass, €99/yr'}
             </span>
             <h3 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? 'Hoàn 4% Credit & Hóa đơn Miễn VAT' : '4% Reward Credit & VAT-Free Stays'}
+              {isVi ? 'Hoàn 4% tiền thưởng và hóa đơn miễn VAT' : 'Earn 4% credit and VAT-free invoices'}
             </h3>
             <p className="text-sm text-[#53635D]">
               {isVi
-                ? 'Tích 4% cho mọi đặt phòng BookingFlow, miễn thuế VAT doanh nghiệp đủ điều kiện và theo dõi lịch Visa Việt Nam.'
-                : 'Earn 4% credit back automatically on BookingFlow stays, toggle VAT-free business invoicing, and get early deal drops.'}
+                ? 'Nhận 4% tiền thưởng cho mọi lần đặt phòng qua VietNomad và kích hoạt xuất hóa đơn miễn VAT khi nhập mã số thuế.'
+                : 'Get 4% credit back automatically on VietNomad bookings and enable VAT-free business invoicing with your Tax ID.'}
             </p>
           </div>
           <Link
             href="/membership"
             className="mt-6 inline-flex items-center gap-2 font-semibold text-[#A67C2E] hover:underline"
           >
-            {isVi ? 'Khám phá Nomad Pass' : 'Explore Membership'} <ArrowRight className="h-4 w-4" />
+            {isVi ? 'Xem quyền lợi hội viên' : 'View membership'} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
 
         <div className="flex flex-col justify-between rounded-3xl border border-[#E5DFD3] bg-white p-7 lacquer-shadow">
           <div className="space-y-3">
             <span className="inline-flex items-center gap-1 rounded-full bg-[#FAEDE5] px-3 py-1 text-xs font-semibold text-[#C25E28]">
-              <Coffee className="h-3.5 w-3.5" /> Vietnam Brunch Club
+              <Coffee className="h-3.5 w-3.5" /> {isVi ? 'Cộng đồng và Tiện ích' : 'Community & Gear'}
             </span>
             <h3 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? 'Gặp gỡ cộng đồng Nomad & Chợ tiện ích' : 'Local Nomad Meetups & eSIM Marketplace'}
+              {isVi ? 'Gặp gỡ cuối tuần và thuê màn hình, eSIM' : 'Weekly meetups, eSIMs, and 4K monitor rentals'}
             </h3>
             <p className="text-sm text-[#53635D]">
               {isVi
-                ? 'Tham gia buổi cà phê cuối tuần tại Đà Nẵng, Thảo Điền, Tây Hồ và đặt trước eSIM 5G, màn hình rời 4K.'
-                : 'Join weekly founder brunches in Da Nang, Saigon, and Hanoi plus curated Viettel 5G eSIMs and 4K monitor rentals.'}
+                ? 'Tham gia buổi gặp mặt tại Đà Nẵng, Sài Gòn, Hà Nội và đặt trước eSIM 5G hoặc màn hình rời giao tận nhà.'
+                : 'Join weekend brunches in Da Nang, Saigon, and Hanoi, or order Viettel 5G eSIMs and 4K monitor rentals.'}
             </p>
           </div>
           <Link
             href="/community"
             className="mt-6 inline-flex items-center gap-2 font-semibold text-[#C25E28] hover:underline"
           >
-            {isVi ? 'Xem lịch Meetup & Marketplace' : 'View Meetups & Marketplace'} <ArrowRight className="h-4 w-4" />
+            {isVi ? 'Xem lịch sự kiện và tiện ích' : 'View meetups & gear'} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
 
         <div className="flex flex-col justify-between rounded-3xl bg-[#164E3F] p-7 text-white lacquer-shadow">
           <div className="space-y-3">
             <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-[#E6B87A]">
-              <Building2 className="h-3.5 w-3.5" /> {isVi ? 'Dành cho Chủ nhà' : 'For Property Owners'}
+              <Building2 className="h-3.5 w-3.5" /> {isVi ? 'Dành cho chủ nhà' : 'For hosts'}
             </span>
             <h3 className="font-serif-display text-2xl font-semibold">
-              {isVi ? 'Nhận đủ 100% tiền thuê tại check-in · 0% hoa hồng' : 'Keep 100% of Rent at Check-in · 0% Commission'}
+              {isVi ? 'Nhận đủ 100% tiền thuê khi khách check-in, 0% hoa hồng' : 'Keep 100% of rent at check-in with 0% commission'}
             </h3>
             <p className="text-sm text-[#DCECE5]">
               {isVi
-                ? 'Khách đặt cọc 12% online để cam kết nhận phòng và trả 100% giá thuê net trực tiếp cho bạn khi đến nơi. Hỗ trợ đồng bộ lịch iCal tự động từ Airbnb/Booking.com.'
-                : 'Guests pay a 12% online lock-in fee and pay 100% of your net rate directly at check-in — plus automated Airbnb/Booking.com iCal calendar sync.'}
+                ? 'Khách đóng 12% giữ chỗ trước để cam kết đến ở, bạn thu đủ toàn bộ tiền thuê tại chỗ và đồng bộ lịch tự động từ Airbnb hoặc Booking.com.'
+                : 'Guests pay a 12% online fee to lock dates and pay 100% of your rent directly at check-in. Sync your calendar from Airbnb or Booking.com.'}
             </p>
           </div>
           <Link
             href="/list-your-stay"
             className="mt-6 inline-flex items-center gap-2 font-semibold text-[#E6B87A] hover:underline"
           >
-            {isVi ? 'Đăng ký Đối tác Lưu trú' : 'List Your Stay+'} <ArrowRight className="h-4 w-4" />
+            {isVi ? 'Đăng cho thuê nhà' : 'List your property'} <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </section>
 
-      {/* 10. FAQ */}
+      {/* FAQ */}
       <section className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
           <span className="text-xs font-semibold uppercase tracking-widest text-[#164E3F]">
-            {isVi ? 'Giải đáp trước khi đặt' : 'Before you book'}
+            {isVi ? 'Câu hỏi thường gặp' : 'Questions & answers'}
           </span>
           <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
-            {isVi ? 'Câu hỏi Digital Nomad thường hỏi' : 'Questions digital nomads actually ask'}
+            {isVi ? 'Thông tin cần biết trước khi đặt phòng' : 'Common questions before you book'}
           </h2>
         </div>
 

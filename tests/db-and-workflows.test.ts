@@ -108,7 +108,7 @@ describe('VietNomad Stays PRD End-to-End PostgreSQL Workflows', () => {
     );
     expect(notifRes.rows.map((r) => r.recipient_role)).toEqual(['admin', 'guest', 'host']);
 
-    // Host marks check-in & remaining 88% direct payment completed
+    // Host marks check-in & direct host net payment (P_host) completed
     const checkedIn = await confirmCheckInCompleted(hostUser, intent.bookingId);
     expect(checkedIn.status).toBe('CHECKED_IN_COMPLETED');
   });

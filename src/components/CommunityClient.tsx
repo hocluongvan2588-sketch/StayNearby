@@ -55,22 +55,22 @@ export function CommunityClient({
 
   const visaInfo: Record<string, { ruleEn: string; ruleVi: string; tipEn: string; tipVi: string }> = {
     'UK / EU / Japan / Korea': {
-      ruleEn: '45-day unilateral visa exemption OR 90-day multi-entry e-Visa ($25–$50 online).',
-      ruleVi: 'Miễn thị thực 45 ngày hoặc e-Visa 90 ngày nhiều lần (đăng ký trực tuyến).',
-      tipEn: 'Apply for the 90-day e-Visa at least 7 business days before flying if staying 1–3 months.',
-      tipVi: 'Nên xin e-Visa 90 ngày trước chuyến bay 7 ngày làm việc nếu lưu trú từ 1–3 tháng.',
+      ruleEn: '45-day visa-free entry or 90-day multi-entry e-Visa ($25 to $50 online).',
+      ruleVi: 'Miễn thị thực 45 ngày hoặc e-Visa 90 ngày nhiều lần (đăng ký online từ 25 đến 50 USD).',
+      tipEn: 'Apply for the 90-day e-Visa at least 7 working days before your flight if staying 1 to 3 months.',
+      tipVi: 'Nên xin e-Visa 90 ngày trước ngày bay tối thiểu 7 ngày làm việc nếu bạn ở từ 1 đến 3 tháng.',
     },
     'USA / Canada / Australia': {
-      ruleEn: '90-day single or multiple-entry Vietnam e-Visa via official immigration portal.',
-      ruleVi: 'Cấp e-Visa Việt Nam tối đa 90 ngày (1 lần hoặc nhiều lần) qua cổng chính thức.',
-      tipEn: 'Flying directly into Phu Quoc Island gives an automatic 30-day island visa exemption for all passports.',
-      tipVi: 'Bay thẳng quốc tế vào đảo Phú Quốc được miễn thị thực 30 ngày cho mọi hộ chiếu.',
+      ruleEn: '90-day single or multiple-entry Vietnam e-Visa via the official immigration portal.',
+      ruleVi: 'Đăng ký e-Visa Việt Nam 90 ngày (1 lần hoặc nhiều lần) trên cổng thông tin xuất nhập cảnh.',
+      tipEn: 'Flying directly to Phu Quoc Island gives an automatic 30-day visa-free stay for all passports.',
+      tipVi: 'Bay thẳng quốc tế tới đảo Phú Quốc được miễn thị thực 30 ngày cho mọi hộ chiếu.',
     },
     'ASEAN Passports': {
-      ruleEn: '21–30 days visa-free entry across all international airports + 90-day e-Visa option.',
-      ruleVi: 'Miễn thị thực 21–30 ngày tại mọi cửa khẩu quốc tế hoặc chọn e-Visa 90 ngày.',
-      tipEn: 'All VietNomad stays automate local police temporary residence registration for your peace of mind.',
-      tipVi: 'Mọi chỗ ở trên VietNomad tự động hỗ trợ khai báo tạm trú theo quy định.',
+      ruleEn: '21 to 30 days visa-free entry across all airports, plus 90-day e-Visa option.',
+      ruleVi: 'Miễn thị thực 21 đến 30 ngày tại mọi sân bay quốc tế, hoặc xin thêm e-Visa 90 ngày.',
+      tipEn: 'Every VietNomad host completes temporary residence registration for you automatically.',
+      tipVi: 'Chủ nhà trên VietNomad sẽ hỗ trợ khai báo tạm trú theo đúng quy định địa phương.',
     },
   };
 
@@ -102,23 +102,22 @@ export function CommunityClient({
 
   return (
     <div className="mx-auto max-w-7xl space-y-16 px-4 py-12 sm:px-6 lg:px-8">
-      {/* Vietnam Visa Guide */}
       <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-10 lacquer-shadow">
         <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
           <div className="space-y-3 lg:col-span-6">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
               <ShieldCheck className="h-3.5 w-3.5" />
-              {isVi ? 'Cẩm nang Visa Việt Nam 2026' : 'Vietnam Digital Nomad Visa Checker'}
+              {isVi ? 'Thông tin Visa Việt Nam 2026' : 'Vietnam Visa Checker'}
             </span>
             <h1 className="font-serif-display text-3xl font-semibold text-[#17221E] sm:text-4xl">
               {isVi
-                ? 'Hành trang nhập cảnh & lưu trú dài ngày tại Việt Nam'
-                : 'Effortless 30 to 90-day stays in Vietnam'}
+                ? 'Hướng dẫn Visa nhập cảnh và lưu trú dài ngày'
+                : 'Simple 30 to 90-day stays in Vietnam'}
             </h1>
             <p className="text-sm text-[#53635D]">
               {isVi
-                ? 'Chọn nhóm hộ chiếu của bạn để xem ngay quy định miễn thị thực, e-Visa 90 ngày và chính sách đặc biệt tại Phú Quốc.'
-                : 'Select your passport group to see visa-free windows, 90-day e-Visa eligibility, and Phu Quoc island exemption rules.'}
+                ? 'Chọn nhóm hộ chiếu để xem thời hạn miễn visa, quy định e-Visa 90 ngày và miễn visa riêng cho Phú Quốc.'
+                : 'Pick your passport region to check visa-free entry windows and 90-day e-Visa rules.'}
             </p>
           </div>
 
@@ -126,7 +125,7 @@ export function CommunityClient({
             <label className="block">
               <span className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-[#53635D]">
                 <Globe2 className="h-4 w-4 text-[#164E3F]" />
-                {isVi ? 'Nhóm hộ chiếu' : 'Passport Region'}
+                {isVi ? 'Nhóm hộ chiếu' : 'Passport region'}
               </span>
               <select
                 value={passport}
@@ -153,21 +152,20 @@ export function CommunityClient({
         </div>
       </section>
 
-      {/* Vietnam Nomad Brunch Club */}
       <section className="space-y-6">
         <div className="max-w-2xl">
           <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
-            Vietnam Nomad Brunch Club
+            {isVi ? 'Gặp mặt cộng đồng' : 'Community Meetups'}
           </span>
           <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
             {isVi
-              ? 'Gặp gỡ cộng đồng thực tế tại Việt Nam'
-              : 'Real nomads, real Vietnamese coffee tables'}
+              ? 'Gặp gỡ người làm việc từ xa tại Việt Nam'
+              : 'Meet remote workers in Da Nang, Saigon, and Hanoi'}
           </h2>
           <p className="mt-1 text-sm text-[#53635D]">
             {isVi
-              ? 'Kết nối cùng những người làm việc từ xa, kỹ sư và founder khác tại Đà Nẵng, Thảo Điền và Hồ Tây.'
-              : 'Show up in Da Nang, Saigon, or Hanoi to turn a new city into a real community.'}
+              ? 'Giữ chỗ miễn phí cho các buổi cà phê và trao đổi kinh nghiệm hằng tuần.'
+              : 'Reserve a free seat at weekly founder coffees and community brunches.'}
           </p>
         </div>
 
@@ -220,14 +218,14 @@ export function CommunityClient({
                     {joined ? (
                       <>
                         <CheckCircle2 className="h-4 w-4" />
-                        {isVi ? 'Đã giữ chỗ' : 'Seat Reserved'}
+                        {isVi ? 'Đã giữ chỗ' : 'Seat reserved'}
                       </>
                     ) : busyId === ev.id ? (
                       '...'
                     ) : isVi ? (
-                      'Giữ 1 chỗ miễn phí'
+                      'Đăng ký tham gia miễn phí'
                     ) : (
-                      'RSVP Free Seat'
+                      'Reserve free seat'
                     )}
                   </button>
                 </div>
@@ -237,16 +235,15 @@ export function CommunityClient({
         </div>
       </section>
 
-      {/* Nomad Marketplace Vietnam */}
       <section id="marketplace" className="space-y-6">
         <div className="max-w-2xl">
           <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-widest text-[#164E3F]">
-            <ShoppingBag className="h-3.5 w-3.5" /> VietNomad Marketplace
+            <ShoppingBag className="h-3.5 w-3.5" /> {isVi ? 'Dịch vụ bổ trợ' : 'Gear & Connectivity'}
           </span>
           <h2 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
             {isVi
-              ? 'eSIM 5G, Màn hình rời 4K & Bảo hiểm cho người làm việc từ xa'
-              : 'Essential gear & connectivity curated for Vietnam'}
+              ? 'Thuê màn hình 4K, mua eSIM 5G và bảo hiểm du lịch'
+              : 'Essential gear and connectivity in Vietnam'}
           </h2>
         </div>
 

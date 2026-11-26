@@ -7,12 +7,11 @@ import { getDestinations, getLifestyles } from '@/modules/catalog';
 import { PreferencesProvider } from '@/components/PreferencesProvider';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { CompareDrawer } from '@/components/CompareDrawer';
 
 export const metadata: Metadata = {
-  title: 'VietNomad Stays — Work-Ready Extended Stays Across Vietnam',
+  title: 'VietNomad Stays | Extended Stays for Remote Work in Vietnam',
   description:
-    'Independently tested Wi-Fi, upfront 7 to 30+ night all-inclusive pricing, workspaces, and kitchens for international digital nomads in Vietnam.',
+    'Verified Wi-Fi speeds, clear weekly and monthly rates, full desks, and kitchens for remote workers across Vietnam.',
 };
 
 export default async function RootLayout({
@@ -40,7 +39,6 @@ export default async function RootLayout({
             lifestyles={lifestyles}
           />
           <main className="flex-1">{children}</main>
-          <CompareDrawer />
           <SiteFooter destinations={destinations} demoEnabled={getConfig().demoMode} />
         </PreferencesProvider>
       </body>

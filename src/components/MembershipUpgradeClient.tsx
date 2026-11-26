@@ -43,17 +43,17 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
         <div className="space-y-4 lg:col-span-7">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-[#E6B87A]">
             <Sparkles className="h-3.5 w-3.5" />
-            Nomad Pass · €99 / {isVi ? 'năm' : 'year'}
+            {isVi ? 'Thẻ hội viên Nomad Pass, 99 EUR một năm' : 'Nomad Pass, €99 / year'}
           </span>
           <h1 className="font-serif-display text-4xl font-semibold leading-tight sm:text-5xl">
             {isVi
-              ? 'Đi nhiều hơn. Tiết kiệm 4% mỗi chuyến & miễn VAT doanh nghiệp.'
-              : 'Travel deeper in Vietnam. Earn 4% back & unlock VAT-free business stays.'}
+              ? 'Nhận lại 4% tiền thưởng và xuất hóa đơn miễn VAT.'
+              : 'Earn 4% back on every stay and unlock VAT-free invoices.'}
           </h1>
           <p className="text-sm leading-relaxed text-[#DCECE5]">
             {isVi
-              ? 'Chưa tới €2/tuần — một lần đặt phòng 1 tháng đã hoàn lại trọn chi phí hội viên.'
-              : 'Less than €2 a week. A single month-long stay in Da Nang or Saigon pays back your membership immediately.'}
+              ? 'Chi phí dưới 2 EUR mỗi tuần. Chỉ một lần thuê nhà 1 tháng đã đủ bù lại toàn bộ phí hội viên cả năm.'
+              : 'Costs under €2 a week. A single month-long booking earns back the entire annual fee.'}
           </p>
         </div>
 
@@ -62,37 +62,37 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
             <div className="space-y-3">
               <div className="flex items-center gap-2 font-bold text-[#164E3F]">
                 <CheckCircle2 className="h-5 w-5" />
-                {isVi ? 'Bạn đang là thành viên Nomad Pass Premium' : 'Nomad Pass Premium Active'}
+                {isVi ? 'Tài khoản hội viên đang hoạt động' : 'Nomad Pass active'}
               </div>
               <p className="text-xs text-[#53635D]">
                 {isVi
-                  ? '4% Reward Credit và chế độ miễn VAT đã sẵn sàng khi bạn đặt phòng.'
-                  : '4% Reward Credit and VAT-Free toggles are now active across BookingFlow stays.'}
+                  ? 'Ưu đãi hoàn 4% và miễn VAT tự động áp dụng khi bạn đặt phòng qua VietNomad.'
+                  : 'Your 4% reward credit and VAT-free invoicing are ready to use at checkout.'}
               </p>
               <Link
                 href="/stays"
                 className="inline-block rounded-xl bg-[#164E3F] px-4 py-2.5 text-xs font-semibold text-white"
               >
-                {isVi ? 'Tìm chỗ ở áp dụng ưu đãi →' : 'Browse Stays with 4% Credit →'}
+                {isVi ? 'Tìm chỗ ở ngay' : 'Browse stays'}
               </Link>
             </div>
           ) : (
             <form onSubmit={handleUpgrade} className="space-y-4">
               <div className="flex items-baseline justify-between">
-                <span className="font-serif-display text-2xl font-bold text-[#164E3F]">€99 / year</span>
+                <span className="font-serif-display text-2xl font-bold text-[#164E3F]">€99 / {isVi ? 'năm' : 'year'}</span>
                 <span className="rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-xs font-semibold text-[#164E3F]">
-                  Demo Instant Activate
+                  {isVi ? 'Kích hoạt ngay' : 'Instant activation'}
                 </span>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold text-[#53635D]">
-                  {isVi ? 'Mã số thuế doanh nghiệp / VAT ID (tuỳ chọn)' : 'Business VAT / Tax ID (optional for VAT-free)'}
+                  {isVi ? 'Mã số thuế công ty (nếu muốn miễn VAT)' : 'Business tax ID (optional for VAT-free stays)'}
                 </label>
                 <input
                   type="text"
                   value={vatTaxId}
                   onChange={(e) => setVatTaxId(e.target.value)}
-                  placeholder="e.g. SE556012345601 or US-EIN"
+                  placeholder="SE556012345601"
                   className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 text-sm"
                 />
               </div>
@@ -104,35 +104,34 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {user
                   ? isVi
-                    ? 'Kích hoạt Nomad Pass ngay'
-                    : 'Activate Nomad Pass Now'
+                    ? 'Kích hoạt thẻ hội viên'
+                    : 'Activate Nomad Pass'
                   : isVi
                     ? 'Đăng nhập để kích hoạt'
-                    : 'Log In to Activate'}
+                    : 'Log in to activate'}
               </button>
             </form>
           )}
         </div>
       </div>
 
-      {/* Free vs Premium Table */}
       <div className="overflow-hidden rounded-3xl border border-[#E5DFD3] bg-white lacquer-shadow">
         <table className="w-full text-left text-sm">
           <thead className="bg-[#FAF8F3] text-xs uppercase tracking-wider text-[#53635D]">
             <tr>
               <th className="px-6 py-4">{isVi ? 'Quyền lợi' : 'Benefit'}</th>
-              <th className="px-6 py-4">Free Member (€0)</th>
-              <th className="px-6 py-4 font-bold text-[#164E3F]">Nomad Pass (€99/yr)</th>
+              <th className="px-6 py-4">{isVi ? 'Tài khoản miễn phí' : 'Free account'}</th>
+              <th className="px-6 py-4 font-bold text-[#164E3F]">{isVi ? 'Thẻ hội viên (€99/năm)' : 'Nomad Pass (€99/yr)'}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E5DFD3]">
             {[
-              [isVi ? 'Đặt phòng BookingFlow & StayDirect™' : 'Instant BookingFlow & StayDirect™ access', true, true],
-              [isVi ? 'Hoàn 4% Reward Credit mọi đặt phòng' : '4% Reward Credit back on BookingFlow stays', false, true],
-              [isVi ? 'Miễn thuế VAT doanh nghiệp đủ điều kiện' : 'VAT-Free booking option with Tax ID', false, true],
-              [isVi ? 'Thông báo sớm Deal giảm giá 1 tháng' : 'Early monthly deal drop alerts', false, true],
-              [isVi ? 'Lưu danh sách & So sánh tốc độ Wi-Fi' : 'Saved Favourites & Side-by-Side Comparison', true, true],
-              [isVi ? 'Công cụ theo dõi Visa Việt Nam 90 ngày' : 'Vietnam 90-Day e-Visa & Exemption Tracker', true, true],
+              [isVi ? 'Đặt phòng qua VietNomad và đặt trực tiếp chủ nhà' : 'Book on VietNomad and Direct Host Booking', true, true],
+              [isVi ? 'Hoàn 4% tiền thưởng cho mỗi đơn đặt phòng' : 'Earn 4% reward credit on VietNomad stays', false, true],
+              [isVi ? 'Xuất hóa đơn miễn VAT khi có mã số thuế' : 'VAT-free business invoicing with Tax ID', false, true],
+              [isVi ? 'Nhận thông báo sớm chỗ ở giảm giá theo tháng' : 'Early access to monthly price drops', false, true],
+              [isVi ? 'Lưu chỗ ở và so sánh tốc độ Wi-Fi' : 'Save stays and compare Wi-Fi speeds', true, true],
+              [isVi ? 'Xem hướng dẫn Visa Việt Nam 90 ngày' : 'Vietnam 90-day e-Visa guide', true, true],
             ].map(([label, free, prem]) => (
               <tr key={String(label)}>
                 <td className="px-6 py-4 font-medium text-[#17221E]">{label}</td>

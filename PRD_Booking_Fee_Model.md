@@ -3,10 +3,10 @@
 **Dự án:** VietNomad Stays (`stay-nearby.vercel.app`)  
 **Mục tiêu:** Chuyển từ thu tiền trọn gói sang thu **12% phí giữ chỗ & kiểm định (`Fee_online`)** qua cổng thanh toán online; phần tiền thuê phòng (`Pay_at_checkin = P_host`) khách thanh toán trực tiếp cho chủ nhà khi nhận phòng — kèm **Cam kết hoàn tiền 100% phí giữ chỗ** nếu Wi-Fi hoặc góc làm việc thực tế không khớp báo cáo kiểm định.
 
-## 1. Core Pricing & Checkout Logic
-- `P_host`: Giá gốc của chủ nhà cho gói 7 / 14 / 21 / 30 đêm (+ đêm lẻ).
-- `Fee_online = Math.round(P_host * 0.12)`: Thu trực tuyến khi đặt phòng qua cổng thanh toán.
-- `Pay_at_checkin = P_host`: Thanh toán trực tiếp cho chủ nhà khi check-in.
+## 1. Core Pricing & Checkout Logic (Phương án A: `P_host + 12%`)
+- `P_host`: 100% giá thuê gốc (net) của chủ nhà cho gói 7 / 14 / 21 / 30 đêm (+ đêm lẻ). Chủ nhà nhận đủ 100% khoản này (0% hoa hồng).
+- `Fee_online = Math.round(P_host * 0.12)`: Phí Đặt chỗ & Bảo chứng Kiểm định 12% (bắt buộc thanh toán trực tuyến qua cổng thanh toán để giữ phòng, mở khóa địa chỉ và nhận chứng nhận Wi-Fi).
+- `Pay_at_checkin = P_host`: Khách thanh toán trực tiếp 100% giá thuê gốc cho chủ nhà khi check-in sau khi kiểm tra thực tế chỗ ở.
 - `Total_stay = P_host + Fee_online`: Tổng giá trị trọn gói hiển thị xuyên suốt trên toàn bộ 9 loại tiền tệ.
 - Trạng thái đơn: `PENDING_PAYMENT` → `RESERVED_LOCKED` → `CHECKED_IN_COMPLETED` / `REFUNDED_WIFI_MISMATCH`.
 

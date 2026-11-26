@@ -13,7 +13,6 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
 
   return (
     <div className="grid items-center gap-8 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-8 lg:grid-cols-12 lacquer-shadow">
-      {/* Interactive Stylized Vietnam Vector Map */}
       <div className="relative flex items-center justify-center rounded-2xl bg-[#FAF8F3] p-4 lg:col-span-5">
         <svg viewBox="0 0 100 100" className="h-[340px] w-full max-w-[320px]">
           <defs>
@@ -22,7 +21,6 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
               <stop offset="100%" stopColor="#E9E2D2" />
             </linearGradient>
           </defs>
-          {/* Artistic S-shaped Mainland Vietnam + Phu Quoc & Islands */}
           <path
             d="M36,7 L53,8 L59,15 L52,22 L47,30 L56,37 L67,44 L73,53 L71,66 L64,74 L51,81 L41,89 L35,84 L41,76 L46,66 L54,53 L56,43 L44,32 L38,24 L31,15 Z"
             fill="url(#vnLand)"
@@ -30,9 +28,7 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
             strokeWidth="0.9"
             strokeLinejoin="round"
           />
-          {/* Phu Quoc Island */}
           <ellipse cx="29.5" cy="85" rx="2.6" ry="3.8" fill="#DCECE5" stroke="#164E3F" strokeWidth="0.8" />
-          {/* Hoang Sa & Truong Sa subtle archipelagos */}
           <circle cx="84" cy="44" r="1.1" fill="#164E3F" opacity="0.45" />
           <circle cx="87" cy="46" r="0.8" fill="#164E3F" opacity="0.45" />
           <circle cx="85" cy="76" r="1.1" fill="#164E3F" opacity="0.45" />
@@ -77,11 +73,10 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
           })}
         </svg>
         <div className="absolute bottom-3 left-3 rounded-lg bg-white/90 px-2.5 py-1 text-[11px] font-medium text-[#53635D] shadow-sm">
-          {isVi ? 'Bấm chọn thành phố trên bản đồ' : 'Click a Vietnam hub on map'}
+          {isVi ? 'Bấm vào thành phố để xem chi tiết' : 'Click any city to view details'}
         </div>
       </div>
 
-      {/* Selected Destination Visa, Wi-Fi & Live Stays Brief */}
       {selected && (
         <div className="space-y-5 lg:col-span-7">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -98,7 +93,7 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
                 <Wifi className="h-3.5 w-3.5" />~{selected.avgWifiMbps} Mbps
               </span>
               <span className="rounded-full bg-[#F2EDE3] px-3 py-1 text-xs font-semibold text-[#17221E]">
-                {selected.liveStaysCount} {isVi ? 'chỗ ở sẵn sàng' : 'live stays'}
+                {selected.liveStaysCount} {isVi ? 'chỗ ở sẵn sàng' : 'open stays'}
               </span>
             </div>
           </div>
@@ -111,7 +106,7 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
             <div className="rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#164E3F]">
                 <ShieldCheck className="h-4 w-4" />
-                {isVi ? 'Thông tin Visa Việt Nam' : 'Vietnam Visa & Entry'}
+                {isVi ? 'Thông tin Visa' : 'Visa & Entry'}
               </div>
               <div className="text-sm font-semibold text-[#17221E]">
                 {isVi ? selected.visaSummaryVi : selected.visaSummaryEn}
@@ -124,10 +119,10 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
             <div className="rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#A67C2E]">
                 <MapPin className="h-4 w-4" />
-                {isVi ? 'Khí hậu & Chi phí sống' : 'Climate & Living Cost'}
+                {isVi ? 'Thời tiết & Chi phí' : 'Weather & Cost'}
               </div>
               <div className="text-sm font-semibold text-[#17221E]">
-                ~${selected.monthlyCostUsd} / {isVi ? 'tháng sinh hoạt' : 'month base living'}
+                ~${selected.monthlyCostUsd} / {isVi ? 'tháng sinh hoạt' : 'month living cost'}
               </div>
               <p className="mt-1 text-xs leading-relaxed text-[#53635D]">
                 {isVi ? selected.climateVi : selected.climateEn}
@@ -141,15 +136,15 @@ export function VietnamMap({ destinations }: { destinations: DestinationSummary[
               className="inline-flex items-center gap-2 rounded-xl bg-[#164E3F] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#0F392E]"
             >
               {isVi
-                ? `Khám phá ${selected.nameVi}`
-                : `Explore ${selected.nameEn} Stays`}
+                ? `Xem chỗ ở tại ${selected.nameVi}`
+                : `Browse ${selected.nameEn} stays`}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href={`/stays?destination=${selected.slug}`}
               className="rounded-xl border border-[#E5DFD3] bg-white px-4 py-2.5 text-sm font-medium text-[#17221E] hover:bg-[#FAF8F3]"
             >
-              {isVi ? 'Xem bảng giá theo tuần/tháng' : 'Check weekly & monthly rates'}
+              {isVi ? 'Xem giá theo tuần và tháng' : 'Compare weekly & monthly rates'}
             </Link>
           </div>
         </div>
