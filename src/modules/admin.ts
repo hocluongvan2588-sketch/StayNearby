@@ -5,7 +5,7 @@ import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 
 export async function getAdminConsoleData() {
-  const [appsRes, staysRes, crmRes, bookingsRes] = await Promise.all([
+  const [appsRes, staysRes, crmRes, bookingsRes, notifRes] = await Promise.all([
     dbQuery(
       `SELECT ha.*, u.full_name AS applicant_name, u.email AS applicant_email
        FROM host_applications ha
@@ -14,18 +14,23 @@ export async function getAdminConsoleData() {
     ),
     dbQuery(
       `SELECT s.*, u.full_name AS host_name, d.name_en AS destination_name_en,
-              COALESCE(hw.balance_vnd, 0) AS wallet_balance_vnd
+              COALESCE(hw.balance_vnd, 0) AS wallet_balance_vnd,
+              r.id AS room_id, r.ical_url, r.ical_last_synced_at, r.ical_sync_status
        FROM stays s
        JOIN users u ON u.id = s.host_id
        JOIN destinations d ON d.id = s.destination_id
        LEFT JOIN host_wallets hw ON hw.host_id = s.host_id
+       LEFT JOIN LATERAL (
+         SELECT id, ical_url, ical_last_synced_at, ical_sync_status
+         FROM stay_rooms sr WHERE sr.stay_id = s.id LIMIT 1
+       ) r ON TRUE
        ORDER BY s.created_at DESC`
     ),
     dbQuery(
       `SELECT u.id, u.email, u.full_name, u.role, u.nationality, u.membership_tier,
               u.reward_credit_vnd, u.phone, u.crm_stage, u.crm_note,
               COUNT(b.id) AS booking_count,
-              COALESCE(SUM(b.guest_total_vnd) FILTER (WHERE b.status IN ('confirmed', 'completed')), 0) AS total_spent_vnd
+              COALESCE(SUM(b.guest_total_vnd) FILTER (WHERE b.status IN ('RESERVED_LOCKED', 'CHECKED_IN_COMPLETED', 'confirmed', 'completed')), 0) AS total_spent_vnd
        FROM users u
        LEFT JOIN bookings b ON b.guest_id = u.id
        GROUP BY u.id
@@ -37,6 +42,13 @@ export async function getAdminConsoleData() {
        JOIN stays s ON s.id = b.stay_id
        JOIN users u ON u.id = b.guest_id
        ORDER BY b.created_at DESC
+       LIMIT 30`
+    ),
+    dbQuery(
+      `SELECT bn.*, b.booking_code
+       FROM booking_notifications bn
+       JOIN bookings b ON b.id = bn.booking_id
+       ORDER BY bn.created_at DESC
        LIMIT 30`
     ),
   ]);
@@ -67,6 +79,14 @@ export async function getAdminConsoleData() {
       status: String(s.status),
       wifiDownloadMbps: toNum(s.wifi_download_mbps),
       wifiUploadMbps: toNum(s.wifi_upload_mbps),
+      wifiJitterMs: toNum(s.wifi_jitter_ms),
+      verificationTier: String(s.verification_tier ?? 'VIETNOMAD_CERTIFIED'),
+      verifiedAt: new Date(String(s.verified_at ?? s.wifi_tested_at)).toISOString(),
+      speedtestProofUrl: s.speedtest_proof_url ? String(s.speedtest_proof_url) : '',
+      workspaceVideoUrl: s.workspace_video_url ? String(s.workspace_video_url) : '',
+      roomId: s.room_id ? String(s.room_id) : null,
+      icalUrl: s.ical_url ? String(s.ical_url) : '',
+      icalSyncStatus: String(s.ical_sync_status ?? 'idle'),
       walletBalanceVnd: toNum(s.wallet_balance_vnd),
     })),
     crmUsers: crmRes.rows.map((u) => ({
@@ -93,6 +113,25 @@ export async function getAdminConsoleData() {
       nights: toNum(b.nights),
       guestTotalVnd: toNum(b.guest_total_vnd),
       serviceFeeVnd: toNum(b.service_fee_vnd),
+      feeOnlineVnd:
+        toNum(b.booking_fee_online_vnd) > 0
+          ? toNum(b.booking_fee_online_vnd)
+          : toNum(b.service_fee_vnd),
+      payAtCheckinVnd:
+        toNum(b.pay_at_checkin_vnd) > 0
+          ? toNum(b.pay_at_checkin_vnd)
+          : toNum(b.wholesale_total_vnd),
+      mismatchReason: String(b.mismatch_reason ?? ''),
+    })),
+    notifications: notifRes.rows.map((n) => ({
+      id: String(n.id),
+      bookingCode: String(n.booking_code),
+      recipientRole: String(n.recipient_role),
+      channel: String(n.channel),
+      recipientContact: String(n.recipient_contact),
+      subject: String(n.subject),
+      status: String(n.status),
+      createdAt: new Date(String(n.created_at)).toISOString(),
     })),
   };
 }
@@ -158,6 +197,7 @@ export async function reviewHostApplication(
         checkin_instructions_en, checkin_instructions_vi, registration_code,
         property_type, business_model, direct_booking_url, status, is_instant_book,
         cancellation_policy, wifi_download_mbps, wifi_upload_mbps, wifi_jitter_ms,
+        verification_tier, verified_at,
         wifi_tester_note, workspace_summary_en, workspace_summary_vi, workspace_photo_url,
         has_ergonomic_chair, has_external_monitor, has_call_booth, kitchen_type, laundry_type,
         map_x, map_y, hero_image, gallery_images, amenities, nearby_coworking
@@ -168,6 +208,7 @@ export async function reviewHostApplication(
         $7,$8,'Address unlocked upon confirmation','Smart lock details emailed upon confirmation',
         'Mã nhận phòng gửi tự động sau khi đặt',$9,
         $10,$11,$12,'live',TRUE,'flexible',$13,$14,3,
+        'HOST_VERIFIED', NOW(),
         'Admin-verified onboarding speed test','Dedicated indoor desk + ergonomic seating',
         'Bàn làm việc riêng và ghế công thái học','/images/workspaces/ergonomic-indochine-desk.jpg',
         TRUE,FALSE,FALSE,'full','in_unit',$15,$16,'/images/stays/hanoi-tayho-jade.jpg',
@@ -242,6 +283,33 @@ export async function updateAdminStayStatus(
 ) {
   if (!isValidUuid(stayId)) throw new AppError('VALIDATION_ERROR', 'Invalid stay ID.');
   await dbQuery('UPDATE stays SET status = $1 WHERE id = $2', [status, stayId]);
+  return { ok: true };
+}
+
+export async function updateAdminStayVerification(
+  _admin: SessionUser,
+  stayId: string,
+  input: {
+    verificationTier: 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+    speedtestProofUrl?: string;
+    workspaceVideoUrl?: string;
+  }
+) {
+  if (!isValidUuid(stayId)) throw new AppError('VALIDATION_ERROR', 'Invalid stay ID.');
+  await dbQuery(
+    `UPDATE stays
+     SET verification_tier = $1,
+         verified_at = NOW(),
+         speedtest_proof_url = COALESCE($2, speedtest_proof_url),
+         workspace_video_url = COALESCE($3, workspace_video_url)
+     WHERE id = $4`,
+    [
+      input.verificationTier,
+      input.speedtestProofUrl?.trim() || null,
+      input.workspaceVideoUrl?.trim() || null,
+      stayId,
+    ]
+  );
   return { ok: true };
 }
 

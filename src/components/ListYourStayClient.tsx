@@ -93,8 +93,8 @@ export function ListYourStayClient({
             <div className="font-semibold">BookingFlow (0% Commission)</div>
             <p className="mt-1 text-xs text-[#CDE0D9]">
               {isVi
-                ? 'Bạn nhập giá Wholesale Net; VietNomad xử lý Instant Booking và thanh toán cho khách.'
-                : 'Submit wholesale net rates; travelers pay our transparent 12% service fee.'}
+                ? 'Khách trả phí giữ chỗ 12% online; bạn thu đủ 100% giá thuê net trực tiếp tại check-in + hỗ trợ đồng bộ lịch iCal.'
+                : 'Guests pay our 12% reservation fee online; you collect 100% of your net rate directly at check-in with automated iCal sync.'}
             </p>
           </div>
           <div className="rounded-2xl bg-white/10 p-4">

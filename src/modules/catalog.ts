@@ -31,6 +31,8 @@ export interface StayCardItem {
   wifiDownloadMbps: number;
   wifiUploadMbps: number;
   wifiJitterMs: number;
+  verificationTier: 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+  verifiedAt: string;
   hasErgonomicChair: boolean;
   hasExternalMonitor: boolean;
   hasCallBooth: boolean;
@@ -46,9 +48,13 @@ export interface StayCardItem {
   maxGuests: number;
   nearestCoworking: CoworkingSpot | null;
   lifestyleSlugs: string[];
-  // Calculated upfront display totals in VND (BookingFlow includes 12% service fee; StayDirect is 0% markup)
+  // Calculated upfront display totals in VND (12% Booking Fee online + Host Net paid at check-in)
   weekDisplayVnd: number;
   monthDisplayVnd: number;
+  weekFeeOnlineVnd: number;
+  weekPayAtCheckinVnd: number;
+  monthFeeOnlineVnd: number;
+  monthPayAtCheckinVnd: number;
   compareMonthDisplayVnd: number | null;
   weekNightVnd: number;
   monthNightVnd: number;
@@ -103,6 +109,9 @@ export interface StayRoomDetail {
   unitsTotal: number;
   roomImage: string;
   roomFeatures: string[];
+  icalUrl: string | null;
+  icalLastSyncedAt: string | null;
+  icalSyncStatus: string;
   packages: {
     id: string;
     nameEn: string;
@@ -125,12 +134,15 @@ export interface StayRoomDetail {
 export interface StayDetail extends StayCardItem {
   hostName: string;
   hostNationality: string;
+  hostWhatsapp: string;
   descriptionEn: string;
   descriptionVi: string;
   registrationCode: string;
   directBookingUrl: string | null;
   wifiTestedAt: string;
   wifiTesterNote: string;
+  speedtestProofUrl: string | null;
+  workspaceVideoUrl: string | null;
   workspaceSummaryEn: string;
   workspaceSummaryVi: string;
   workspacePhotoUrl: string;
@@ -202,6 +214,11 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
     wifiDownloadMbps: toNum(row.wifi_download_mbps),
     wifiUploadMbps: toNum(row.wifi_upload_mbps),
     wifiJitterMs: toNum(row.wifi_jitter_ms),
+    verificationTier:
+      row.verification_tier === 'HOST_VERIFIED'
+        ? 'HOST_VERIFIED'
+        : 'VIETNOMAD_CERTIFIED',
+    verifiedAt: new Date(String(row.verified_at ?? row.wifi_tested_at ?? Date.now())).toISOString(),
     hasErgonomicChair: Boolean(row.has_ergonomic_chair),
     hasExternalMonitor: Boolean(row.has_external_monitor),
     hasCallBooth: Boolean(row.has_call_booth),
@@ -219,6 +236,10 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
     lifestyleSlugs,
     weekDisplayVnd: q7.guestTotalVnd,
     monthDisplayVnd: q30.guestTotalVnd,
+    weekFeeOnlineVnd: q7.feeOnlineVnd,
+    weekPayAtCheckinVnd: q7.payAtCheckinVnd,
+    monthFeeOnlineVnd: q30.feeOnlineVnd,
+    monthPayAtCheckinVnd: q30.payAtCheckinVnd,
     compareMonthDisplayVnd: compareDisplay,
     weekNightVnd: q7.perNightDisplayVnd,
     monthNightVnd: q30.perNightDisplayVnd,
@@ -515,6 +536,11 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
       unitsTotal,
       roomImage: String(rm.room_image),
       roomFeatures: parseJsonArray<string>(rm.room_features),
+      icalUrl: rm.ical_url ? String(rm.ical_url) : null,
+      icalLastSyncedAt: rm.ical_last_synced_at
+        ? new Date(String(rm.ical_last_synced_at)).toISOString()
+        : null,
+      icalSyncStatus: String(rm.ical_sync_status ?? 'idle'),
       packages: roomPackages,
       unavailableDates,
     };
@@ -524,12 +550,15 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     ...card,
     hostName: String(row.host_name),
     hostNationality: String(row.host_nationality),
+    hostWhatsapp: String(row.host_whatsapp ?? '+84901234567'),
     descriptionEn: String(row.description_en),
     descriptionVi: String(row.description_vi),
     registrationCode: String(row.registration_code ?? ''),
     directBookingUrl: row.direct_booking_url ? String(row.direct_booking_url) : null,
     wifiTestedAt: new Date(String(row.wifi_tested_at)).toISOString(),
     wifiTesterNote: String(row.wifi_tester_note),
+    speedtestProofUrl: row.speedtest_proof_url ? String(row.speedtest_proof_url) : null,
+    workspaceVideoUrl: row.workspace_video_url ? String(row.workspace_video_url) : null,
     workspaceSummaryEn: String(row.workspace_summary_en),
     workspaceSummaryVi: String(row.workspace_summary_vi),
     workspacePhotoUrl: String(row.workspace_photo_url),

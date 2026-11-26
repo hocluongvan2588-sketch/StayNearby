@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import {
+  Bell,
+  CalendarSync,
   CalendarX,
   CheckCircle2,
   ExternalLink,
@@ -29,9 +31,15 @@ interface HostConsoleData {
     wifiDownloadMbps: number;
     wifiUploadMbps: number;
     wifiJitterMs: number;
+    verificationTier: string;
+    speedtestProofUrl: string;
+    workspaceVideoUrl: string;
     roomId: string | null;
     roomNameEn: string;
     unitsTotal: number;
+    icalUrl: string;
+    icalLastSyncedAt: string | null;
+    icalSyncStatus: string;
     wholesale7Vnd: number;
     wholesale14Vnd: number;
     wholesale21Vnd: number;
@@ -60,6 +68,8 @@ interface HostConsoleData {
     checkOut: string;
     nights: number;
     wholesaleTotalVnd: number;
+    feeOnlineVnd: number;
+    payAtCheckinVnd: number;
   }>;
   referrals: Array<{
     id: string;
@@ -77,6 +87,13 @@ interface HostConsoleData {
     stayDate: string;
     bookedUnits: number;
     blockedUnits: number;
+  }>;
+  notifications: Array<{
+    id: string;
+    bookingCode: string;
+    subject: string;
+    status: string;
+    createdAt: string;
   }>;
 }
 
@@ -130,8 +147,8 @@ export function HostConsoleClient({
     setMessage(
       json.ok
         ? isVi
-          ? `Đã cập nhật giá gói 7/14/21/30 đêm cho ${stay.titleVi}.`
-          : `Updated 7/14/21/30-night pricing for ${stay.titleEn}.`
+          ? `Đã cập nhật giá gói net 7/14/21/30 đêm cho ${stay.titleVi}.`
+          : `Updated 7/14/21/30-night net pricing for ${stay.titleEn}.`
         : json.error?.message ?? 'Update failed'
     );
   }
@@ -144,13 +161,43 @@ export function HostConsoleClient({
         downloadMbps: Number(form.get('down')),
         uploadMbps: Number(form.get('up')),
         jitterMs: Number(form.get('jitter')),
-        note: 'Verified speed check updated in Host Console',
+        speedtestProofUrl: String(form.get('proofUrl') ?? ''),
+        workspaceVideoUrl: String(form.get('videoUrl') ?? ''),
+        note: 'Verified speed check & proof media updated in Host Console',
       }),
     });
     const json = await res.json();
     if (json.ok) {
-      setMessage(isVi ? 'Đã cập nhật tốc độ Wi-Fi mới nhất.' : 'Verified Wi-Fi metrics updated.');
+      setMessage(isVi ? 'Đã cập nhật tốc độ Wi-Fi & link chứng thực.' : 'Verified Wi-Fi & proof URLs updated.');
       window.location.reload();
+    }
+  }
+
+  async function handleSyncIcal(roomId: string, icalUrl: string) {
+    const res = await fetch('/api/host/ical', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId, icalUrl }),
+    });
+    const json = await res.json();
+    if (json.ok) {
+      setMessage(
+        `iCal sync (${json.sync.status}): ${json.sync.blockedDaysCount} future days locked.`
+      );
+      window.location.reload();
+    } else {
+      setMessage(json.error?.message ?? 'iCal sync failed.');
+    }
+  }
+
+  async function handleConfirmCheckin(bookingId: string) {
+    const res = await fetch(`/api/bookings/${bookingId}/checkin`, { method: 'POST' });
+    const json = await res.json();
+    if (json.ok) {
+      setMessage('Check-in & direct host payment marked completed (CHECKED_IN_COMPLETED).');
+      window.location.reload();
+    } else {
+      setMessage(json.error?.message ?? 'Action failed.');
     }
   }
 
@@ -176,15 +223,17 @@ export function HostConsoleClient({
       <div className="grid gap-6 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-8 lg:grid-cols-12 lacquer-shadow">
         <div className="space-y-2 lg:col-span-7">
           <span className="rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
-            {isVi ? 'Cổng Đối tác Lưu trú · 0% Hoa hồng BookingFlow' : 'Stay Partner Console · 0% BookingFlow Commission'}
+            {isVi
+              ? 'Cổng Đối tác · 0% Hoa hồng · Thu 100% giá thuê tại Check-in'
+              : 'Stay Partner Console · 0% Commission · Collect 100% Net Rent at Check-in'}
           </span>
           <h1 className="font-serif-display text-3xl font-semibold text-[#17221E]">
             {hostName}
           </h1>
           <p className="text-sm text-[#53635D]">
             {isVi
-              ? 'Quản lý gói giá wholesale 7/14/21/30 đêm, kiểm tra Wi-Fi, lịch trống và ví quảng cáo StayDirect™.'
-              : 'Configure 7/14/21/30-night package tiers, verified Wi-Fi tests, availability locks, and StayDirect™ wallet.'}
+              ? 'Quản lý giá net 7/14/21/30 đêm, chứng thực Speedtest/Video góc làm việc, đồng bộ lịch iCal (Airbnb/Booking) và xác nhận khách check-in.'
+              : 'Manage 7–30N net rates, Speedtest & Workspace proof, automated iCal sync (Airbnb/Booking.com), and check-in settlement.'}
           </p>
           <div className="pt-2">
             <Link
@@ -230,20 +279,23 @@ export function HostConsoleClient({
         </div>
       )}
 
-      {/* Property Packages & Wi-Fi Test Management */}
+      {/* Property Packages, Wi-Fi Verification Proof & iCal Sync */}
       <section className="space-y-5">
         <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-          {isVi ? 'Chỗ ở, Gói giá 7–30 đêm & Kiểm định Wi-Fi' : 'Your Properties, 7/14/21/30 Packages & Wi-Fi'}
+          {isVi ? 'Chỗ ở, Giá Net 7–30 đêm, Chứng thực Wi-Fi & iCal' : 'Properties, Net Tiers, Verification Media & iCal Sync'}
         </h2>
 
         <div className="grid gap-6">
           {data.stays.map((stay) => (
-            <div key={stay.id} className="rounded-3xl border border-[#E5DFD3] bg-white p-6">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-[#E5DFD3] pb-4">
+            <div key={stay.id} className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-6">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5DFD3] pb-4">
                 <div>
-                  <div className="flex items-center gap-2 text-xs font-semibold">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
                     <span className="rounded-full bg-[#164E3F] px-2.5 py-0.5 text-white uppercase">
                       {stay.status}
+                    </span>
+                    <span className="rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-[#164E3F]">
+                      {stay.verificationTier}
                     </span>
                     <span className="text-[#53635D]">
                       {isVi ? stay.destinationNameVi : stay.destinationNameEn} · {stay.unitsTotal} units
@@ -258,7 +310,7 @@ export function HostConsoleClient({
                   </Link>
                 </div>
 
-                {/* Quick Wi-Fi Verification Update */}
+                {/* Wi-Fi + Proof Media Form */}
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -282,7 +334,7 @@ export function HostConsoleClient({
                     className="w-16 rounded-lg border border-[#E5DFD3] bg-white px-2 py-1 font-semibold"
                     title="Upload Mbps"
                   />
-                  <span>↑ Mbps</span>
+                  <span>↑</span>
                   <input
                     name="jitter"
                     type="number"
@@ -290,12 +342,25 @@ export function HostConsoleClient({
                     className="w-12 rounded-lg border border-[#E5DFD3] bg-white px-2 py-1"
                     title="Jitter ms"
                   />
-                  <span>ms</span>
+                  <input
+                    name="proofUrl"
+                    type="text"
+                    defaultValue={stay.speedtestProofUrl}
+                    placeholder="Speedtest Proof URL"
+                    className="w-40 rounded-lg border border-[#E5DFD3] bg-white px-2 py-1"
+                  />
+                  <input
+                    name="videoUrl"
+                    type="text"
+                    defaultValue={stay.workspaceVideoUrl}
+                    placeholder="Workspace Video URL"
+                    className="w-40 rounded-lg border border-[#E5DFD3] bg-white px-2 py-1"
+                  />
                   <button
                     type="submit"
                     className="rounded-lg bg-[#164E3F] px-3 py-1 font-semibold text-white"
                   >
-                    {isVi ? 'Lưu Speedtest' : 'Verify Wi-Fi'}
+                    {isVi ? 'Lưu Proof & Speedtest' : 'Save Proof'}
                   </button>
                 </form>
               </div>
@@ -321,19 +386,19 @@ export function HostConsoleClient({
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">7N (VND)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">7N Net (VND)</label>
                   <input name="w7" type="number" defaultValue={stay.wholesale7Vnd} className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">14N (VND)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">14N Net (VND)</label>
                   <input name="w14" type="number" defaultValue={stay.wholesale14Vnd} className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">21N (VND)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">21N Net (VND)</label>
                   <input name="w21" type="number" defaultValue={stay.wholesale21Vnd} className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">30N (VND)</label>
+                  <label className="mb-1 block text-[11px] font-semibold text-[#53635D]">30N Net (VND)</label>
                   <input name="w30" type="number" defaultValue={stay.wholesale30Vnd} className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 py-2 text-xs font-semibold" />
                 </div>
                 <div>
@@ -361,12 +426,42 @@ export function HostConsoleClient({
                   />
                 </div>
               </form>
+
+              {/* iCal Calendar Sync Bar */}
+              {stay.roomId && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.currentTarget);
+                    handleSyncIcal(stay.roomId!, String(fd.get('icalUrl') ?? ''));
+                  }}
+                  className="flex flex-col gap-2 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-3 text-xs sm:flex-row sm:items-center"
+                >
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-[#164E3F] shrink-0">
+                    <CalendarSync className="h-4 w-4" />
+                    iCal Sync ({stay.icalSyncStatus})
+                  </span>
+                  <input
+                    name="icalUrl"
+                    type="text"
+                    defaultValue={stay.icalUrl}
+                    placeholder="https://www.airbnb.com/calendar/ical/12345.ics"
+                    className="flex-1 rounded-xl border border-[#E5DFD3] bg-white px-3 py-1.5"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-[#164E3F] px-3.5 py-1.5 font-semibold text-white"
+                  >
+                    {isVi ? 'Đồng bộ iCal' : 'Sync External Calendar'}
+                  </button>
+                </form>
+              )}
             </div>
           ))}
         </div>
       </section>
 
-      {/* Availability Control + Bookings & Referrals */}
+      {/* Availability Control + Bookings & Host Collection */}
       <div className="grid gap-8 lg:grid-cols-2">
         <section className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-6">
           <h3 className="font-serif-display flex items-center gap-2 text-xl font-semibold text-[#17221E]">
@@ -430,20 +525,33 @@ export function HostConsoleClient({
 
         <section className="space-y-4 rounded-3xl border border-[#E5DFD3] bg-white p-6">
           <h3 className="font-serif-display text-xl font-semibold text-[#17221E]">
-            {isVi ? 'Đặt phòng & Lượt chuyển tiếp StayDirect™' : 'Instant Bookings & StayDirect™ Referrals'}
+            {isVi ? 'Đơn đặt & Thu tiền trực tiếp khi Check-in' : 'Locked Reservations & Check-in Collection'}
           </h3>
-          <div className="max-h-64 space-y-2.5 overflow-y-auto text-xs">
+          <div className="max-h-72 space-y-2.5 overflow-y-auto text-xs">
             {data.bookings.map((b) => (
-              <div key={b.id} className="rounded-2xl bg-[#FAF8F3] p-3">
-                <div className="flex justify-between font-bold text-[#17221E]">
+              <div key={b.id} className="space-y-1.5 rounded-2xl bg-[#FAF8F3] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 font-bold text-[#17221E]">
                   <span>
                     {b.bookingCode} · {b.guestName} ({b.nationality})
                   </span>
-                  <span className="text-[#164E3F]">{formatVndExact(b.wholesaleTotalVnd)}</span>
+                  <span className="text-[#164E3F]">
+                    Collect at Check-in: {formatVndExact(b.payAtCheckinVnd)}
+                  </span>
                 </div>
-                <div className="mt-0.5 text-[#53635D]">
-                  {b.stayTitleEn} · {b.checkIn} → {b.checkOut} ({b.nights}N) · {b.status}
+                <div className="text-[#53635D]">
+                  {b.stayTitleEn} · {b.checkIn} → {b.checkOut} ({b.nights}N) ·{' '}
+                  <strong className="text-[#164E3F]">{b.status}</strong> · 12% Online Paid:{' '}
+                  {formatVndExact(b.feeOnlineVnd)}
                 </div>
+                {(b.status === 'RESERVED_LOCKED' || b.status === 'confirmed') && (
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmCheckin(b.id)}
+                    className="rounded-lg bg-[#164E3F] px-3 py-1 font-semibold text-white"
+                  >
+                    {isVi ? 'Xác nhận Đã Check-in & Thu đủ 100%' : 'Mark Checked-in & Direct Payment Received'}
+                  </button>
+                )}
               </div>
             ))}
             {data.referrals.map((r) => (
@@ -460,6 +568,24 @@ export function HostConsoleClient({
           </div>
         </section>
       </div>
+
+      {/* Host Notifications Log */}
+      {data.notifications.length > 0 && (
+        <section className="space-y-3 rounded-3xl border border-[#E5DFD3] bg-white p-6">
+          <h3 className="font-serif-display flex items-center gap-2 text-xl font-semibold text-[#17221E]">
+            <Bell className="h-5 w-5 text-[#164E3F]" />
+            {isVi ? 'Thông báo giữ phòng đã gửi Chủ nhà' : 'Host Reservation Alerts'}
+          </h3>
+          <div className="space-y-2 text-xs">
+            {data.notifications.map((n) => (
+              <div key={n.id} className="flex flex-wrap justify-between gap-2 rounded-xl bg-[#FAF8F3] p-3">
+                <span className="font-medium text-[#17221E]">{n.subject}</span>
+                <span className="text-[#53635D]">{n.createdAt.slice(0, 16).replace('T', ' ')}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

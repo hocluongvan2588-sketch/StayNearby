@@ -50,9 +50,13 @@ describe('NomadStays Pricing, Extra Nights & Fee Models', () => {
     });
 
     expect(standardQuote.wholesaleTotalVnd).toBe(18_300_000);
+    expect(standardQuote.payAtCheckinVnd).toBe(18_300_000);
+    expect(standardQuote.baseBookingFeeVnd).toBe(Math.round(18_300_000 * 0.12));
     expect(standardQuote.serviceFeeVnd).toBe(Math.round(18_300_000 * 0.12));
     expect(standardQuote.vatDiscountVnd).toBe(0);
     expect(standardQuote.rewardCreditUsedVnd).toBe(500_000);
+    expect(standardQuote.feeOnlineVnd).toBe(Math.round(18_300_000 * 0.12) - 500_000);
+    expect(standardQuote.totalStayVnd).toBe(18_300_000 + standardQuote.feeOnlineVnd);
     expect(standardQuote.rewardCreditEarnedVnd).toBe(
       Math.round(standardQuote.guestTotalVnd * 0.04)
     );
@@ -71,6 +75,8 @@ describe('NomadStays Pricing, Extra Nights & Fee Models', () => {
     expect(vatFreeQuote.serviceFeeVnd).toBe(
       Math.round(18_300_000 * 0.12) - Math.round(18_300_000 * 0.05)
     );
+    expect(vatFreeQuote.feeOnlineVnd).toBe(vatFreeQuote.serviceFeeVnd);
+    expect(vatFreeQuote.payAtCheckinVnd).toBe(18_300_000);
   });
 
   it('computes StayDirect™ quote with 0% traveler markup', () => {
@@ -84,16 +90,19 @@ describe('NomadStays Pricing, Extra Nights & Fee Models', () => {
     });
 
     expect(directQuote.serviceFeeVnd).toBe(0);
+    expect(directQuote.feeOnlineVnd).toBe(0);
+    expect(directQuote.payAtCheckinVnd).toBe(9_800_000);
     expect(directQuote.vatDiscountVnd).toBe(0);
     expect(directQuote.guestTotalVnd).toBe(9_800_000);
   });
 });
 
-describe('NomadStays Three-Window Cancellation Policy', () => {
+describe('NomadStays Three-Window Cancellation Policy & PaidOnline Basis', () => {
   const bookedAt = new Date('2026-12-01T10:00:00Z');
   const guestTotal = 20_000_000;
+  const paidOnline = 2_160_000;
 
-  it('grants 100% refund during 48h cooling-off period for Flexible and Moderate, but not Strict', () => {
+  it('grants 100% refund of online booking fee during 48h cooling-off period', () => {
     const within24h = new Date('2026-12-02T09:00:00Z');
     const flex = calculateCancellationOutcome({
       policy: 'flexible',
@@ -101,10 +110,11 @@ describe('NomadStays Three-Window Cancellation Policy', () => {
       checkInIso: '2026-12-20',
       nights: 14,
       guestTotalVnd: guestTotal,
+      paidOnlineVnd: paidOnline,
       now: within24h,
     });
     expect(flex.tier).toBe('cooling_off');
-    expect(flex.refundAmountVnd).toBe(guestTotal);
+    expect(flex.refundAmountVnd).toBe(paidOnline);
     expect(flex.creditIssuedVnd).toBe(0);
 
     const strict = calculateCancellationOutcome({

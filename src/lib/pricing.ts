@@ -17,9 +17,13 @@ export interface QuoteBreakdown {
   extraNights: number;
   businessModel: 'booking_flow' | 'stay_direct';
   wholesaleTotalVnd: number;
+  baseBookingFeeVnd: number;
   serviceFeeVnd: number;
   vatDiscountVnd: number;
   rewardCreditUsedVnd: number;
+  feeOnlineVnd: number;
+  payAtCheckinVnd: number;
+  totalStayVnd: number;
   guestTotalVnd: number;
   perNightDisplayVnd: number;
   weeklySavingsPct: number;
@@ -72,9 +76,11 @@ export function calculateStayQuote(params: {
     params.nights
   );
 
-  // BookingFlow: 0% host commission; traveler pays transparent 12% service & tax markup.
-  // StayDirect: 0% traveler markup (retail pricing); host pays 1% wallet referral fee.
-  const rawServiceFee =
+  // PRD 1.1:
+  // P_host = wholesaleTotalVnd (paid directly to Host at check-in)
+  // Fee_online = Math.round(P_host * 0.12) (12% Booking & Verification Fee paid online)
+  // Total_stay = P_host + Fee_online
+  const baseBookingFeeVnd =
     params.businessModel === 'booking_flow'
       ? Math.round(wholesaleTotalVnd * 0.12)
       : 0;
@@ -85,20 +91,23 @@ export function calculateStayQuote(params: {
     Boolean(params.applyVatFree) &&
     Boolean(params.vatTaxId?.trim());
 
-  // VAT portion (5% of wholesale) waived for eligible business nomads with Premium Pass
+  // Eligible Premium Business Nomads receive 5% VAT discount off the online booking fee
   const vatDiscountVnd = eligibleVatFree ? Math.round(wholesaleTotalVnd * 0.05) : 0;
-  const serviceFeeVnd = Math.max(0, rawServiceFee - vatDiscountVnd);
+  const serviceFeeVnd = Math.max(0, baseBookingFeeVnd - vatDiscountVnd);
 
-  const subtotalBeforeCredit = wholesaleTotalVnd + serviceFeeVnd;
+  // Reward credit applies directly against the online booking fee
   const rewardCreditUsedVnd =
     params.businessModel === 'booking_flow' &&
     params.useRewardCredit &&
     (params.availableRewardCreditVnd ?? 0) > 0
-      ? Math.min(subtotalBeforeCredit, Math.round(params.availableRewardCreditVnd ?? 0))
+      ? Math.min(serviceFeeVnd, Math.round(params.availableRewardCreditVnd ?? 0))
       : 0;
 
-  const guestTotalVnd = Math.max(0, subtotalBeforeCredit - rewardCreditUsedVnd);
-  const perNightDisplayVnd = Math.round(subtotalBeforeCredit / params.nights);
+  const feeOnlineVnd = Math.max(0, serviceFeeVnd - rewardCreditUsedVnd);
+  const payAtCheckinVnd = wholesaleTotalVnd;
+  const totalStayVnd = payAtCheckinVnd + feeOnlineVnd;
+  const guestTotalVnd = totalStayVnd;
+  const perNightDisplayVnd = Math.round((payAtCheckinVnd + serviceFeeVnd) / params.nights);
 
   // Compute monthly vs weekly per-night saving percentage ("Stay longer, pay less")
   const weekNight = params.pkg.wholesale7Vnd / 7;
@@ -106,10 +115,10 @@ export function calculateStayQuote(params: {
   const weeklySavingsPct =
     weekNight > 0 ? Math.max(0, Math.round(((weekNight - monthNight) / weekNight) * 100)) : 0;
 
-  // Premium members earn 4% reward credit on BookingFlow stays
+  // Premium members earn 4% reward credit calculated against the all-inclusive booking value
   const rewardCreditEarnedVnd =
     params.businessModel === 'booking_flow' && params.isPremiumMember
-      ? Math.round(guestTotalVnd * 0.04)
+      ? Math.round(totalStayVnd * 0.04)
       : 0;
 
   return {
@@ -118,9 +127,13 @@ export function calculateStayQuote(params: {
     extraNights,
     businessModel: params.businessModel,
     wholesaleTotalVnd,
+    baseBookingFeeVnd,
     serviceFeeVnd,
     vatDiscountVnd,
     rewardCreditUsedVnd,
+    feeOnlineVnd,
+    payAtCheckinVnd,
+    totalStayVnd,
     guestTotalVnd,
     perNightDisplayVnd,
     weeklySavingsPct,
@@ -131,6 +144,7 @@ export function calculateStayQuote(params: {
 export function calculateCancellationOutcome(params: {
   policy: 'flexible' | 'moderate' | 'strict';
   guestTotalVnd: number;
+  paidOnlineVnd?: number;
   nights: number;
   checkInIso: string;
   bookedAt: Date;
@@ -140,37 +154,44 @@ export function calculateCancellationOutcome(params: {
   refundAmountVnd: number;
   creditIssuedVnd: number;
 } {
+  const refundableBase =
+    typeof params.paidOnlineVnd === 'number' && params.paidOnlineVnd >= 0
+      ? params.paidOnlineVnd
+      : params.guestTotalVnd;
   const now = params.now ?? new Date();
   const hoursSinceBooking = (now.getTime() - params.bookedAt.getTime()) / (1000 * 60 * 60);
 
-  // NomadStays Cooling-Off Period: within 48h of booking -> 100% cash refund (unless strict last-minute)
+  // Cooling-Off Period: within 48h of booking -> 100% cash refund of online fee (unless strict)
   if (hoursSinceBooking <= 48 && params.policy !== 'strict') {
     return {
       tier: 'cooling_off',
-      refundAmountVnd: params.guestTotalVnd,
+      refundAmountVnd: refundableBase,
       creditIssuedVnd: 0,
     };
   }
 
-  const checkInDate = new Date(`${params.checkInIso}T14:00:00+07:00`);
-  const hoursUntilCheckIn = (checkInDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const checkInMs = Date.parse(`${params.checkInIso}T14:00:00+07:00`);
+  const hoursBeforeCheckIn = (checkInMs - now.getTime()) / (1000 * 60 * 60);
 
-  if (params.policy === 'flexible' && hoursUntilCheckIn >= 48) {
+  // Adequate Notice Period:
+  // - Flexible: >= 48h before check-in -> 100% Account Credit
+  // - Moderate: >= booking length days before check-in -> 100% Account Credit
+  const requiredNoticeHours =
+    params.policy === 'flexible'
+      ? 48
+      : params.policy === 'moderate'
+        ? params.nights * 24
+        : Number.POSITIVE_INFINITY;
+
+  if (hoursBeforeCheckIn >= requiredNoticeHours) {
     return {
       tier: 'adequate_notice',
       refundAmountVnd: 0,
-      creditIssuedVnd: params.guestTotalVnd,
+      creditIssuedVnd: refundableBase,
     };
   }
 
-  if (params.policy === 'moderate' && hoursUntilCheckIn >= params.nights * 24) {
-    return {
-      tier: 'adequate_notice',
-      refundAmountVnd: 0,
-      creditIssuedVnd: params.guestTotalVnd,
-    };
-  }
-
+  // Restricted Period
   return {
     tier: 'restricted',
     refundAmountVnd: 0,

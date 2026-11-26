@@ -57,10 +57,16 @@ export function LoginClient({
     }
   }
 
+  const hasDemos = demoAccounts.length > 0;
+
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="grid gap-8 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-10 lg:grid-cols-12 lacquer-shadow">
-        <div className="space-y-5 lg:col-span-6">
+    <div className={`mx-auto px-4 py-12 sm:px-6 lg:px-8 ${hasDemos ? 'max-w-4xl' : 'max-w-lg'}`}>
+      <div
+        className={`grid gap-8 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-10 lacquer-shadow ${
+          hasDemos ? 'lg:grid-cols-12' : ''
+        }`}
+      >
+        <div className={`space-y-5 ${hasDemos ? 'lg:col-span-6' : ''}`}>
           <div>
             <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
               VietNomad Account
@@ -131,40 +137,42 @@ export function LoginClient({
           </p>
         </div>
 
-        {/* One-click Demo Switcher */}
-        <div className="space-y-3 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-5 lg:col-span-6">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#A67C2E]">
-            <Sparkles className="h-4 w-4" />
-            {isVi ? 'Trải nghiệm nhanh 1 chạm (Demo)' : 'One-Click Demo Role Switcher'}
-          </div>
-          <p className="text-xs text-[#53635D]">
-            {isVi
-              ? 'Chọn nhanh bất kỳ vai trò nào để kiểm tra toàn bộ quy trình khách quốc tế, BookingFlow, StayDirect™ và Admin:'
-              : 'Test every NomadStays persona immediately — Free, Premium Pass, BookingFlow Host, StayDirect™ Wallet Host, and Admin:'}
-          </p>
+        {/* One-click Demo Switcher (only shown when NEXT_PUBLIC_ENABLE_DEMO=true or on /admin/demo) */}
+        {hasDemos && (
+          <div className="space-y-3 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-5 lg:col-span-6">
+            <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#A67C2E]">
+              <Sparkles className="h-4 w-4" />
+              {isVi ? 'Trải nghiệm nhanh 1 chạm (Demo)' : 'One-Click Demo Role Switcher'}
+            </div>
+            <p className="text-xs text-[#53635D]">
+              {isVi
+                ? 'Chọn nhanh bất kỳ vai trò nào để kiểm tra toàn bộ quy trình khách quốc tế, BookingFlow, StayDirect™ và Admin:'
+                : 'Test every NomadStays persona immediately — Free, Premium Pass, BookingFlow Host, StayDirect™ Wallet Host, and Admin:'}
+            </p>
 
-          <div className="space-y-2 pt-1">
-            {demoAccounts.map((acc) => (
-              <button
-                key={acc.key}
-                type="button"
-                disabled={loading}
-                onClick={() => doLogin(acc.email, acc.password)}
-                className="flex w-full items-center justify-between rounded-xl border border-[#E5DFD3] bg-white px-3.5 py-2.5 text-left transition hover:border-[#164E3F] hover:bg-[#E7F1EC]/40"
-              >
-                <div>
-                  <div className="text-xs font-bold text-[#17221E]">
-                    {isVi ? acc.labelVi : acc.labelEn}
+            <div className="space-y-2 pt-1">
+              {demoAccounts.map((acc) => (
+                <button
+                  key={acc.key}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => doLogin(acc.email, acc.password)}
+                  className="flex w-full items-center justify-between rounded-xl border border-[#E5DFD3] bg-white px-3.5 py-2.5 text-left transition hover:border-[#164E3F] hover:bg-[#E7F1EC]/40"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-[#17221E]">
+                      {isVi ? acc.labelVi : acc.labelEn}
+                    </div>
+                    <div className="text-[11px] text-[#53635D]">{acc.email}</div>
                   </div>
-                  <div className="text-[11px] text-[#53635D]">{acc.email}</div>
-                </div>
-                <span className="rounded-lg bg-[#164E3F] px-2.5 py-1 text-[11px] font-semibold text-white">
-                  {isVi ? 'Vào ngay' : 'Enter'}
-                </span>
-              </button>
-            ))}
+                  <span className="rounded-lg bg-[#164E3F] px-2.5 py-1 text-[11px] font-semibold text-white">
+                    {isVi ? 'Vào ngay' : 'Enter'}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

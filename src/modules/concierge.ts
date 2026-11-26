@@ -1,9 +1,11 @@
 import { formatMoneyFromVnd, type CurrencyCode, type Locale } from '@/lib/i18n';
 import { usdToVnd } from '@/lib/i18n';
+import { buildConciergeWhatsappUrl } from './notifications';
 import { searchStays, type StayCardItem } from './catalog';
 
 export interface ConciergeResponse {
   summary: string;
+  conciergeWhatsappUrl: string;
   extractedFilters: {
     destination?: string;
     lifestyle?: string;
@@ -11,7 +13,7 @@ export interface ConciergeResponse {
     maxMonthlyVnd?: number;
     nights: number;
   };
-  matches: StayCardItem[];
+  matches: (StayCardItem & { conciergeWhatsappUrl: string })[];
 }
 
 export async function runAiStayConcierge(params: {
@@ -83,19 +85,37 @@ export async function runAiStayConcierge(params: {
     matches = await searchStays({ sort: 'wifi_desc' });
   }
 
-  const top = matches.slice(0, 3);
+  const top = matches.slice(0, 3).map((stay) => ({
+    ...stay,
+    conciergeWhatsappUrl: buildConciergeWhatsappUrl({
+      stayTitle: params.locale === 'vi' ? stay.titleVi : stay.titleEn,
+      nights,
+      locale: params.locale,
+    }),
+  }));
+
+  const conciergeWhatsappUrl = buildConciergeWhatsappUrl({
+    stayTitle: top[0]
+      ? params.locale === 'vi'
+        ? top[0].titleVi
+        : top[0].titleEn
+      : 'Vietnam verified stays',
+    nights,
+    locale: params.locale,
+  });
 
   const summary =
     params.locale === 'vi'
       ? top.length > 0
-        ? `${relaxed ? 'Gợi ý gần sát tiêu chí của bạn nhất' : 'Mình tìm thấy'} ${top.length} chỗ ở sẵn sàng làm việc từ xa (lịch trống thực tế): dẫn đầu là ${top[0].titleVi} tại ${top[0].destinationNameVi} với Wi-Fi đã kiểm định ${top[0].wifiDownloadMbps} Mbps và giá trọn gói ${formatMoneyFromVnd(top[0].monthDisplayVnd, params.currency)}/tháng.`
+        ? `${relaxed ? 'Gợi ý gần sát tiêu chí của bạn nhất' : 'Mình tìm thấy'} ${top.length} chỗ ở sẵn sàng làm việc từ xa: dẫn đầu là ${top[0].titleVi} tại ${top[0].destinationNameVi} (${top[0].wifiDownloadMbps} Mbps · Đặt cọc ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency)} hôm nay, trả ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency)} trực tiếp cho chủ nhà khi nhận phòng).`
         : 'Hiện chưa có chỗ ở phù hợp mô tả đó.'
       : top.length > 0
-        ? `${relaxed ? 'Showing closest available matches' : 'Found'} ${top.length} live work-ready Vietnam stays: leading with ${top[0].titleEn} in ${top[0].destinationNameEn} (${top[0].wifiDownloadMbps} Mbps tested Wi-Fi, ${formatMoneyFromVnd(top[0].monthDisplayVnd, params.currency)}/month all-inclusive).`
+        ? `${relaxed ? 'Showing closest available matches' : 'Found'} ${top.length} live work-ready Vietnam stays: leading with ${top[0].titleEn} in ${top[0].destinationNameEn} (${top[0].wifiDownloadMbps} Mbps · Pay ${formatMoneyFromVnd(top[0].monthFeeOnlineVnd, params.currency)} today to reserve, ${formatMoneyFromVnd(top[0].monthPayAtCheckinVnd, params.currency)} due directly to host at check-in).`
         : 'No matching stays are currently available.';
 
   return {
     summary,
+    conciergeWhatsappUrl,
     extractedFilters: {
       destination,
       lifestyle,

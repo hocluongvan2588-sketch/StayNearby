@@ -3,18 +3,24 @@ import { notFound } from 'next/navigation';
 import {
   ArrowLeft,
   CheckCircle2,
+  ExternalLink,
   Laptop,
   MapPin,
+  MessageCircle,
   Monitor,
   Shield,
+  ShieldCheck,
   Star,
   Utensils,
   Wifi,
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
+import { getConfig } from '@/lib/config';
+import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
 import { getServerPreferences } from '@/lib/preferences';
-import { formatVndExact } from '@/lib/i18n';
+import { formatMoneyFromVnd, formatVndExact } from '@/lib/i18n';
 import { formatPropertyTypeLabel, getStayDetailBySlug } from '@/modules/catalog';
+import { buildConciergeWhatsappUrl } from '@/modules/notifications';
 import { StayBookingWidget } from '@/components/StayBookingWidget';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +39,13 @@ export default async function StayDetailPage({
 
   if (!stay) notFound();
   const isVi = prefs.locale === 'vi';
+  const defaultCheckIn = addDaysIso(getTodayIsoVietnam(), 7);
+  const conciergeWhatsappUrl = buildConciergeWhatsappUrl({
+    stayTitle: isVi ? stay.titleVi : stay.titleEn,
+    checkIn: defaultCheckIn,
+    nights: 30,
+    locale: prefs.locale,
+  });
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -61,6 +74,22 @@ export default async function StayDetailPage({
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
             <span className="rounded-full bg-[#164E3F] px-3 py-1 text-white">
               {formatPropertyTypeLabel(stay.propertyType, prefs.locale)}
+            </span>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 ${
+                stay.verificationTier === 'VIETNOMAD_CERTIFIED'
+                  ? 'bg-[#E7F1EC] text-[#164E3F] border border-[#164E3F]/25'
+                  : 'bg-[#FAF8F3] text-[#A67C2E] border border-[#A67C2E]/35'
+              }`}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              {stay.verificationTier === 'VIETNOMAD_CERTIFIED'
+                ? isVi
+                  ? 'Verified by VietNomad (Kiểm định thực địa)'
+                  : 'Verified by VietNomad'
+                : isVi
+                  ? 'Host Verified (Chủ nhà chứng thực)'
+                  : 'Host Verified'}
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-[#FAF8F3] px-3 py-1 text-[#A67C2E] border border-[#E5DFD3]">
               <Star className="h-3.5 w-3.5" fill="#A67C2E" />
@@ -154,7 +183,71 @@ export default async function StayDetailPage({
                 </div>
               </div>
             </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#E5DFD3] pt-4 text-xs">
+              <div className="text-[#53635D]">
+                {isVi
+                  ? `Xác minh gần nhất: ${stay.verifiedAt.slice(0, 10)} · Bảo chứng 100% hoàn phí đặt cọc`
+                  : `Verified ${stay.verifiedAt.slice(0, 10)} · Covered by 100% Booking Fee Refund Guarantee`}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {stay.speedtestProofUrl && (
+                  <a
+                    href={stay.speedtestProofUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#164E3F]/25 bg-[#E7F1EC] px-3 py-1.5 font-semibold text-[#164E3F] hover:bg-[#d7eae0]"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    {isVi ? 'Xem Chứng nhận Speedtest' : 'View Speedtest Certificate'}
+                  </a>
+                )}
+                {stay.workspaceVideoUrl && (
+                  <a
+                    href={stay.workspaceVideoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-1.5 font-semibold text-[#17221E] hover:bg-[#F2EDE3]"
+                  >
+                    <Laptop className="h-3.5 w-3.5 text-[#C25E28]" />
+                    {isVi ? 'Xem Hồ sơ Bàn làm việc' : 'Workspace Walkthrough'}
+                  </a>
+                )}
+              </div>
+            </div>
           </section>
+
+          {/* How Payment Works + Local Concierge */}
+          {stay.businessModel === 'booking_flow' && (
+            <section className="rounded-3xl border border-[#C25E28]/25 bg-[#FAF8F3] p-6">
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <div className="space-y-1">
+                  <div className="text-xs font-bold uppercase tracking-wider text-[#C25E28]">
+                    {isVi ? 'Mô hình Đặt phòng An toàn 12% / 88%' : 'Low-Risk Split Payment (12% / 88%)'}
+                  </div>
+                  <h3 className="font-serif-display text-xl font-semibold text-[#17221E]">
+                    {isVi
+                      ? `Chỉ trả ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, prefs.currency)} online hôm nay — trả ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, prefs.currency)} trực tiếp cho chủ nhà khi nhận phòng`
+                      : `Pay ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, prefs.currency)} today to reserve — pay ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, prefs.currency)} directly to host at check-in`}
+                  </h3>
+                  <p className="text-xs text-[#53635D]">
+                    {isVi
+                      ? 'Không bị giam 100% tiền thuê nhà trước. Kiểm tra Wi-Fi & bàn làm việc thực tế rồi mới thanh toán phần còn lại cho chủ nhà.'
+                      : 'Never lock 100% of your monthly rent upfront. Inspect the room & Wi-Fi in person before paying the host directly.'}
+                  </p>
+                </div>
+                <a
+                  href={conciergeWhatsappUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-xs font-bold text-[#0F392E] shadow-sm transition hover:brightness-105"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  {isVi ? 'Hỏi Concierge qua WhatsApp' : 'Chat with Local Concierge'}
+                </a>
+              </div>
+            </section>
+          )}
 
           {/* Description */}
           <section className="space-y-3">
@@ -253,7 +346,11 @@ export default async function StayDetailPage({
 
         {/* Right Sticky Package & Instant Booking Column */}
         <div className="lg:col-span-5">
-          <StayBookingWidget stay={stay} user={user} />
+          <StayBookingWidget
+            stay={stay}
+            user={user}
+            conciergeWhatsapp={getConfig().conciergeWhatsapp}
+          />
         </div>
       </div>
     </div>
