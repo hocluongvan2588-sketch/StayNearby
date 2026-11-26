@@ -26,6 +26,7 @@ import {
 import { formatPropertyTypeLabel, getStayDetailBySlug } from '@/modules/catalog';
 import { buildConciergeWhatsappUrl } from '@/modules/notifications';
 import { StayBookingWidget } from '@/components/StayBookingWidget';
+import { StayPhotoGallery } from '@/components/StayPhotoGallery';
 
 export const dynamic = 'force-dynamic';
 
@@ -103,38 +104,13 @@ export default async function StayDetailPage({
         </div>
       </div>
 
-      <div className="mb-10 grid gap-3 sm:grid-cols-12">
-        <div className="overflow-hidden rounded-3xl bg-[#F2EDE3] sm:col-span-7">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={stay.heroImage}
-            alt={isVi ? stay.titleVi : stay.titleEn}
-            className="aspect-[4/3] h-full w-full object-cover"
-          />
-        </div>
-        <div className="grid gap-3 sm:col-span-5">
-          <div className="relative overflow-hidden rounded-3xl bg-[#F2EDE3]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={stay.workspacePhotoUrl}
-              alt="Workspace Desk"
-              className="aspect-[16/9] h-full w-full object-cover"
-            />
-            <span className="absolute bottom-3 left-3 rounded-full bg-[#164E3F]/90 px-3 py-1 text-xs font-semibold text-white">
-              <Laptop className="mr-1 inline h-3.5 w-3.5" />
-              {isVi ? 'Ảnh góc làm việc thực tế' : 'Workspace photo'}
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {stay.galleryImages.slice(0, 2).map((img, i) => (
-              <div key={`${img}-${i}`} className="overflow-hidden rounded-2xl bg-[#F2EDE3]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img} alt="Residence view" className="aspect-[4/3] h-full w-full object-cover" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <StayPhotoGallery
+        title={isVi ? stay.titleVi : stay.titleEn}
+        heroImage={stay.heroImage}
+        workspacePhotoUrl={stay.workspacePhotoUrl}
+        galleryImages={stay.galleryImages}
+        locale={prefs.locale}
+      />
 
       <div className="grid gap-10 lg:grid-cols-12">
         <div className="space-y-10 lg:col-span-7">
