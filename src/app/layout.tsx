@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { getCurrentUser } from '@/lib/auth/session';
-import { getConfig } from '@/lib/config';
 import { getServerPreferences } from '@/lib/preferences';
 import { getDestinations, getLifestyles } from '@/modules/catalog';
 import { PreferencesProvider } from '@/components/PreferencesProvider';
@@ -36,7 +35,6 @@ export default async function RootLayout({
             user={user}
             destinations={destinations}
             lifestyles={lifestyles}
-            demoEnabled={getConfig().demoMode}
           >
             {children}
           </AppShellSwitch>

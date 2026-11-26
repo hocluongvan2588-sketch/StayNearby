@@ -9,7 +9,6 @@ export interface AppConfig {
   pgliteDataDir: string;
   authSecret: string;
   defaultLocale: 'en' | 'vi';
-  demoMode: boolean;
   isVercel: boolean;
   conciergeWhatsapp: string;
   resendApiKey: string;
@@ -60,8 +59,6 @@ export function getConfig(): AppConfig {
     authSecret:
       process.env.AUTH_SECRET?.trim() || 'vietnomad-dev-secret-change-in-production',
     defaultLocale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE === 'vi' ? 'vi' : 'en',
-    // Production cleanup per PRD: only show demo shortcuts when NEXT_PUBLIC_ENABLE_DEMO=true
-    demoMode: process.env.NEXT_PUBLIC_ENABLE_DEMO === 'true',
     isVercel,
     conciergeWhatsapp:
       process.env.NEXT_PUBLIC_CONCIERGE_WHATSAPP?.trim() || '84901234567',
