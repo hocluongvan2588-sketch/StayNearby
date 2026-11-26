@@ -110,8 +110,8 @@ export function SearchStaysClient({
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-12">
-        <aside className="space-y-6 rounded-3xl border border-[#E5DFD3] bg-white p-5 lg:col-span-3 h-fit">
+      <div className="grid gap-6 lg:grid-cols-[248px_1fr] lg:items-start">
+        <aside className="space-y-6 rounded-3xl border border-[#E5DFD3] bg-white p-5">
           <div className="flex items-center justify-between border-b border-[#E5DFD3] pb-3">
             <span className="flex items-center gap-2 text-sm font-bold text-[#17221E]">
               <SlidersHorizontal className="h-4 w-4 text-[#164E3F]" />
@@ -249,7 +249,7 @@ export function SearchStaysClient({
           </div>
         </aside>
 
-        <div className="lg:col-span-9">
+        <div>
           {stays.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-[#E5DFD3] bg-white p-12 text-center">
               <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
@@ -268,7 +268,7 @@ export function SearchStaysClient({
               </Link>
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {stays.map((s) => (
                 <StayCard
                   key={s.id}

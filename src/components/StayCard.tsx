@@ -78,46 +78,47 @@ export function StayCard({
 
         <div className="absolute left-3 right-3 top-3 flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#164E3F] px-2.5 py-1 text-xs font-semibold text-white shadow">
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[#164E3F] px-2.5 py-1 text-xs font-semibold text-white shadow">
               <Wifi className="h-3.5 w-3.5" />
               {stay.wifiDownloadMbps} Mbps
             </span>
             <span
-              className={`rounded-full px-2 py-1 text-[10px] font-bold shadow ${
+              className={`whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold shadow ${
                 stay.verificationTier === 'VIETNOMAD_CERTIFIED'
-                  ? 'bg-[#0F392E]/90 text-[#9CE3C7] border border-[#9CE3C7]/30'
-                  : 'bg-[#FAF8F3]/95 text-[#A67C2E] border border-[#A67C2E]/35'
+                  ? 'border border-[#9CE3C7]/30 bg-[#0F392E]/90 text-[#9CE3C7]'
+                  : 'border border-[#A67C2E]/35 bg-[#FAF8F3]/95 text-[#A67C2E]'
               }`}
             >
               {formatVerificationTierLabel(stay.verificationTier, locale)}
             </span>
             {stay.dealSavingsPct > 0 && (
-              <span className="rounded-full bg-[#C25E28] px-2.5 py-1 text-xs font-semibold text-white shadow">
+              <span className="whitespace-nowrap rounded-full bg-[#C25E28] px-2.5 py-1 text-xs font-semibold text-white shadow">
                 {isVi ? `Giảm ${stay.dealSavingsPct}%` : `Save ${stay.dealSavingsPct}%`}
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={handleCompareToggle}
-              title={isVi ? 'So sánh' : 'Compare'}
-              className={`rounded-full px-2 py-1 text-[11px] font-semibold backdrop-blur-md transition ${
+              title={isCompared ? (isVi ? 'Bỏ so sánh' : 'Remove from compare') : isVi ? 'So sánh' : 'Compare'}
+              aria-label={isCompared ? (isVi ? 'Bỏ so sánh' : 'Remove from compare') : isVi ? 'So sánh' : 'Compare'}
+              className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-md transition ${
                 isCompared
                   ? 'bg-[#A67C2E] text-white'
                   : 'bg-white/90 text-[#17221E] hover:bg-white'
               }`}
             >
-              <ArrowLeftRight className="mr-1 inline h-3 w-3" />
-              {isCompared ? (isVi ? 'Đã chọn' : 'Added') : isVi ? 'So sánh' : 'Compare'}
+              <ArrowLeftRight className="h-3.5 w-3.5" />
             </button>
             <button
               type="button"
               onClick={handleSaveToggle}
               disabled={saving}
+              title={isVi ? 'Lưu chỗ ở' : 'Save stay'}
               aria-label={isVi ? 'Lưu chỗ ở' : 'Save stay'}
-              className={`rounded-full p-1.5 backdrop-blur-md transition ${
+              className={`flex h-8 w-8 items-center justify-center rounded-full backdrop-blur-md transition ${
                 saved ? 'bg-[#C25E28] text-white' : 'bg-white/90 text-[#17221E] hover:bg-white'
               }`}
             >
@@ -151,10 +152,10 @@ export function StayCard({
         <div>
           <div className="mb-1 flex items-center justify-between text-xs text-[#53635D]">
             <span className="inline-flex items-center gap-1 font-medium text-[#164E3F]">
-              <MapPin className="h-3.5 w-3.5" />
+              <MapPin className="h-3.5 w-3.5 shrink-0" />
               {isVi ? stay.destinationNameVi : stay.destinationNameEn}
             </span>
-            <span>{formatPropertyTypeLabel(stay.propertyType, locale)}</span>
+            <span className="truncate">{formatPropertyTypeLabel(stay.propertyType, locale)}</span>
           </div>
 
           <Link href={`/stays/${stay.slug}`} className="block">
@@ -184,7 +185,7 @@ export function StayCard({
                   : 'Shared kitchen'}
             </span>
             {stay.nearestCoworking && (
-              <span className="rounded-md bg-[#F2EDE3] px-2 py-0.5 text-[#53635D]">
+              <span className="max-w-full truncate rounded-md bg-[#F2EDE3] px-2 py-0.5 text-[#53635D]">
                 {stay.nearestCoworking.distanceKm} km, {stay.nearestCoworking.name}
               </span>
             )}
@@ -195,9 +196,9 @@ export function StayCard({
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-[#FAF8F3] px-2.5 py-2">
               <div className="text-[11px] text-[#53635D]">
-                {isVi ? '1 tuần (7 đêm)' : '1 week (7 nights)'}
+                {isVi ? '7 đêm' : '7 nights'}
               </div>
-              <div className="text-sm font-bold text-[#17221E]">
+              <div className="whitespace-nowrap text-sm font-bold text-[#17221E]">
                 {formatMoneyFromVnd(stay.weekDisplayVnd, currency)}
               </div>
               <div className="text-[10px] text-[#53635D]">
@@ -206,9 +207,9 @@ export function StayCard({
             </div>
 
             <div className="rounded-xl border border-[#164E3F]/20 bg-[#E7F1EC]/55 px-2.5 py-2">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-[#164E3F]">
-                  {isVi ? '1 tháng (30 đêm)' : '1 month (30 nights)'}
+              <div className="flex items-center justify-between gap-1 text-[11px]">
+                <span className="whitespace-nowrap font-semibold text-[#164E3F]">
+                  {isVi ? '30 đêm' : '30 nights'}
                 </span>
                 {stay.stayLongerSavingsPct > 0 && (
                   <span className="rounded bg-[#164E3F] px-1 text-[9px] font-bold text-white">
@@ -216,18 +217,18 @@ export function StayCard({
                   </span>
                 )}
               </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold text-[#164E3F]">
-                  {formatMoneyFromVnd(stay.monthDisplayVnd, currency)}
+              <div className="whitespace-nowrap text-sm font-bold text-[#164E3F]">
+                {formatMoneyFromVnd(stay.monthDisplayVnd, currency)}
+              </div>
+              <div className="flex items-center gap-1 text-[10px] text-[#164E3F]">
+                <span className="whitespace-nowrap">
+                  {formatMoneyFromVnd(stay.monthNightVnd, currency)}/{isVi ? 'đêm' : 'night'}
                 </span>
                 {stay.compareMonthDisplayVnd && (
-                  <span className="text-[10px] text-[#53635D] line-through">
+                  <span className="truncate text-[#53635D] line-through">
                     {formatMoneyFromVnd(stay.compareMonthDisplayVnd, currency)}
                   </span>
                 )}
-              </div>
-              <div className="text-[10px] text-[#164E3F]">
-                {formatMoneyFromVnd(stay.monthNightVnd, currency)}/{isVi ? 'đêm' : 'night'}
               </div>
             </div>
           </div>
