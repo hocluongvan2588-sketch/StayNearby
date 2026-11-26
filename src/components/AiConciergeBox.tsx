@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Loader2, MessageCircle, Send, Sparkles } from 'lucide-react';
 import type { ConciergeResponse } from '@/modules/concierge';
 import { usePreferences } from './PreferencesProvider';
-import { StayCard } from './StayCard';
+import { PaginatedStayGrid } from './PaginatedStayGrid';
 
 export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { locale } = usePreferences();
@@ -141,11 +141,11 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
               {isVi ? 'Nhắn hỗ trợ qua WhatsApp' : 'Ask on WhatsApp'}
             </a>
           </div>
-          <div className="grid gap-5 md:grid-cols-3">
-            {result.matches.map((stay) => (
-              <StayCard key={stay.id} stay={stay} isAuthenticated={isAuthenticated} />
-            ))}
-          </div>
+          <PaginatedStayGrid
+            stays={result.matches}
+            isAuthenticated={isAuthenticated}
+            gapClass="gap-5"
+          />
         </div>
       )}
     </section>

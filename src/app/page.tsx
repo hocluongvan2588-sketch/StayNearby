@@ -23,7 +23,7 @@ import {
 } from '@/modules/catalog';
 import { AiConciergeBox } from '@/components/AiConciergeBox';
 import { HomeSearchBar } from '@/components/HomeSearchBar';
-import { StayCard } from '@/components/StayCard';
+import { PaginatedStayGrid } from '@/components/PaginatedStayGrid';
 import { VietnamMap } from '@/components/VietnamMap';
 
 export const dynamic = 'force-dynamic';
@@ -231,16 +231,11 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {stays.slice(0, 6).map((stay) => (
-            <StayCard
-              key={stay.id}
-              stay={stay}
-              initialSaved={savedIds.has(stay.id)}
-              isAuthenticated={Boolean(user)}
-            />
-          ))}
-        </div>
+        <PaginatedStayGrid
+          stays={stays}
+          savedIds={Array.from(savedIds)}
+          isAuthenticated={Boolean(user)}
+        />
       </section>
 
       {/* Monthly Deals */}

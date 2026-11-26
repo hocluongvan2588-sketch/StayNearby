@@ -2,7 +2,7 @@ import { getCurrentUser } from '@/lib/auth/session';
 import { dbQuery } from '@/lib/db';
 import { getServerPreferences } from '@/lib/preferences';
 import { searchStays } from '@/modules/catalog';
-import { StayCard } from '@/components/StayCard';
+import { PaginatedStayGrid } from '@/components/PaginatedStayGrid';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,16 +43,11 @@ export default async function DealsPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {dealStays.map((s) => (
-          <StayCard
-            key={s.id}
-            stay={s}
-            initialSaved={savedIds.has(s.id)}
-            isAuthenticated={Boolean(user)}
-          />
-        ))}
-      </div>
+      <PaginatedStayGrid
+        stays={dealStays}
+        savedIds={Array.from(savedIds)}
+        isAuthenticated={Boolean(user)}
+      />
     </div>
   );
 }

@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
+import { dbQuery } from '@/lib/db';
 import { getServerPreferences } from '@/lib/preferences';
 import { getLifestyles, searchStays } from '@/modules/catalog';
-import { StayCard } from '@/components/StayCard';
+import { PaginatedStayGrid } from '@/components/PaginatedStayGrid';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +25,15 @@ export default async function LifestyleDetailPage({
   const lifestyle = lifestyles.find((l) => l.slug === slug);
   if (!lifestyle) notFound();
   const isVi = prefs.locale === 'vi';
+
+  let savedIds: string[] = [];
+  if (user) {
+    const sv = await dbQuery<{ stay_id: string }>(
+      'SELECT stay_id FROM saved_stays WHERE user_id = $1',
+      [user.id]
+    );
+    savedIds = sv.rows.map((r) => r.stay_id);
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -59,11 +69,11 @@ export default async function LifestyleDetailPage({
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {stays.map((s) => (
-          <StayCard key={s.id} stay={s} isAuthenticated={Boolean(user)} />
-        ))}
-      </div>
+      <PaginatedStayGrid
+        stays={stays}
+        savedIds={savedIds}
+        isAuthenticated={Boolean(user)}
+      />
     </div>
   );
 }

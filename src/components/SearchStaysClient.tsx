@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, SlidersHorizontal, Wifi } from 'lucide-react
 import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
 import type { DestinationSummary, LifestyleItem, StayCardItem } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
-import { StayCard } from './StayCard';
+import { PaginatedStayGrid } from './PaginatedStayGrid';
 
 export interface SearchFilterState {
   destination: string;
@@ -41,7 +41,6 @@ export function SearchStaysClient({
   const router = useRouter();
   const { locale } = usePreferences();
   const isVi = locale === 'vi';
-  const savedSet = new Set(savedIds);
 
   function pushFilters(next: Partial<SearchFilterState>) {
     const merged = { ...filters, ...next };
@@ -268,16 +267,12 @@ export function SearchStaysClient({
               </Link>
             </div>
           ) : (
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {stays.map((s) => (
-                <StayCard
-                  key={s.id}
-                  stay={s}
-                  initialSaved={savedSet.has(s.id)}
-                  isAuthenticated={isAuthenticated}
-                />
-              ))}
-            </div>
+            <PaginatedStayGrid
+              stays={stays}
+              savedIds={savedIds}
+              isAuthenticated={isAuthenticated}
+              gapClass="gap-5"
+            />
           )}
         </div>
       </div>
