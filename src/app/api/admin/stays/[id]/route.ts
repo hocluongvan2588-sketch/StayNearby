@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { requireRole } from '@/lib/auth/session';
 import { AppError } from '@/lib/errors';
 import { errJson, okJson } from '@/lib/http';
 import { updateAdminStayStatus, updateAdminStayVerification } from '@/modules/admin';
+import { requireAdminPermission } from '@/modules/admin-rbac';
 
 const schema = z.object({
   status: z.enum(['live', 'limited', 'paused']).optional(),
@@ -20,14 +20,14 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await requireRole('admin');
+    const actor = await requireAdminPermission('listings', 'edit');
     const { id } = await context.params;
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) throw new AppError('VALIDATION_ERROR', 'Invalid stay update payload.');
 
     if (parsed.data.status) {
-      await updateAdminStayStatus(admin, id, parsed.data.status);
+      await updateAdminStayStatus(actor.user, id, parsed.data.status);
     }
     if (
       parsed.data.verificationTier !== undefined ||
@@ -36,7 +36,7 @@ export async function PATCH(
       parsed.data.speedtestProofUrl !== undefined ||
       parsed.data.workspaceVideoUrl !== undefined
     ) {
-      await updateAdminStayVerification(admin, id, {
+      await updateAdminStayVerification(actor.user, id, {
         verificationTier: parsed.data.verificationTier,
         isWifiVerified: parsed.data.isWifiVerified,
         isWorkReady: parsed.data.isWorkReady,

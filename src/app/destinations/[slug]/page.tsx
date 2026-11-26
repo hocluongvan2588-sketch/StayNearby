@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, MapPin, ShieldCheck, Wifi } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { dbQuery } from '@/lib/db';
 import { getServerPreferences } from '@/lib/preferences';
-import { getDestinations, searchStays } from '@/modules/catalog';
+import { getDestinations, getDestinationLocalPlaces, searchStays } from '@/modules/catalog';
 import { PaginatedStayGrid } from '@/components/PaginatedStayGrid';
 
 export const dynamic = 'force-dynamic';
@@ -15,11 +15,12 @@ export default async function DestinationDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [prefs, user, destinations, stays] = await Promise.all([
+  const [prefs, user, destinations, stays, localPlaces] = await Promise.all([
     getServerPreferences(),
     getCurrentUser(),
     getDestinations(),
     searchStays({ destination: slug }),
+    getDestinationLocalPlaces(slug),
   ]);
 
   const dest = destinations.find((d) => d.slug === slug);
@@ -116,6 +117,61 @@ export default async function DestinationDetailPage({
         savedIds={savedIds}
         isAuthenticated={Boolean(user)}
       />
+
+      {localPlaces.length > 0 && (
+        <section className="mt-12 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-8">
+          <div className="mb-5 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+            <div>
+              <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+                {isVi
+                  ? `Khám phá địa phương tại ${dest.nameVi}`
+                  : `Local Discovery in ${dest.nameEn}`}
+              </h2>
+              <p className="mt-1 text-xs text-[#53635D]">
+                {isVi
+                  ? 'Danh sách coworking, quán cà phê, phòng tập và dịch vụ thiết yếu được đội ngũ VietNomad kiểm chứng.'
+                  : 'Curated coworking hubs, specialty coffee roasters, wellness studios, and daily essentials.'}
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-[#164E3F]">
+              {localPlaces.length} {isVi ? 'địa điểm đã xác minh' : 'verified places'}
+            </span>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {localPlaces.map((pl) => (
+              <div
+                key={pl.id}
+                className="flex flex-col justify-between rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 text-[11px] font-semibold">
+                    <span className="rounded bg-[#E7F1EC] px-2 py-0.5 uppercase tracking-wide text-[#164E3F]">
+                      {pl.category.replace('_', ' ')}
+                    </span>
+                    <span className="text-[#53635D]">{pl.priceRange}</span>
+                  </div>
+                  <h3 className="mt-2.5 text-sm font-semibold text-[#17221E]">{pl.name}</h3>
+                  {(pl.neighborhoodNameEn || pl.neighborhoodNameVi) && (
+                    <div className="mt-0.5 text-[11px] font-medium text-[#C25E28]">
+                      {isVi
+                        ? pl.neighborhoodNameVi || pl.neighborhoodNameEn
+                        : pl.neighborhoodNameEn || pl.neighborhoodNameVi}
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs leading-relaxed text-[#53635D]">
+                    {isVi ? pl.descriptionVi || pl.descriptionEn : pl.descriptionEn || pl.descriptionVi}
+                  </p>
+                </div>
+                <div className="mt-3 border-t border-[#E5DFD3] pt-2.5 text-[11px] text-[#53635D]">
+                  <div>{pl.address}</div>
+                  <div className="mt-0.5 font-medium text-[#17221E]">{pl.openingHours}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

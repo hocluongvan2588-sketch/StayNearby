@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { requireRole } from '@/lib/auth/session';
 import { AppError } from '@/lib/errors';
 import { errJson, okJson } from '@/lib/http';
 import { reviewHostApplication } from '@/modules/admin';
+import { requireAdminPermission } from '@/modules/admin-rbac';
 
 const schema = z.object({
   decision: z.enum(['approved', 'rejected']),
@@ -14,13 +14,13 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await requireRole('admin');
+    const actor = await requireAdminPermission('listings', 'approve');
     const { id } = await context.params;
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) throw new AppError('VALIDATION_ERROR', 'Invalid decision.');
     const out = await reviewHostApplication(
-      admin,
+      actor.user,
       id,
       parsed.data.decision,
       parsed.data.reviewNote ?? ''

@@ -12,6 +12,7 @@ import { AppError } from '@/lib/errors';
 import { calculateCancellationOutcome, calculateStayQuote } from '@/lib/pricing';
 import { refundGatewayTransactionIfLive } from '@/lib/stripe-refund';
 import { dispatchBookingLockedNotifications } from '@/modules/notifications';
+import { getPlatformFeeConfig } from '@/modules/platform-settings';
 
 export interface CreateBookingInput {
   stayId: string;
@@ -24,6 +25,95 @@ export interface CreateBookingInput {
   useRewardCredit?: boolean;
   guestNote?: string;
   checkoutMode?: 'intent' | 'instant';
+  promotionCode?: string;
+}
+
+async function recordBookingFinancialLedgerTx(
+  tx: DbClient,
+  params: {
+    bookingId: string;
+    bookingCode: string;
+    hostId: string;
+    guestId: string;
+    gmvTotalVnd: number;
+    platformRevenueVnd: number;
+    hostPayableVnd: number;
+    hostCommissionRate: number;
+    fxRateUsd: number;
+    checkInIso: string;
+    actorUserId: string;
+  }
+) {
+  const periodMonth = params.checkInIso.slice(0, 7);
+  await tx.query(
+    `INSERT INTO ledger_entries (
+      id, entry_type, booking_id, host_id, amount_vnd, currency, fx_rate_to_vnd, description, recorded_by
+    ) VALUES
+      ($1, 'gmv', $2, $3, $4, 'VND', 1, $5, $9),
+      ($6, 'platform_revenue', $2, $3, $7, 'VND', 1, $8, $9),
+      ($10, 'host_payable', $2, $3, $11, 'VND', 1, $12, $9)`,
+    [
+      crypto.randomUUID(),
+      params.bookingId,
+      params.hostId,
+      params.gmvTotalVnd,
+      `GMV recognized for booking ${params.bookingCode}`,
+      crypto.randomUUID(),
+      params.platformRevenueVnd,
+      `Online booking & service fee revenue for ${params.bookingCode}`,
+      params.actorUserId,
+      crypto.randomUUID(),
+      params.hostPayableVnd,
+      `Host direct rent payable at check-in (${Math.round(params.hostCommissionRate * 100)}% commission) for ${params.bookingCode}`,
+    ]
+  );
+
+  const existingPayout = await tx.query<{ id: string }>(
+    'SELECT id FROM host_payouts WHERE booking_id = $1 LIMIT 1',
+    [params.bookingId]
+  );
+  if (!existingPayout.rows[0]) {
+    const commissionVnd = Math.round(params.hostPayableVnd * params.hostCommissionRate);
+    await tx.query(
+      `INSERT INTO host_payouts (
+        id, host_id, booking_id, period_month, collection_mode,
+        gross_amount_vnd, commission_vnd, adjustment_vnd, net_payable_vnd,
+        status, due_date, notes
+      ) VALUES ($1, $2, $3, $4, 'direct_at_checkin', $5, $6, 0, $7, 'direct_at_checkin', $8::date, $9)`,
+      [
+        crypto.randomUUID(),
+        params.hostId,
+        params.bookingId,
+        periodMonth,
+        params.hostPayableVnd,
+        commissionVnd,
+        params.hostPayableVnd - commissionVnd,
+        params.checkInIso,
+        '100% rent settled directly to host upon check-in (0% host commission)',
+      ]
+    );
+  }
+
+  const existingInv = await tx.query<{ id: string }>(
+    'SELECT id FROM invoices WHERE booking_id = $1 AND invoice_type = $2 LIMIT 1',
+    [params.bookingId, 'guest_service_fee']
+  );
+  if (!existingInv.rows[0] && params.platformRevenueVnd > 0) {
+    await tx.query(
+      `INSERT INTO invoices (
+        id, invoice_number, invoice_type, booking_id, user_id,
+        subtotal_vnd, tax_vnd, total_vnd, currency, status, metadata_json
+      ) VALUES ($1, $2, 'guest_service_fee', $3, $4, $5, 0, $5, 'VND', 'issued', $6::jsonb)`,
+      [
+        crypto.randomUUID(),
+        `INV-${params.bookingCode}`,
+        params.bookingId,
+        params.guestId,
+        params.platformRevenueVnd,
+        JSON.stringify({ fxRateUsd: params.fxRateUsd }),
+      ]
+    );
+  }
 }
 
 export async function lockRoomNightsTx(
@@ -260,6 +350,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       throw new AppError('UNAUTHORIZED', 'Account not found.');
     }
 
+    const platformConfig = await getPlatformFeeConfig(tx);
     const quote = calculateStayQuote({
       pkg: {
         wholesale7Vnd: toNum(meta.wholesale_7_vnd),
@@ -277,12 +368,15 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       availableRewardCreditVnd: toNum(freshUser.reward_credit_vnd),
       useRewardCredit: input.useRewardCredit,
       nightOverridesVnd,
+      serviceFeeRate: platformConfig.serviceFeeRate,
+      vatDiscountRate: platformConfig.vatDiscountRate,
+      premiumRewardRate: platformConfig.premiumRewardRate,
     });
 
     const bookingId = crypto.randomUUID();
     const bookingCode = `VN-${crypto.randomInt(100000, 999999)}`;
 
-    // Unified BookingFlow: 12% Booking & Service Fee collected online; 100% of host rate paid directly at check-in
+    // Unified BookingFlow: configurable Booking & Service Fee collected online; host rate paid directly at check-in
     const unitsTotal = toNum(meta.units_total, 1);
     const paymentIntentId = `pi_vn_${crypto.randomBytes(8).toString('hex')}`;
 
@@ -299,6 +393,16 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
           ? 'RESERVED_LOCKED'
           : 'PENDING_HOST_APPROVAL'
         : 'PENDING_PAYMENT';
+
+    const bookingStatus =
+      checkoutMode === 'instant'
+        ? instantApproved
+          ? 'confirmed'
+          : 'pending_approval'
+        : 'pending_payment';
+    const paymentStatus = checkoutMode === 'instant' ? 'paid' : 'pending';
+    const payoutStatus = checkoutMode === 'instant' ? 'direct_at_checkin' : 'pending';
+    const fxRateUsd = platformConfig.fxRates.USD ?? 25400;
 
     if (checkoutMode === 'instant') {
       if (quote.rewardCreditUsedVnd > 0) {
@@ -318,11 +422,22 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
     await tx.query(
       `INSERT INTO bookings (
         id, booking_code, stay_id, room_id, package_id, guest_id, business_model,
-        status, check_in, check_out, nights, guests_count, wholesale_total_vnd,
+        status, booking_status, stay_status, payment_status, payout_status, refund_status,
+        applied_service_fee_rate, applied_host_commission_rate, applied_fx_rate_usd, currency_code,
+        promotion_code,
+        check_in, check_out, nights, guests_count, wholesale_total_vnd,
         service_fee_vnd, vat_discount_vnd, reward_credit_used_vnd, guest_total_vnd,
         booking_fee_online_vnd, pay_at_checkin_vnd, payment_intent_id, paid_at,
         reward_credit_earned_vnd, cancellation_policy, guest_note
-      ) VALUES ($1,$2,$3,$4,$5,$6,'booking_flow',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,'booking_flow',
+        $7,$8,'upcoming',$9,$10,'none',
+        $11,$12,$13,'VND',$14,
+        $15,$16,$17,$18,$19,
+        $20,$21,$22,$23,
+        $24,$25,$26,$27,
+        $28,$29,$30
+      )`,
       [
         bookingId,
         bookingCode,
@@ -331,6 +446,13 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         meta.pkg_id,
         user.id,
         initialStatus,
+        bookingStatus,
+        paymentStatus,
+        payoutStatus,
+        platformConfig.serviceFeeRate,
+        platformConfig.hostCommissionRate,
+        fxRateUsd,
+        input.promotionCode?.trim() || null,
         input.checkIn,
         checkOut,
         input.nights,
@@ -360,10 +482,23 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
           ? instantApproved
             ? `Instant booking created and locked (${input.nights} nights).`
             : `Booking request submitted awaiting host approval (${input.nights} nights).`
-          : `Reservation initialized awaiting 12% online fee (${input.nights} nights).`,
+          : `Reservation initialized awaiting ${Math.round(platformConfig.serviceFeeRate * 100)}% online fee (${input.nights} nights).`,
     });
 
     if (checkoutMode === 'instant') {
+      await recordBookingFinancialLedgerTx(tx, {
+        bookingId,
+        bookingCode,
+        hostId: meta.host_id,
+        guestId: user.id,
+        gmvTotalVnd: quote.totalStayVnd,
+        platformRevenueVnd: quote.feeOnlineVnd,
+        hostPayableVnd: quote.payAtCheckinVnd,
+        hostCommissionRate: platformConfig.hostCommissionRate,
+        fxRateUsd,
+        checkInIso: input.checkIn,
+        actorUserId: user.id,
+      });
       await dispatchBookingLockedNotifications(tx, bookingId);
     }
 
@@ -391,19 +526,23 @@ export async function markBookingPaidInTx(
     id: string;
     booking_code: string;
     guest_id: string;
+    host_id: string;
     room_id: string;
     status: string;
     check_in: string | Date;
     check_out: string | Date;
+    guest_total_vnd: string | number;
     booking_fee_online_vnd: string | number;
     pay_at_checkin_vnd: string | number;
     reward_credit_used_vnd: string | number;
     reward_credit_earned_vnd: string | number;
+    applied_host_commission_rate: string | number | null;
+    applied_fx_rate_usd: string | number | null;
     payment_intent_id: string | null;
     units_total: number;
     is_instant_book: boolean;
   }>(
-    `SELECT b.*, sr.units_total, s.is_instant_book
+    `SELECT b.*, sr.units_total, s.is_instant_book, s.host_id
      FROM bookings b
      JOIN stay_rooms sr ON sr.id = b.room_id
      JOIN stays s ON s.id = b.stay_id
@@ -453,17 +592,35 @@ export async function markBookingPaidInTx(
   const nextProvider = paymentMeta?.provider || 'sandbox';
   const nextRef = paymentMeta?.referenceCode || b.booking_code;
   const nextStatus = b.is_instant_book ? 'RESERVED_LOCKED' : 'PENDING_HOST_APPROVAL';
+  const nextBookingStatus = b.is_instant_book ? 'confirmed' : 'pending_approval';
 
   await tx.query(
     `UPDATE bookings
      SET status = $5,
+         booking_status = $6,
+         payment_status = 'paid',
+         payout_status = 'direct_at_checkin',
          paid_at = NOW(),
          payment_intent_id = $2,
          payment_provider = $3,
          payment_reference = $4
      WHERE id = $1`,
-    [b.id, nextPaymentIntentId, nextProvider, nextRef, nextStatus]
+    [b.id, nextPaymentIntentId, nextProvider, nextRef, nextStatus, nextBookingStatus]
   );
+
+  await recordBookingFinancialLedgerTx(tx, {
+    bookingId: b.id,
+    bookingCode: b.booking_code,
+    hostId: b.host_id,
+    guestId: b.guest_id,
+    gmvTotalVnd: toNum(b.guest_total_vnd),
+    platformRevenueVnd: toNum(b.booking_fee_online_vnd),
+    hostPayableVnd: toNum(b.pay_at_checkin_vnd),
+    hostCommissionRate: toNum(b.applied_host_commission_rate, 0),
+    fxRateUsd: toNum(b.applied_fx_rate_usd, 25400),
+    checkInIso,
+    actorUserId: b.guest_id,
+  });
 
   await logBookingEventTx(tx, {
     bookingId: b.id,
@@ -471,8 +628,8 @@ export async function markBookingPaidInTx(
     actorRole: 'guest',
     eventType: b.is_instant_book ? 'fee_paid_locked' : 'fee_paid_pending_host',
     summary: b.is_instant_book
-      ? `12% booking fee paid (${nextProvider}); dates locked immediately.`
-      : `12% booking fee paid (${nextProvider}); awaiting host confirmation.`,
+      ? `Online booking fee paid (${nextProvider}); dates locked immediately.`
+      : `Online booking fee paid (${nextProvider}); awaiting host confirmation.`,
   });
 
   await dispatchBookingLockedNotifications(tx, b.id);
@@ -526,7 +683,21 @@ export async function confirmCheckInCompleted(actor: SessionUser, bookingId: str
       throw new AppError('CONFLICT', 'Only locked bookings can be marked checked-in & paid.');
     }
 
-    await tx.query(`UPDATE bookings SET status = 'CHECKED_IN_COMPLETED' WHERE id = $1`, [b.id]);
+    await tx.query(
+      `UPDATE bookings
+       SET status = 'CHECKED_IN_COMPLETED',
+           booking_status = 'confirmed',
+           stay_status = 'checked_out',
+           payout_status = 'paid'
+       WHERE id = $1`,
+      [b.id]
+    );
+    await tx.query(
+      `UPDATE host_payouts
+       SET status = 'paid', paid_at = NOW(), updated_at = NOW()
+       WHERE booking_id = $1`,
+      [b.id]
+    );
     await logBookingEventTx(tx, {
       bookingId: b.id,
       actorUserId: actor.id,
@@ -580,6 +751,7 @@ export async function respondToPendingBooking(
       await tx.query(
         `UPDATE bookings
          SET status = 'RESERVED_LOCKED',
+             booking_status = 'confirmed',
              host_internal_note = CASE WHEN $2 <> '' THEN $2 ELSE host_internal_note END
          WHERE id = $1`,
         [b.id, (note ?? '').trim()]
@@ -631,12 +803,36 @@ export async function respondToPendingBooking(
     await tx.query(
       `UPDATE bookings
        SET status = 'cancelled',
+           booking_status = 'cancelled',
+           payment_status = CASE WHEN $1 > 0 THEN 'refunded' ELSE payment_status END,
+           payout_status = 'not_applicable',
+           refund_status = CASE WHEN $1 > 0 THEN 'completed' ELSE 'none' END,
            refund_amount_vnd = $1,
            host_internal_note = $2,
            cancelled_at = NOW()
        WHERE id = $3`,
       [feePaid, declineNote, b.id]
     );
+
+    if (feePaid > 0) {
+      await tx.query(
+        `INSERT INTO ledger_entries (
+          id, entry_type, booking_id, host_id, amount_vnd, currency, fx_rate_to_vnd, description, recorded_by
+        ) VALUES ($1, 'refund', $2, $3, $4, 'VND', 1, $5, $6)`,
+        [
+          crypto.randomUUID(),
+          b.id,
+          b.host_id,
+          -feePaid,
+          `Refunded online fee after host declined ${b.booking_code}`,
+          actor.id,
+        ]
+      );
+      await tx.query(
+        `UPDATE host_payouts SET status = 'not_applicable', updated_at = NOW() WHERE booking_id = $1`,
+        [b.id]
+      );
+    }
 
     await refundGatewayTransactionIfLive(tx, {
       bookingId: b.id,
@@ -749,12 +945,36 @@ export async function refundWifiMismatch(
     await tx.query(
       `UPDATE bookings
        SET status = 'REFUNDED_WIFI_MISMATCH',
+           booking_status = 'cancelled',
+           payment_status = 'refunded',
+           payout_status = 'not_applicable',
+           refund_status = 'completed',
            refund_amount_vnd = $1,
            mismatch_reason = $2,
            cancelled_at = NOW()
        WHERE id = $3`,
       [feePaid, cleanReason, b.id]
     );
+
+    if (feePaid > 0) {
+      await tx.query(
+        `INSERT INTO ledger_entries (
+          id, entry_type, booking_id, host_id, amount_vnd, currency, fx_rate_to_vnd, description, recorded_by
+        ) VALUES ($1, 'refund', $2, $3, $4, 'VND', 1, $5, $6)`,
+        [
+          crypto.randomUUID(),
+          b.id,
+          b.host_id,
+          -feePaid,
+          `Administrative refund for ${b.booking_code}: ${cleanReason}`,
+          actor.id,
+        ]
+      );
+      await tx.query(
+        `UPDATE host_payouts SET status = 'not_applicable', updated_at = NOW() WHERE booking_id = $1`,
+        [b.id]
+      );
+    }
 
     await tx.query(
       `INSERT INTO booking_notifications (
@@ -818,7 +1038,13 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
 
     if (b.status === 'PENDING_PAYMENT') {
       await tx.query(
-        `UPDATE bookings SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`,
+        `UPDATE bookings
+         SET status = 'cancelled',
+             booking_status = 'cancelled',
+             payment_status = 'unpaid',
+             payout_status = 'not_applicable',
+             cancelled_at = NOW()
+         WHERE id = $1`,
         [b.id]
       );
       await logBookingEventTx(tx, {
@@ -896,11 +1122,34 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
     await tx.query(
       `UPDATE bookings
        SET status = 'cancelled',
+           booking_status = 'cancelled',
+           payment_status = CASE WHEN $1 > 0 THEN 'refunded' ELSE payment_status END,
+           payout_status = 'not_applicable',
+           refund_status = CASE WHEN $1 > 0 THEN 'completed' ELSE 'none' END,
            refund_amount_vnd = $1,
            credit_issued_vnd = $2,
            cancelled_at = NOW()
        WHERE id = $3`,
       [outcome.refundAmountVnd, outcome.creditIssuedVnd, b.id]
+    );
+
+    if (outcome.refundAmountVnd > 0) {
+      await tx.query(
+        `INSERT INTO ledger_entries (
+          id, entry_type, booking_id, amount_vnd, currency, fx_rate_to_vnd, description, recorded_by
+        ) VALUES ($1, 'refund', $2, $3, 'VND', 1, $4, $5)`,
+        [
+          crypto.randomUUID(),
+          b.id,
+          -outcome.refundAmountVnd,
+          `Member cancellation cooling-off refund for booking ${b.id}`,
+          user.id,
+        ]
+      );
+    }
+    await tx.query(
+      `UPDATE host_payouts SET status = 'not_applicable', updated_at = NOW() WHERE booking_id = $1`,
+      [b.id]
     );
 
     await logBookingEventTx(tx, {

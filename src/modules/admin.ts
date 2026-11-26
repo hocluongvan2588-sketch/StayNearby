@@ -307,6 +307,20 @@ export async function reviewHostApplication(
       [reviewNote.trim() || 'Approved & published live', stayId, applicationId]
     );
 
+    await tx.query(
+      `INSERT INTO admin_audit_logs (
+        id, actor_user_id, actor_email, module, action, entity_type, entity_id, after_json, reason
+      ) VALUES ($1,$2,$3,'listings','approve','host_application',$4,$5::jsonb,$6)`,
+      [
+        crypto.randomUUID(),
+        _admin.id,
+        _admin.email,
+        applicationId,
+        JSON.stringify({ status: 'approved', createdStayId: stayId, slug }),
+        reviewNote.trim(),
+      ]
+    );
+
     return { status: 'approved' as const, createdStaySlug: slug };
   });
 }
@@ -317,7 +331,17 @@ export async function updateAdminStayStatus(
   status: 'live' | 'limited' | 'paused'
 ) {
   if (!isValidUuid(stayId)) throw new AppError('VALIDATION_ERROR', 'Invalid stay ID.');
-  await dbQuery('UPDATE stays SET status = $1 WHERE id = $2', [status, stayId]);
+  await dbQuery('UPDATE stays SET status = $1, reviewed_by = $2, reviewed_at = NOW() WHERE id = $3', [
+    status,
+    _admin.id,
+    stayId,
+  ]);
+  await dbQuery(
+    `INSERT INTO admin_audit_logs (
+      id, actor_user_id, actor_email, module, action, entity_type, entity_id, after_json
+    ) VALUES ($1,$2,$3,'listings','edit','stay',$4,$5::jsonb)`,
+    [crypto.randomUUID(), _admin.id, _admin.email, stayId, JSON.stringify({ status })]
+  );
   return { ok: true };
 }
 
