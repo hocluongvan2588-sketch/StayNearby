@@ -4,10 +4,18 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { SessionUser } from '@/lib/auth/session';
 import { closeDb, dbQuery, ensureDbReady } from '@/lib/db';
+import { parseIcalBlockedDates } from '@/lib/ical';
 import { getCommunityAndMarketplaceData, getStayDetailBySlug, searchStays } from '@/modules/catalog';
-import { cancelBookingByMember, createStayBooking } from '@/modules/bookings';
+import {
+  cancelBookingByMember,
+  confirmBookingFeePayment,
+  confirmCheckInCompleted,
+  createStayBooking,
+  refundWifiMismatch,
+} from '@/modules/bookings';
 import { submitHostApplication, topUpHostAdWallet } from '@/modules/host';
 import { reviewHostApplication } from '@/modules/admin';
+import { buildConciergeWhatsappUrl } from '@/modules/notifications';
 
 let tempDir: string;
 
@@ -49,8 +57,8 @@ afterAll(async () => {
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-describe('VietNomad Stays End-to-End PostgreSQL Domain Workflows', () => {
-  it('loads seeded Vietnam destinations, stays, and live stats', async () => {
+describe('VietNomad Stays PRD End-to-End PostgreSQL Workflows', () => {
+  it('loads seeded Vietnam destinations, stays with verification media, and live stats', async () => {
     const stats = await getCommunityAndMarketplaceData();
     expect(stats.stats.liveStays).toBeGreaterThanOrEqual(7);
     expect(stats.stats.destinations).toBe(6);
@@ -58,16 +66,21 @@ describe('VietNomad Stays End-to-End PostgreSQL Domain Workflows', () => {
     const daNangStays = await searchStays({ destination: 'da-nang', nights: 30, minWifiMbps: 150 });
     expect(daNangStays.length).toBeGreaterThanOrEqual(2);
     expect(daNangStays.every((s) => s.wifiDownloadMbps >= 150)).toBe(true);
+    expect(daNangStays[0].monthFeeOnlineVnd).toBeGreaterThan(0);
+    expect(daNangStays[0].monthPayAtCheckinVnd).toBeGreaterThan(daNangStays[0].monthFeeOnlineVnd);
+    expect(daNangStays[0].verificationTier).toBe('VIETNOMAD_CERTIFIED');
   });
 
-  it('creates an atomic BookingFlow instant booking, locks room nights, and cancels with cooling-off refund', async () => {
+  it('runs PENDING_PAYMENT -> 12% Payment -> RESERVED_LOCKED -> 3 Notifications -> Check-in Completed', async () => {
     const member = await fetchSessionUserByEmail('premium@vietnomad.demo');
+    const hostUser = await fetchSessionUserByEmail('host@vietnomad.demo');
     const stay = await getStayDetailBySlug('tay-ho-jade-residence-hanoi');
     expect(stay).not.toBeNull();
+    expect(stay!.speedtestProofUrl).toContain('speedtest-proof');
     const room = stay!.rooms[0];
     const pkg = room.packages[0];
 
-    const result = await createStayBooking(member, {
+    const intent = await createStayBooking(member, {
       stayId: stay!.id,
       roomId: room.id,
       packageId: pkg.id,
@@ -75,16 +88,82 @@ describe('VietNomad Stays End-to-End PostgreSQL Domain Workflows', () => {
       nights: 14,
       guestsCount: 1,
       applyVatFree: true,
+      checkoutMode: 'intent',
     });
 
-    expect(result.businessModel).toBe('booking_flow');
-    expect(result.bookingCode).toMatch(/^VN-/);
-    expect(result.quote.guestTotalVnd).toBeGreaterThan(0);
+    expect(intent.businessModel).toBe('booking_flow');
+    expect(intent.status).toBe('PENDING_PAYMENT');
+    expect(intent.paymentIntentId).toMatch(/^pi_vn_/);
+    expect(intent.quote.feeOnlineVnd).toBeGreaterThan(0);
+    expect(intent.quote.payAtCheckinVnd).toBe(intent.quote.wholesaleTotalVnd);
 
-    // Immediate cancellation within 48h qualifies for Cooling-Off 100% refund
-    const cancelRes = await cancelBookingByMember(member, result.bookingId);
+    // Step 2: Confirm 12% fee payment -> locks inventory & dispatches 3 notification channels
+    const paid = await confirmBookingFeePayment(member, intent.bookingId);
+    expect(paid.status).toBe('RESERVED_LOCKED');
+    expect(paid.feePaidOnlineVnd).toBe(intent.quote.feeOnlineVnd);
+
+    const notifRes = await dbQuery<{ recipient_role: string }>(
+      'SELECT recipient_role FROM booking_notifications WHERE booking_id = $1 ORDER BY recipient_role',
+      [intent.bookingId]
+    );
+    expect(notifRes.rows.map((r) => r.recipient_role)).toEqual(['admin', 'guest', 'host']);
+
+    // Host marks check-in & remaining 88% direct payment completed
+    const checkedIn = await confirmCheckInCompleted(hostUser, intent.bookingId);
+    expect(checkedIn.status).toBe('CHECKED_IN_COMPLETED');
+  });
+
+  it('refunds 100% of 12% online fee under Wi-Fi Mismatch Guarantee and unlocks room nights', async () => {
+    const member = await fetchSessionUserByEmail('nomad@vietnomad.demo');
+    const stay = await getStayDetailBySlug('tay-ho-jade-residence-hanoi');
+    const room = stay!.rooms[0];
+    const pkg = room.packages[0];
+
+    const booking = await createStayBooking(member, {
+      stayId: stay!.id,
+      roomId: room.id,
+      packageId: pkg.id,
+      checkIn: '2027-04-05',
+      nights: 7,
+      guestsCount: 1,
+      checkoutMode: 'instant',
+    });
+    expect(booking.status).toBe('RESERVED_LOCKED');
+
+    const refund = await refundWifiMismatch(
+      member,
+      booking.bookingId,
+      'Check-in speed measured 35 Mbps instead of 465 Mbps'
+    );
+    expect(refund.status).toBe('REFUNDED_WIFI_MISMATCH');
+    expect(refund.refundAmountVnd).toBe(booking.quote.feeOnlineVnd);
+
+    const locksRes = await dbQuery<{ booked_units: number }>(
+      `SELECT booked_units FROM room_night_locks WHERE room_id = $1 AND stay_date = '2027-04-05'::date`,
+      [room.id]
+    );
+    expect(Number(locksRes.rows[0]?.booked_units ?? 0)).toBe(0);
+  });
+
+  it('supports member cancellation cooling-off refund against paidOnlineVnd', async () => {
+    const member = await fetchSessionUserByEmail('nomad@vietnomad.demo');
+    const stay = await getStayDetailBySlug('cam-chau-lantern-garden-villa-hoi-an');
+    const room = stay!.rooms[0];
+    const pkg = room.packages[0];
+
+    const booking = await createStayBooking(member, {
+      stayId: stay!.id,
+      roomId: room.id,
+      packageId: pkg.id,
+      checkIn: '2027-05-01',
+      nights: 14,
+      guestsCount: 1,
+      checkoutMode: 'instant',
+    });
+
+    const cancelRes = await cancelBookingByMember(member, booking.bookingId);
     expect(cancelRes.tier).toBe('cooling_off');
-    expect(cancelRes.refundAmountVnd).toBe(result.quote.guestTotalVnd);
+    expect(cancelRes.refundAmountVnd).toBe(booking.quote.feeOnlineVnd);
   });
 
   it('charges StayDirect™ 1% referral fee from prepaid host wallet and supports top-ups', async () => {
@@ -121,12 +200,11 @@ describe('VietNomad Stays End-to-End PostgreSQL Domain Workflows', () => {
     const afterBal = Number(afterRes.rows[0]?.balance_vnd ?? 0);
     expect(afterBal).toBe(beforeBal - referral.referralFeeChargedVnd);
 
-    // Host top-up $100 adds 2,540,000 VND
     const topped = await topUpHostAdWallet(directHost, 100);
     expect(topped.balanceVnd).toBe(afterBal + 2_540_000);
   });
 
-  it('submits a €39 stay application and publishes a new Stay when Admin approves', async () => {
+  it('submits a €39 stay application and publishes a new Stay with HOST_VERIFIED tier', async () => {
     const hostUser = await fetchSessionUserByEmail('host@vietnomad.demo');
     const adminUser = await fetchSessionUserByEmail('admin@vietnomad.demo');
 
@@ -154,5 +232,32 @@ describe('VietNomad Stays End-to-End PostgreSQL Domain Workflows', () => {
     const createdStay = await getStayDetailBySlug(reviewed.createdStaySlug!);
     expect(createdStay).not.toBeNull();
     expect(createdStay!.wifiDownloadMbps).toBe(220);
+    expect(createdStay!.verificationTier).toBe('HOST_VERIFIED');
+  });
+
+  it('parses RFC 5545 iCal events & formats contextual WhatsApp Concierge links', () => {
+    const sampleIcs = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'BEGIN:VEVENT',
+      'DTSTART;VALUE=DATE:20270601',
+      'DTEND;VALUE=DATE:20270604',
+      'SUMMARY:Reserved',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const parsedIcal = parseIcalBlockedDates(sampleIcs);
+    expect(parsedIcal.blockedDates).toEqual(['2027-06-01', '2027-06-02', '2027-06-03']);
+    expect(parsedIcal.ranges[0]?.summary).toBe('Reserved');
+
+    const waUrl = buildConciergeWhatsappUrl({
+      stayTitle: 'An Thuong Coastal Atelier',
+      checkIn: '2027-06-01',
+      nights: 30,
+      locale: 'en',
+    });
+    expect(waUrl).toContain('https://wa.me/');
+    expect(waUrl).toContain('An%20Thuong%20Coastal%20Atelier');
   });
 });

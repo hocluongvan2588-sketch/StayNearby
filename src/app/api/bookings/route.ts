@@ -14,6 +14,7 @@ const schema = z.object({
   applyVatFree: z.boolean().optional(),
   useRewardCredit: z.boolean().optional(),
   guestNote: z.string().max(500).optional(),
+  checkoutMode: z.enum(['intent', 'instant']).optional(),
 });
 
 export async function POST(req: Request) {

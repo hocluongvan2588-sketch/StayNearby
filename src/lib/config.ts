@@ -10,6 +10,11 @@ export interface AppConfig {
   defaultLocale: 'en' | 'vi';
   demoMode: boolean;
   isVercel: boolean;
+  conciergeWhatsapp: string;
+  resendApiKey: string;
+  resendFromEmail: string;
+  adminAlertWebhookUrl: string;
+  cronSecret: string;
 }
 
 export function getConfig(): AppConfig {
@@ -35,8 +40,16 @@ export function getConfig(): AppConfig {
     authSecret:
       process.env.AUTH_SECRET?.trim() || 'vietnomad-dev-secret-change-in-production',
     defaultLocale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE === 'vi' ? 'vi' : 'en',
-    demoMode: process.env.NEXT_PUBLIC_DEMO_MODE !== 'false',
+    // Production cleanup per PRD: only show demo shortcuts when NEXT_PUBLIC_ENABLE_DEMO=true
+    demoMode: process.env.NEXT_PUBLIC_ENABLE_DEMO === 'true',
     isVercel,
+    conciergeWhatsapp:
+      process.env.NEXT_PUBLIC_CONCIERGE_WHATSAPP?.trim() || '84901234567',
+    resendApiKey: process.env.RESEND_API_KEY?.trim() || '',
+    resendFromEmail:
+      process.env.RESEND_FROM_EMAIL?.trim() || 'VietNomad Stays <bookings@vietnomad.stays>',
+    adminAlertWebhookUrl: process.env.ADMIN_ALERT_WEBHOOK_URL?.trim() || '',
+    cronSecret: process.env.CRON_SECRET?.trim() || '',
   };
 }
 

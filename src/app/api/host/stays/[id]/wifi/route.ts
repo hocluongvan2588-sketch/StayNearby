@@ -9,6 +9,8 @@ const schema = z.object({
   uploadMbps: z.number().int().min(5).max(5000),
   jitterMs: z.number().int().min(0).max(200),
   note: z.string().max(180).optional(),
+  speedtestProofUrl: z.string().max(500).optional(),
+  workspaceVideoUrl: z.string().max(500).optional(),
 });
 
 export async function POST(

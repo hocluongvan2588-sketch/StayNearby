@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Send, Sparkles } from 'lucide-react';
+import { Loader2, MessageCircle, Send, Sparkles } from 'lucide-react';
 import type { ConciergeResponse } from '@/modules/concierge';
 import { usePreferences } from './PreferencesProvider';
 import { StayCard } from './StayCard';
@@ -124,9 +124,20 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
 
       {result && (
         <div className="mt-8 space-y-5 border-t border-white/15 pt-6">
-          <div className="rounded-2xl bg-white/10 p-4 text-sm text-[#FAF8F3]">
-            <span className="mr-2 font-semibold text-[#E6B87A]">VietNomad AI:</span>
-            {result.summary}
+          <div className="flex flex-col justify-between gap-3 rounded-2xl bg-white/10 p-4 text-sm text-[#FAF8F3] sm:flex-row sm:items-center">
+            <div>
+              <span className="mr-2 font-semibold text-[#E6B87A]">VietNomad AI:</span>
+              {result.summary}
+            </div>
+            <a
+              href={result.conciergeWhatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-4 py-2 text-xs font-bold text-[#0F392E] transition hover:brightness-105"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {isVi ? 'Chat Concierge (WhatsApp)' : 'Chat with Local Concierge (WhatsApp)'}
+            </a>
           </div>
           <div className="grid gap-5 md:grid-cols-3">
             {result.matches.map((stay) => (

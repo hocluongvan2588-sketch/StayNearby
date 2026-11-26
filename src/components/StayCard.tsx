@@ -72,12 +72,27 @@ export function StayCard({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/15" />
 
-        {/* Top Row: Tested Wi-Fi + Save Deal */}
+        {/* Top Row: Tested Wi-Fi + Verification Tier + Save Deal */}
         <div className="absolute left-3 right-3 top-3 flex items-start justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1 rounded-full bg-[#164E3F] px-2.5 py-1 text-xs font-semibold text-white shadow">
               <Wifi className="h-3.5 w-3.5" />
               {stay.wifiDownloadMbps} Mbps
+            </span>
+            <span
+              className={`rounded-full px-2 py-1 text-[10px] font-bold shadow ${
+                stay.verificationTier === 'VIETNOMAD_CERTIFIED'
+                  ? 'bg-[#0F392E]/90 text-[#9CE3C7] border border-[#9CE3C7]/30'
+                  : 'bg-[#FAF8F3]/95 text-[#A67C2E] border border-[#A67C2E]/35'
+              }`}
+            >
+              {stay.verificationTier === 'VIETNOMAD_CERTIFIED'
+                ? isVi
+                  ? '✓ VietNomad Certified'
+                  : '✓ Verified by VietNomad'
+                : isVi
+                  ? '✓ Chủ nhà kiểm chứng'
+                  : '✓ Host Verified'}
             </span>
             {stay.dealSavingsPct > 0 && (
               <span className="rounded-full bg-[#C25E28] px-2.5 py-1 text-xs font-semibold text-white shadow">
@@ -224,6 +239,20 @@ export function StayCard({
               </div>
             </div>
           </div>
+
+          {stay.businessModel === 'booking_flow' ? (
+            <div className="mt-2 rounded-lg bg-[#FAF8F3] px-2.5 py-1.5 text-[11px] font-medium text-[#164E3F]">
+              {isVi
+                ? `Trả ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} hôm nay để giữ chỗ · ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} trả tại chỗ`
+                : `Pay ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, currency)} today to reserve · ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, currency)} due at check-in`}
+            </div>
+          ) : (
+            <div className="mt-2 rounded-lg bg-[#FAEDE5]/70 px-2.5 py-1.5 text-[11px] font-medium text-[#C25E28]">
+              {isVi
+                ? 'StayDirect™ · Đặt trực tiếp với chủ nhà, 0% phí trung gian'
+                : 'StayDirect™ · Book directly with host, 0% platform markup'}
+            </div>
+          )}
         </div>
       </div>
     </article>

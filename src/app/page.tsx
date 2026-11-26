@@ -62,38 +62,38 @@ export default async function HomePage() {
   const faqs = isVi
     ? [
         {
+          q: 'Mô hình thanh toán 12% giữ chỗ online hoạt động thế nào?',
+          a: 'Với mọi đặt phòng BookingFlow, bạn chỉ thanh toán Phí Đặt chỗ & Xác minh 12% trực tuyến để khóa lịch và mở địa chỉ chi tiết. Toàn bộ 88% giá thuê gốc (Host Net) còn lại được thanh toán trực tiếp cho chủ nhà khi nhận phòng.',
+        },
+        {
+          q: 'Nếu tốc độ Wi-Fi thực tế lúc check-in không đạt chứng nhận thì sao?',
+          a: 'Bạn được bảo vệ bởi Cam kết Hoàn 100% Phí Giữ Chỗ (Wi-Fi Guarantee). Nếu kiểm tra lúc nhận phòng thấy Wi-Fi hoặc góc làm việc không đúng chứng nhận, VietNomad hoàn trả 100% phí 12% ngay lập tức và hỗ trợ chuyển sang căn khác cùng khu vực.',
+        },
+        {
           q: 'Thời gian đặt phòng tối thiểu là bao lâu?',
           a: 'Tối thiểu 7 đêm (1 tuần). Nền tảng được thiết kế riêng cho người làm việc từ xa lưu trú theo tuần và tháng (7, 14, 21 hoặc 30 đêm + thêm ngày lẻ linh hoạt), không bán phòng nghỉ ngắn 1–2 đêm.',
         },
         {
-          q: 'Tốc độ Wi-Fi có được kiểm định thật không?',
-          a: 'Có. Mọi chỉ số Download / Upload Mbps và Jitter (ms) đều được kiểm tra trực tiếp tại bàn làm việc của căn hộ và ghi rõ ngày giờ đo — không phải con số chủ nhà tự đánh dấu.',
-        },
-        {
-          q: 'Có ở ghép chung phòng với chủ nhà không?',
-          a: 'Không bao giờ. Bạn luôn đặt căn hộ riêng, villa riêng hoặc phòng khép kín tại coliving/boutique hotel có không gian sinh hoạt độc lập.',
-        },
-        {
           q: 'BookingFlow (0% hoa hồng) và StayDirect™ (1% referral) khác nhau thế nào?',
-          a: 'BookingFlow cho phép đặt phòng và xác nhận Instant ngay trên VietNomad với giá đã bao gồm trọn gói thuế phí (Chủ nhà giữ 100% giá net). StayDirect™ chuyển thành viên sang website của chủ nhà ở mức giá bán lẻ 0% phí nền tảng.',
+          a: 'BookingFlow khóa phòng tức thì với 12% phí đặt chỗ online (Chủ nhà nhận đủ 100% giá net khi bạn check-in, 0% hoa hồng). StayDirect™ chuyển thành viên sang website của chủ nhà ở mức giá bán lẻ 0% phí nền tảng.',
         },
       ]
     : [
+        {
+          q: 'How does the 12% online booking fee & pay-at-check-in model work?',
+          a: 'For BookingFlow stays, you only pay the 12% Booking & Verification Fee online today to lock your dates and receive the exact address. You pay the remaining host net rate directly to the host upon check-in — never risking 100% of monthly rent upfront.',
+        },
+        {
+          q: 'What happens if the Wi-Fi speed at check-in does not match the listing?',
+          a: 'Every BookingFlow reservation includes our 100% Booking Fee Refund Guarantee. If on-site Wi-Fi speeds or workspace setup fail to match the verified certificate at check-in, you get a 100% refund of your online booking fee plus concierge relocation help.',
+        },
         {
           q: 'What is the minimum stay?',
           a: '7 nights (1 week). VietNomad is built for remote workers staying 1–4+ weeks with standardized 7, 14, 21, and 30-night packages plus flexible extra nights — never weekend tourist room flips.',
         },
         {
-          q: 'Is the Wi-Fi speed actually tested?',
-          a: 'Yes. Every stay displays measured Download, Upload, and Jitter metrics tested inside the actual workspace with timestamped verification rather than self-reported checkboxes.',
-        },
-        {
-          q: 'Do I share living quarters with a host?',
-          a: 'Never. No spare-room home-shares — every residence is a self-contained apartment, private villa, or en-suite coliving/boutique studio.',
-        },
-        {
           q: 'How do BookingFlow and StayDirect™ differ?',
-          a: 'BookingFlow provides instant on-platform confirmation with all-inclusive pricing (0% host commission; transparent 12% guest booking fee). StayDirect™ sends logged-in members directly to the host’s own booking engine with 0% traveler markup.',
+          a: 'BookingFlow provides instant confirmation by paying just the 12% reservation fee online (0% commission deducted from host net rate at check-in). StayDirect™ sends logged-in members directly to the host’s own booking engine with 0% traveler markup.',
         },
       ];
 
@@ -128,8 +128,8 @@ export default async function HomePage() {
 
             <p className="max-w-2xl text-base leading-relaxed text-[#DCECE5] sm:text-lg">
               {isVi
-                ? 'Wi-Fi kiểm định thực tế từ 250–680 Mbps, giá trọn gói minh bạch theo tuần và tháng, góc làm việc công thái học, bếp riêng & giặt ủi đầy đủ.'
-                : 'Independently speed-tested Wi-Fi, upfront 7 to 30-night all-inclusive prices, ergonomic desks, kitchens, and nearby coworking mapped before you book.'}
+                ? 'Chỉ đặt cọc 12% online để khóa phòng (trả phần còn lại trực tiếp cho chủ nhà khi check-in). Wi-Fi kiểm định thực tế 250–680 Mbps, bảo chứng hoàn tiền 100% nếu sai cam kết.'
+                : 'Lock your stay with just a 12% online booking fee and pay the host directly at check-in. Independently speed-tested Wi-Fi, ergonomic desks, kitchens, and our 100% Booking Fee Refund Guarantee.'}
             </p>
           </div>
 
@@ -169,15 +169,15 @@ export default async function HomePage() {
           <div className="mt-10 grid gap-3 border-t border-white/15 pt-6 sm:grid-cols-2 lg:grid-cols-4">
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Zap className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Đặt phòng tức thì trên lịch trống thật' : 'Instant booking on live availability'}</span>
+              <span>{isVi ? 'Chỉ trả 12% giữ chỗ · 88% trả tại quầy' : 'Pay only 12% today · Pay host at check-in'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Wifi className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Wi-Fi đo kiểm tốc độ thực tế' : 'Independently tested Wi-Fi speeds'}</span>
+              <span>{isVi ? 'Chứng nhận Speedtest & Hoàn phí 100%' : 'Verified Wi-Fi + 100% Fee Refund Guarantee'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Clock className="h-5 w-5 shrink-0 text-[#E6B87A]" />
-              <span>{isVi ? 'Giá trọn gói 7–30 đêm hiện sẵn' : 'Weekly & monthly prices upfront'}</span>
+              <span>{isVi ? 'Giá gói 7–30 đêm minh bạch trước' : 'Weekly & monthly split prices upfront'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm text-[#E7F1EC]">
               <Utensils className="h-5 w-5 shrink-0 text-[#E6B87A]" />
@@ -397,8 +397,8 @@ export default async function HomePage() {
           </h2>
         </div>
 
-        <div className="overflow-hidden rounded-3xl border border-[#E5DFD3] bg-white lacquer-shadow">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto rounded-3xl border border-[#E5DFD3] bg-white lacquer-shadow">
+          <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-[#FAF8F3] text-xs uppercase tracking-wider text-[#53635D]">
               <tr>
                 <th className="px-6 py-4">{isVi ? 'Nhu cầu Digital Nomad' : 'What Nomads Need'}</th>
@@ -409,13 +409,22 @@ export default async function HomePage() {
             <tbody className="divide-y divide-[#E5DFD3]">
               {[
                 [
+                  isVi ? 'Thanh toán & Rủi ro' : 'Payment & Risk',
+                  isVi
+                    ? 'Chỉ trả 12% phí giữ chỗ online; trả 88% trực tiếp cho chủ nhà khi nhận phòng + Hoàn 100% nếu Wi-Fi sai cam kết'
+                    : 'Pay only 12% today to reserve; pay host directly at check-in + 100% Wi-Fi refund guarantee',
+                  isVi
+                    ? 'Khóa 100% tiền thuê ngay khi đặt; quy trình khiếu nại & hoàn tiền phức tạp'
+                    : '100% upfront lock-in with slow dispute refunds',
+                ],
+                [
                   isVi ? 'Kiểm định Wi-Fi' : 'Wi-Fi Speed',
-                  isVi ? 'Đo Download/Upload/Jitter thực tế tại bàn làm việc' : 'Tested Download/Upload/Jitter shown upfront',
+                  isVi ? 'Đo Download/Upload/Jitter thực tế kèm chứng nhận Speedtest' : 'Tested Download/Upload/Jitter + Speedtest proof upfront',
                   isVi ? 'Chủ nhà tự đánh dấu "có Wi-Fi"' : 'Self-claimed or theoretical',
                 ],
                 [
                   isVi ? 'Giá hiển thị' : 'Pricing Transparency',
-                  isVi ? 'Giá trọn gói 7/14/21/30 đêm hiện ngay, giảm mạnh theo tháng' : 'Full 1-week & 1-month all-inclusive totals upfront',
+                  isVi ? 'Hiển thị rõ khoản trả hôm nay (12%) & khoản trả tại quầy cho gói 7–30 đêm' : 'Upfront 7–30N split: due today (12%) vs due directly to host',
                   isVi ? 'Phải chọn ngày mới hiện phí dịch vụ & thuế' : 'Hidden cleaning/service fees until checkout',
                 ],
                 [
@@ -430,7 +439,7 @@ export default async function HomePage() {
                 ],
                 [
                   isVi ? 'Chính sách cho Chủ nhà' : 'Partner Model',
-                  isVi ? '0% hoa hồng (BookingFlow) hoặc 1% referral (StayDirect™)' : '0% commission BookingFlow or 1% StayDirect™ referrals',
+                  isVi ? 'Chủ nhà giữ 100% giá thuê thu tại check-in (0% hoa hồng) hoặc 1% StayDirect™' : 'Hosts keep 100% of check-in rent (0% commission) or 1% StayDirect™',
                   isVi ? 'Thu 15%–20% hoa hồng mỗi đơn đặt phòng' : '15%–20%+ OTA commission per booking',
                 ],
               ].map(([k, good, bad]) => (
@@ -540,12 +549,12 @@ export default async function HomePage() {
               <Building2 className="h-3.5 w-3.5" /> {isVi ? 'Dành cho Chủ nhà' : 'For Property Owners'}
             </span>
             <h3 className="font-serif-display text-2xl font-semibold">
-              {isVi ? 'Đón khách ở 1–3 tháng · 0% hoa hồng' : '28+ Night Stays · 0% Commission'}
+              {isVi ? 'Nhận đủ 100% tiền thuê tại check-in · 0% hoa hồng' : 'Keep 100% of Rent at Check-in · 0% Commission'}
             </h3>
             <p className="text-sm text-[#DCECE5]">
               {isVi
-                ? 'Chọn BookingFlow (0% hoa hồng chủ nhà) hoặc StayDirect™ (1% phí quảng cáo dẫn khách trực tiếp về website riêng).'
-                : 'List via BookingFlow for managed instant bookings or StayDirect™ for 1% direct-booking referrals.'}
+                ? 'Khách đặt cọc 12% online để cam kết nhận phòng và trả 100% giá thuê net trực tiếp cho bạn khi đến nơi. Hỗ trợ đồng bộ lịch iCal tự động từ Airbnb/Booking.com.'
+                : 'Guests pay a 12% online lock-in fee and pay 100% of your net rate directly at check-in — plus automated Airbnb/Booking.com iCal calendar sync.'}
             </p>
           </div>
           <Link

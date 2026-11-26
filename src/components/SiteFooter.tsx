@@ -4,7 +4,13 @@ import Link from 'next/link';
 import type { DestinationSummary } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
 
-export function SiteFooter({ destinations }: { destinations: DestinationSummary[] }) {
+export function SiteFooter({
+  destinations,
+  demoEnabled = false,
+}: {
+  destinations: DestinationSummary[];
+  demoEnabled?: boolean;
+}) {
   const { locale } = usePreferences();
   const isVi = locale === 'vi';
 
@@ -87,11 +93,13 @@ export function SiteFooter({ destinations }: { destinations: DestinationSummary[
                   {isVi ? 'Kiểm định & CRM Quản trị' : 'Admin Verification & CRM'}
                 </Link>
               </li>
-              <li>
-                <Link href="/login" className="hover:text-white">
-                  {isVi ? 'Tài khoản Demo 1 chạm' : 'Demo Accounts & Switch Role'}
-                </Link>
-              </li>
+              {demoEnabled && (
+                <li>
+                  <Link href="/admin/demo" className="hover:text-white">
+                    {isVi ? 'Tài khoản Demo 1 chạm' : 'Demo Accounts & Switch Role'}
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
         </div>
@@ -102,8 +110,8 @@ export function SiteFooter({ destinations }: { destinations: DestinationSummary[
           </div>
           <div>
             {isVi
-              ? 'Giá hiển thị đã gồm thuế & phí dịch vụ · Hỗ trợ 9 loại tiền tệ.'
-              : 'All-inclusive upfront pricing · 9 global currencies supported.'}
+              ? 'Chỉ trả 12% giữ chỗ online · Phần còn lại thanh toán trực tiếp cho chủ nhà khi nhận phòng.'
+              : 'Pay 12% today to reserve · Pay host directly at check-in · 9 global currencies supported.'}
           </div>
         </div>
       </div>

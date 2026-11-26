@@ -1,7 +1,8 @@
+import crypto from 'node:crypto';
 import { runWithDbBootstrap } from '@/lib/config';
 import { hashPassword } from '@/lib/auth/password';
 import { dbQuery } from './index';
-import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
+import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
 
 export const SEED_IDS = {
   users: {
@@ -559,6 +560,8 @@ export async function runSeed(): Promise<void> {
         roomImg: '/images/stays/danang-mykhe-atelier.jpg',
         roomFeatures: ['King Bed', 'Full Kitchen', '27" 4K USB-C Display', 'Ergonomic Chair', 'In-unit Laundry', 'Private Balcony'],
         pkgId: SEED_IDS.packages.myKheDeal,
+        verificationTier: 'VIETNOMAD_CERTIFIED',
+        hostWhatsapp: '+84905112233',
         pkgNameEn: 'Coastal Workation Monthly Rate',
         pkgNameVi: 'Gói Workation Ven Biển (Ưu Đãi Tháng)',
         pkgDescEn: 'All-inclusive utility package with weekly linen refresh and backup 5G router.',
@@ -636,6 +639,8 @@ export async function runSeed(): Promise<void> {
         roomImg: '/images/stays/hanoi-tayho-jade.jpg',
         roomFeatures: ['Separate Bedroom', 'Soundproof Glazing', 'Full Kitchen', 'In-unit Laundry', 'Pet Welcome'],
         pkgId: SEED_IDS.packages.tayHoWork,
+        verificationTier: 'VIETNOMAD_CERTIFIED',
+        hostWhatsapp: '+84904889900',
         pkgNameEn: 'Hanoi Autumn–Spring Residency',
         pkgNameVi: 'Gói Lưu Trú Dài Ngày Tây Hồ',
         pkgDescEn: 'Includes weekly housekeeping, drinking water dispenser, and building booth access.',
@@ -713,6 +718,8 @@ export async function runSeed(): Promise<void> {
         roomImg: '/images/stays/hoian-camchau-garden.jpg',
         roomFeatures: ['Private Garden Terrace', '2 Beds', 'Full Kitchen', 'Free Bicycles', 'In-unit Washer'],
         pkgId: SEED_IDS.packages.camChauSlow,
+        verificationTier: 'VIETNOMAD_CERTIFIED',
+        hostWhatsapp: '+84905334455',
         pkgNameEn: 'Slow Living Creative Month',
         pkgNameVi: 'Gói Sống Chậm Sáng Tạo Hội An',
         pkgDescEn: 'Includes bicycles, weekly courtyard yoga, and high-speed backup SIM.',
@@ -790,6 +797,8 @@ export async function runSeed(): Promise<void> {
         roomImg: '/images/stays/saigon-thaodien-coliving.jpg',
         roomFeatures: ['En-suite Private Bath', '24/7 Coworking Included', 'Call Booths', 'Shared Chef Kitchen', 'Laundry Room'],
         pkgId: SEED_IDS.packages.thaoDienDirect,
+        verificationTier: 'VIETNOMAD_CERTIFIED',
+        hostWhatsapp: '+84909778899',
         pkgNameEn: 'Founders Direct Retail Package',
         pkgNameVi: 'Gói Coliving Trực Tiếp (0% Markup)',
         pkgDescEn: 'Zero booking markup via StayDirect™. Includes community brunch & coffee bar.',
@@ -866,6 +875,8 @@ export async function runSeed(): Promise<void> {
         roomImg: '/images/stays/dalat-pine-sanctuary.jpg',
         roomFeatures: ['Stand-alone Cabin', 'UPS Power Backup', 'Full Kitchen', 'Washer-Dryer', 'Pet Welcome'],
         pkgId: SEED_IDS.packages.daLatDeepWork,
+        verificationTier: 'HOST_VERIFIED',
+        hostWhatsapp: '+84918223344',
         pkgNameEn: 'Deep Work Highland Month',
         pkgNameVi: 'Gói Deep Work Cao Nguyên',
         pkgDescEn: 'Lowest monthly rate in the highlands with weekly firewood & Arabica refills.',
@@ -941,6 +952,8 @@ export async function runSeed(): Promise<void> {
         roomImg: '/images/stays/phuquoc-coastal-villa.jpg',
         roomFeatures: ['Private Pool', 'Full Kitchen', 'Air-con Study', 'Washer-Dryer', 'Beach Access'],
         pkgId: SEED_IDS.packages.phuQuocDirect,
+        verificationTier: 'HOST_VERIFIED',
+        hostWhatsapp: '+84919665544',
         pkgNameEn: '30-Day Island Visa-Free StayDirect',
         pkgNameVi: 'Gói 30 Ngày Miễn Visa Đảo Ngọc',
         pkgDescEn: 'Retail pricing direct with villa team — zero platform markup.',
@@ -1017,6 +1030,8 @@ export async function runSeed(): Promise<void> {
         roomImg: '/images/hero-vietnam-workation.jpg',
         roomFeatures: ['Two Workstations', '4K External Monitor', 'Panoramic Ocean View', 'Full Kitchen', 'In-unit Washer/Dryer'],
         pkgId: SEED_IDS.packages.sonTraDeal,
+        verificationTier: 'VIETNOMAD_CERTIFIED',
+        hostWhatsapp: '+84905112233',
         pkgNameEn: 'Ocean Horizon Extended Work Stay',
         pkgNameVi: 'Gói Làm Việc Dài Ngày Hướng Vịnh',
         pkgDescEn: 'Stay 1 month and drop your nightly rate by 36% compared to 1-week stays.',
@@ -1040,14 +1055,16 @@ export async function runSeed(): Promise<void> {
           checkin_instructions_en, checkin_instructions_vi, registration_code,
           property_type, business_model, direct_booking_url, status, is_instant_book,
           cancellation_policy, wifi_download_mbps, wifi_upload_mbps, wifi_jitter_ms,
-          wifi_tested_at, wifi_tester_note, workspace_summary_en, workspace_summary_vi,
+          wifi_tested_at, wifi_tester_note, speedtest_proof_url, workspace_video_url,
+          verified_at, verification_tier, host_whatsapp,
+          workspace_summary_en, workspace_summary_vi,
           workspace_photo_url, has_ergonomic_chair, has_external_monitor, has_call_booth,
           kitchen_type, laundry_type, pet_friendly, wheelchair_friendly,
           google_rating, google_review_count, map_x, map_y, hero_image,
           gallery_images, amenities, nearby_coworking
         ) VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'live',TRUE,
-          $20,$21,$22,$23,NOW(),$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42
+          $20,$21,$22,$23,NOW(),$24,$25,$26,NOW(),$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46
         ) ON CONFLICT (id) DO NOTHING`,
         [
           s.id,
@@ -1074,6 +1091,10 @@ export async function runSeed(): Promise<void> {
           s.up,
           s.jitter,
           s.testerNote,
+          `/api/stays/${s.slug}/speedtest-proof`,
+          `/api/stays/${s.slug}/speedtest-proof?view=tour`,
+          s.verificationTier,
+          s.hostWhatsapp,
           s.wsEn,
           s.wsVi,
           s.wsImg,
@@ -1153,7 +1174,8 @@ export async function runSeed(): Promise<void> {
       );
     }
 
-    // Seed one confirmed sample booking for Elena Vance so Nomad Dashboard feels alive out of the box
+    // Seed one RESERVED_LOCKED sample booking for Elena Vance so Nomad Dashboard & Notification logs feel alive
+    const sampleBookingId = '70000000-0000-4000-8000-000000000001';
     const sampleCheckIn = addDaysIso(today, 10);
     const sampleCheckOut = addDaysIso(sampleCheckIn, 14);
     await dbQuery(
@@ -1161,13 +1183,15 @@ export async function runSeed(): Promise<void> {
         id, booking_code, stay_id, room_id, package_id, guest_id, business_model,
         status, check_in, check_out, nights, guests_count, wholesale_total_vnd,
         service_fee_vnd, vat_discount_vnd, reward_credit_used_vnd, guest_total_vnd,
+        booking_fee_online_vnd, pay_at_checkin_vnd, payment_intent_id, paid_at,
         reward_credit_earned_vnd, cancellation_policy, guest_note
       ) VALUES (
-        $1,'VN-940218',$2,$3,$4,$5,'booking_flow','confirmed',$6,$7,14,1,
-        10200000,1224000,0,0,11424000,0,'flexible','Arriving on afternoon flight from Singapore.'
+        $1,'VN-940218',$2,$3,$4,$5,'booking_flow','RESERVED_LOCKED',$6,$7,14,1,
+        10200000,1224000,0,0,11424000,1224000,10200000,'pi_vn_demo_940218',NOW(),
+        0,'flexible','Arriving on afternoon flight from Singapore.'
       ) ON CONFLICT (id) DO NOTHING`,
       [
-        '70000000-0000-4000-8000-000000000001',
+        sampleBookingId,
         SEED_IDS.stays.myKheAtelier,
         SEED_IDS.rooms.myKheOceanStudio,
         SEED_IDS.packages.myKheDeal,
@@ -1176,6 +1200,57 @@ export async function runSeed(): Promise<void> {
         sampleCheckOut,
       ]
     );
+
+    const sampleNights = enumerateStayNights(sampleCheckIn, sampleCheckOut);
+    for (const dt of sampleNights) {
+      await dbQuery(
+        `INSERT INTO room_night_locks (id, room_id, stay_date, booked_units, blocked_units)
+         VALUES ($1, $2, $3::date, 1, 0)
+         ON CONFLICT (room_id, stay_date) DO NOTHING`,
+        [crypto.randomUUID(), SEED_IDS.rooms.myKheOceanStudio, dt]
+      );
+    }
+
+    const seededNotifications = [
+      {
+        id: '71000000-0000-4000-8000-000000000001',
+        role: 'guest',
+        channel: 'email',
+        contact: 'nomad@vietnomad.demo',
+        subject: '[VN-940218] Booking Confirmed & Wi-Fi Verification Certificate — An Thuong Coastal Atelier',
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000002',
+        role: 'host',
+        channel: 'email',
+        contact: 'host@vietnomad.demo',
+        subject: '[VN-940218] NEW RESERVATION LOCKED (12% Online Paid) — Collect 10,200,000₫ at Check-in',
+      },
+      {
+        id: '71000000-0000-4000-8000-000000000003',
+        role: 'admin',
+        channel: 'webhook',
+        contact: 'vietnomad-ops-zalo-sla',
+        subject: 'ADMIN ALERT [VN-940218]: Confirm room hold with Host Linh Tran via Zalo within 30 mins',
+      },
+    ];
+    for (const sn of seededNotifications) {
+      await dbQuery(
+        `INSERT INTO booking_notifications (
+          id, booking_id, recipient_role, channel, recipient_contact, subject, payload_json, status
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,'sent')
+        ON CONFLICT (id) DO NOTHING`,
+        [
+          sn.id,
+          sampleBookingId,
+          sn.role,
+          sn.channel,
+          sn.contact,
+          sn.subject,
+          JSON.stringify({ bookingCode: 'VN-940218', seeded: true }),
+        ]
+      );
+    }
 
     // Seed sample pending host application so Admin moderation queue has immediate data
     await dbQuery(

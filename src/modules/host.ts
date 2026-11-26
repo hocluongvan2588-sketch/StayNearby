@@ -3,9 +3,10 @@ import type { SessionUser } from '@/lib/auth/session';
 import { getTodayIsoVietnam, isValidIsoDate, isValidUuid } from '@/lib/dates';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
+import { syncRoomIcalFeed } from '@/lib/ical';
 
 export async function getHostConsoleData(user: SessionUser) {
-  const [walletRes, staysRes, appsRes, bookingsRes, referralsRes, blocksRes] = await Promise.all([
+  const [walletRes, staysRes, appsRes, bookingsRes, referralsRes, blocksRes, notifRes] = await Promise.all([
     dbQuery<{ balance_vnd: string | number; updated_at: string | Date }>(
       'SELECT balance_vnd, updated_at FROM host_wallets WHERE host_id = $1',
       [user.id]
@@ -13,6 +14,7 @@ export async function getHostConsoleData(user: SessionUser) {
     dbQuery(
       `SELECT s.*, d.name_en AS destination_name_en, d.name_vi AS destination_name_vi,
               r.id AS room_id, r.name_en AS room_name_en, r.name_vi AS room_name_vi, r.units_total,
+              r.ical_url, r.ical_last_synced_at, r.ical_sync_status,
               p.id AS package_id, p.name_en AS package_name_en, p.is_listed,
               p.wholesale_7_vnd, p.wholesale_14_vnd, p.wholesale_21_vnd, p.wholesale_30_vnd,
               p.extra_night_vnd, p.is_deal_featured
@@ -60,6 +62,16 @@ export async function getHostConsoleData(user: SessionUser) {
        LIMIT 60`,
       [user.id, getTodayIsoVietnam()]
     ),
+    dbQuery(
+      `SELECT bn.*, b.booking_code
+       FROM booking_notifications bn
+       JOIN bookings b ON b.id = bn.booking_id
+       JOIN stays s ON s.id = b.stay_id
+       WHERE s.host_id = $1 AND bn.recipient_role = 'host'
+       ORDER BY bn.created_at DESC
+       LIMIT 20`,
+      [user.id]
+    ),
   ]);
 
   return {
@@ -78,9 +90,19 @@ export async function getHostConsoleData(user: SessionUser) {
       wifiUploadMbps: toNum(s.wifi_upload_mbps),
       wifiJitterMs: toNum(s.wifi_jitter_ms),
       wifiTestedAt: new Date(String(s.wifi_tested_at)).toISOString(),
+      verifiedAt: new Date(String(s.verified_at ?? s.wifi_tested_at)).toISOString(),
+      verificationTier: String(s.verification_tier ?? 'VIETNOMAD_CERTIFIED'),
+      speedtestProofUrl: s.speedtest_proof_url ? String(s.speedtest_proof_url) : '',
+      workspaceVideoUrl: s.workspace_video_url ? String(s.workspace_video_url) : '',
+      hostWhatsapp: String(s.host_whatsapp ?? '+84901234567'),
       roomId: s.room_id ? String(s.room_id) : null,
       roomNameEn: s.room_name_en ? String(s.room_name_en) : '',
       unitsTotal: toNum(s.units_total, 1),
+      icalUrl: s.ical_url ? String(s.ical_url) : '',
+      icalLastSyncedAt: s.ical_last_synced_at
+        ? new Date(String(s.ical_last_synced_at)).toISOString()
+        : null,
+      icalSyncStatus: String(s.ical_sync_status ?? 'idle'),
       packageId: s.package_id ? String(s.package_id) : null,
       isListed: Boolean(s.is_listed),
       isDealFeatured: Boolean(s.is_deal_featured),
@@ -103,28 +125,43 @@ export async function getHostConsoleData(user: SessionUser) {
       reviewNote: String(a.review_note ?? ''),
       createdAt: new Date(String(a.created_at)).toISOString(),
     })),
-    bookings: bookingsRes.rows.map((b) => ({
-      id: String(b.id),
-      bookingCode: String(b.booking_code),
-      stayTitleEn: String(b.title_en),
-      stayTitleVi: String(b.title_vi),
-      guestName: String(b.guest_name),
-      guestEmail: b.status === 'confirmed' || b.status === 'completed' ? String(b.guest_email) : 'Hidden until confirmed',
-      nationality: String(b.nationality),
-      businessModel: String(b.business_model),
-      status: String(b.status),
-      checkIn:
-        b.check_in instanceof Date
-          ? b.check_in.toISOString().slice(0, 10)
-          : String(b.check_in).slice(0, 10),
-      checkOut:
-        b.check_out instanceof Date
-          ? b.check_out.toISOString().slice(0, 10)
-          : String(b.check_out).slice(0, 10),
-      nights: toNum(b.nights),
-      wholesaleTotalVnd: toNum(b.wholesale_total_vnd),
-      guestTotalVnd: toNum(b.guest_total_vnd),
-    })),
+    bookings: bookingsRes.rows.map((b) => {
+      const unlocked = ['RESERVED_LOCKED', 'CHECKED_IN_COMPLETED', 'confirmed', 'completed'].includes(
+        String(b.status)
+      );
+      const feeOnlineVnd =
+        toNum(b.booking_fee_online_vnd) > 0
+          ? toNum(b.booking_fee_online_vnd)
+          : toNum(b.service_fee_vnd);
+      const payAtCheckinVnd =
+        toNum(b.pay_at_checkin_vnd) > 0
+          ? toNum(b.pay_at_checkin_vnd)
+          : toNum(b.wholesale_total_vnd);
+      return {
+        id: String(b.id),
+        bookingCode: String(b.booking_code),
+        stayTitleEn: String(b.title_en),
+        stayTitleVi: String(b.title_vi),
+        guestName: String(b.guest_name),
+        guestEmail: unlocked ? String(b.guest_email) : 'Hidden until 12% locked',
+        nationality: String(b.nationality),
+        businessModel: String(b.business_model),
+        status: String(b.status),
+        checkIn:
+          b.check_in instanceof Date
+            ? b.check_in.toISOString().slice(0, 10)
+            : String(b.check_in).slice(0, 10),
+        checkOut:
+          b.check_out instanceof Date
+            ? b.check_out.toISOString().slice(0, 10)
+            : String(b.check_out).slice(0, 10),
+        nights: toNum(b.nights),
+        wholesaleTotalVnd: toNum(b.wholesale_total_vnd),
+        feeOnlineVnd,
+        payAtCheckinVnd,
+        guestTotalVnd: toNum(b.guest_total_vnd),
+      };
+    }),
     referrals: referralsRes.rows.map((r) => ({
       id: String(r.id),
       stayTitleEn: String(r.title_en),
@@ -145,6 +182,13 @@ export async function getHostConsoleData(user: SessionUser) {
           : String(l.stay_date).slice(0, 10),
       bookedUnits: toNum(l.booked_units),
       blockedUnits: toNum(l.blocked_units),
+    })),
+    notifications: notifRes.rows.map((n) => ({
+      id: String(n.id),
+      bookingCode: String(n.booking_code),
+      subject: String(n.subject),
+      status: String(n.status),
+      createdAt: new Date(String(n.created_at)).toISOString(),
     })),
   };
 }
@@ -280,7 +324,14 @@ export async function updateHostStayConfiguration(
 export async function recordWifiSpeedTest(
   user: SessionUser,
   stayId: string,
-  input: { downloadMbps: number; uploadMbps: number; jitterMs: number; note?: string }
+  input: {
+    downloadMbps: number;
+    uploadMbps: number;
+    jitterMs: number;
+    note?: string;
+    speedtestProofUrl?: string;
+    workspaceVideoUrl?: string;
+  }
 ) {
   if (!isValidUuid(stayId)) throw new AppError('VALIDATION_ERROR', 'Invalid stay ID.');
   const res = await dbQuery<{ host_id: string }>(
@@ -299,18 +350,44 @@ export async function recordWifiSpeedTest(
          wifi_upload_mbps = $2,
          wifi_jitter_ms = $3,
          wifi_tested_at = NOW(),
-         wifi_tester_note = $4
-     WHERE id = $5`,
+         verified_at = NOW(),
+         wifi_tester_note = $4,
+         speedtest_proof_url = COALESCE($5, speedtest_proof_url),
+         workspace_video_url = COALESCE($6, workspace_video_url)
+     WHERE id = $7`,
     [
       Math.max(10, Math.round(input.downloadMbps)),
       Math.max(5, Math.round(input.uploadMbps)),
       Math.max(0, Math.round(input.jitterMs)),
       input.note?.trim() || 'Live router speed check verified',
+      input.speedtestProofUrl?.trim() || null,
+      input.workspaceVideoUrl?.trim() || null,
       stayId,
     ]
   );
 
   return { ok: true };
+}
+
+export async function syncHostRoomIcal(
+  user: SessionUser,
+  roomId: string,
+  icalUrl: string
+) {
+  if (!isValidUuid(roomId)) {
+    throw new AppError('VALIDATION_ERROR', 'Invalid room ID.');
+  }
+  const res = await dbQuery<{ host_id: string }>(
+    `SELECT s.host_id FROM stay_rooms sr JOIN stays s ON s.id = sr.stay_id WHERE sr.id = $1`,
+    [roomId]
+  );
+  const row = res.rows[0];
+  if (!row) throw new AppError('NOT_FOUND', 'Room not found.');
+  if (row.host_id !== user.id && user.role !== 'admin') {
+    throw new AppError('FORBIDDEN', 'Not your property room.');
+  }
+
+  return syncRoomIcalFeed(roomId, icalUrl);
 }
 
 export async function toggleHostRoomBlock(
