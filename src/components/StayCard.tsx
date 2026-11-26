@@ -35,8 +35,6 @@ export function StayCard({
   const [saving, setSaving] = useState(false);
 
   const isVi = locale === 'vi';
-  const minReserveFeeVnd =
-    stay.businessModel === 'booking_flow' ? stay.weekFeeOnlineVnd : 0;
 
   async function handleSaveToggle(e: React.MouseEvent) {
     e.preventDefault();
@@ -173,25 +171,53 @@ export function StayCard({
 
         <Link
           href={`/stays/${stay.slug}`}
-          className="mt-4 block rounded-xl border border-[#164E3F]/15 bg-[#E7F1EC]/65 px-3.5 py-2.5 text-xs font-medium text-[#164E3F] transition group-hover:bg-[#E7F1EC]"
+          className="mt-4 block rounded-xl border border-[#164E3F]/15 bg-[#FAF8F3] p-3 transition group-hover:border-[#164E3F]/35 group-hover:bg-[#E7F1EC]/50"
         >
-          {isVi ? (
-            <>
-              Trả{' '}
-              <span className="text-sm font-bold text-[#0F392E]">
-                {formatMoneyFromVnd(minReserveFeeVnd, currency)}
-              </span>{' '}
-              để giữ chỗ hôm nay
-            </>
-          ) : (
-            <>
-              Pay{' '}
-              <span className="text-sm font-bold text-[#0F392E]">
-                {formatMoneyFromVnd(minReserveFeeVnd, currency)}
-              </span>{' '}
-              to reserve today
-            </>
-          )}
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[11px] font-medium text-[#53635D]">
+              {isVi ? 'Gói từ 7 đêm' : '7 nights from'}
+            </span>
+            <span className="font-serif-display text-base font-bold text-[#17221E]">
+              {formatMoneyFromVnd(stay.weekDisplayVnd, currency)}
+            </span>
+          </div>
+          <p className="mt-1.5 border-t border-[#E5DFD3]/80 pt-1.5 text-xs font-medium text-[#164E3F]">
+            {stay.businessModel === 'booking_flow' ? (
+              isVi ? (
+                <>
+                  Trả{' '}
+                  <span className="font-bold text-[#0F392E]">
+                    {formatMoneyFromVnd(stay.weekFeeOnlineVnd, currency)}
+                  </span>{' '}
+                  giữ chỗ hôm nay
+                </>
+              ) : (
+                <>
+                  Pay{' '}
+                  <span className="font-bold text-[#0F392E]">
+                    {formatMoneyFromVnd(stay.weekFeeOnlineVnd, currency)}
+                  </span>{' '}
+                  to reserve today
+                </>
+              )
+            ) : isVi ? (
+              <>
+                Đặt trực tiếp chủ nhà,{' '}
+                <span className="font-bold text-[#0F392E]">
+                  {formatMoneyFromVnd(0, currency)}
+                </span>{' '}
+                giữ chỗ
+              </>
+            ) : (
+              <>
+                Book direct with host,{' '}
+                <span className="font-bold text-[#0F392E]">
+                  {formatMoneyFromVnd(0, currency)}
+                </span>{' '}
+                fee
+              </>
+            )}
+          </p>
         </Link>
       </div>
     </article>
