@@ -5,8 +5,6 @@ import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
-  CreditCard,
-  ExternalLink,
   Loader2,
   MessageCircle,
   Minus,
@@ -16,15 +14,14 @@ import {
   Zap,
 } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
-import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
+import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
 import {
-  formatBusinessModelLabel,
   formatCancellationPolicyLabel,
   formatMoneyFromVnd,
-  formatVndExact,
 } from '@/lib/i18n';
 import { calculateStayQuote } from '@/lib/pricing';
 import type { StayDetail } from '@/modules/catalog';
+import { GatewayCheckoutPanel } from './GatewayCheckoutPanel';
 import { usePreferences } from './PreferencesProvider';
 
 function buildClientWhatsappHref(
@@ -37,7 +34,7 @@ function buildClientWhatsappHref(
   const digits = whatsappDigits.replace(/\D/g, '') || '84901234567';
   const msg = isVi
     ? `Chào đội hỗ trợ VietNomad, mình muốn hỏi thêm về căn "${stayName}", nhận phòng ${checkIn} (${nights} đêm). Nhờ bạn kiểm tra giúp tình trạng phòng và tốc độ Wi-Fi nhé.`
-    : `Hi VietNomad Support, I have a question about "${stayName}" starting ${checkIn} for ${nights} nights. Could you confirm room availability and Wi-Fi details?`;
+    : `Hi VietNomad Support, I have a question about "${stayName}" starting ${checkIn} for ${nights} nights. Could you confirm room availability and amenities?`;
   return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
 }
 
@@ -69,7 +66,6 @@ export function StayBookingWidget({
   );
   const [guestNote, setGuestNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
   const [pendingBooking, setPendingBooking] = useState<{
     bookingId: string;
@@ -81,7 +77,6 @@ export function StayBookingWidget({
   const [confirmed, setConfirmed] = useState<{
     bookingCode: string;
     status: string;
-    directReferralUrl: string | null;
     feePaidOnlineVnd: number;
     payAtCheckinVnd: number;
   } | null>(null);
@@ -91,19 +86,25 @@ export function StayBookingWidget({
   const totalNights = baseTier + extraNights;
   const checkOut = addDaysIso(checkIn, totalNights);
 
+  const nightOverridesVnd = useMemo(() => {
+    if (!selectedRoom) return [];
+    const nights = enumerateStayNights(checkIn, checkOut);
+    return nights.map((d) => selectedRoom.customPricesByDate?.[d] ?? null);
+  }, [selectedRoom, checkIn, checkOut]);
+
   const quote = useMemo(() => {
     if (!selectedPkg) return null;
     return calculateStayQuote({
       pkg: selectedPkg,
       nights: totalNights,
-      businessModel: stay.businessModel,
       isPremiumMember: user?.membershipTier === 'premium',
       applyVatFree,
       vatTaxId: user?.vatTaxId,
       availableRewardCreditVnd: user?.rewardCreditVnd ?? 0,
       useRewardCredit,
+      nightOverridesVnd,
     });
-  }, [selectedPkg, totalNights, stay.businessModel, user, applyVatFree, useRewardCredit]);
+  }, [selectedPkg, totalNights, user, applyVatFree, useRewardCredit, nightOverridesVnd]);
 
   async function handleStartReservation() {
     if (!user) {
@@ -127,7 +128,7 @@ export function StayBookingWidget({
           applyVatFree,
           useRewardCredit,
           guestNote,
-          checkoutMode: stay.businessModel === 'booking_flow' ? 'intent' : 'instant',
+          checkoutMode: 'intent',
         }),
       });
       const json = await res.json();
@@ -136,55 +137,17 @@ export function StayBookingWidget({
         return;
       }
 
-      if (json.booking.businessModel === 'stay_direct') {
-        setConfirmed({
-          bookingCode: json.booking.bookingCode,
-          status: json.booking.status,
-          directReferralUrl: json.booking.directReferralUrl,
-          feePaidOnlineVnd: 0,
-          payAtCheckinVnd: json.booking.quote.payAtCheckinVnd,
-        });
-      } else {
-        setPendingBooking({
-          bookingId: json.booking.bookingId,
-          bookingCode: json.booking.bookingCode,
-          paymentIntentId: json.booking.paymentIntentId,
-          feeOnlineVnd: json.booking.quote.feeOnlineVnd,
-          payAtCheckinVnd: json.booking.quote.payAtCheckinVnd,
-        });
-      }
+      setPendingBooking({
+        bookingId: json.booking.bookingId,
+        bookingCode: json.booking.bookingCode,
+        paymentIntentId: json.booking.paymentIntentId,
+        feeOnlineVnd: json.booking.quote.feeOnlineVnd,
+        payAtCheckinVnd: json.booking.quote.payAtCheckinVnd,
+      });
     } catch {
       setError(isVi ? 'Lỗi kết nối. Vui lòng thử lại.' : 'Network error. Please retry.');
     } finally {
       setSubmitting(false);
-    }
-  }
-
-  async function handleConfirmFeePayment() {
-    if (!pendingBooking) return;
-    setPaying(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/bookings/${pendingBooking.bookingId}/pay`, {
-        method: 'POST',
-      });
-      const json = await res.json();
-      if (!json.ok) {
-        setError(json.error?.message ?? (isVi ? 'Không thể hoàn tất thanh toán phí giữ chỗ.' : 'Could not complete payment.'));
-        return;
-      }
-      setConfirmed({
-        bookingCode: json.payment.bookingCode,
-        status: json.payment.status,
-        directReferralUrl: null,
-        feePaidOnlineVnd: json.payment.feePaidOnlineVnd,
-        payAtCheckinVnd: json.payment.payAtCheckinVnd,
-      });
-      setPendingBooking(null);
-    } catch {
-      setError(isVi ? 'Xác nhận thanh toán thất bại.' : 'Payment confirmation failed.');
-    } finally {
-      setPaying(false);
     }
   }
 
@@ -208,45 +171,22 @@ export function StayBookingWidget({
     <div className="sticky top-24 space-y-5 rounded-3xl border border-[#E5DFD3] bg-white p-5 sm:p-6 lacquer-shadow">
       <div className="flex items-start justify-between gap-3 border-b border-[#E5DFD3] pb-4">
         <div>
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-              stay.businessModel === 'booking_flow'
-                ? 'bg-[#E7F1EC] text-[#164E3F]'
-                : 'bg-[#FAEDE5] text-[#C25E28]'
-            }`}
-          >
-            {stay.businessModel === 'booking_flow' ? (
-              <>
-                <Zap className="h-3.5 w-3.5" />
-                {isVi ? 'Đặt qua VietNomad (phí giữ chỗ 12%)' : 'Book on VietNomad (12% fee)'}
-              </>
-            ) : (
-              <>
-                <ExternalLink className="h-3.5 w-3.5" />
-                {formatBusinessModelLabel(stay.businessModel, locale)}
-              </>
-            )}
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-xs font-semibold text-[#164E3F]">
+            <Zap className="h-3.5 w-3.5" />
+            {isVi ? 'BookingFlow · Phí giữ chỗ 12%' : 'BookingFlow · 12% service fee'}
           </span>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="font-serif-display text-3xl font-bold text-[#17221E]">
-              {stay.businessModel === 'booking_flow'
-                ? formatMoneyFromVnd(quote.feeOnlineVnd, currency)
-                : formatMoneyFromVnd(quote.totalStayVnd, currency)}
+              {formatMoneyFromVnd(quote.feeOnlineVnd, currency)}
             </span>
             <span className="text-xs font-medium text-[#164E3F]">
-              {stay.businessModel === 'booking_flow'
-                ? isVi
-                  ? 'trả hôm nay (12%)'
-                  : 'due today (12%)'
-                : `/ ${totalNights} ${isVi ? 'đêm' : 'nights'}`}
+              {isVi ? 'trả hôm nay (12%)' : 'due today (12%)'}
             </span>
           </div>
           <div className="text-xs text-[#53635D]">
-            {stay.businessModel === 'booking_flow'
-              ? isVi
-                ? `Trả ${formatMoneyFromVnd(quote.payAtCheckinVnd, currency)} khi nhận phòng, tổng ${formatMoneyFromVnd(quote.totalStayVnd, currency)}`
-                : `Pay ${formatMoneyFromVnd(quote.payAtCheckinVnd, currency)} at check-in, total ${formatMoneyFromVnd(quote.totalStayVnd, currency)}`
-              : `${formatMoneyFromVnd(quote.perNightDisplayVnd, currency)}/${isVi ? 'đêm' : 'night'} (${formatVndExact(quote.totalStayVnd)})`}
+            {isVi
+              ? `Trả ${formatMoneyFromVnd(quote.payAtCheckinVnd, currency)} cho chủ nhà khi nhận phòng · Tổng ${formatMoneyFromVnd(quote.totalStayVnd, currency)}`
+              : `Pay ${formatMoneyFromVnd(quote.payAtCheckinVnd, currency)} to host at check-in · Total ${formatMoneyFromVnd(quote.totalStayVnd, currency)}`}
           </div>
         </div>
 
@@ -285,7 +225,6 @@ export function StayBookingWidget({
             const tierQ = calculateStayQuote({
               pkg: selectedPkg,
               nights: tier,
-              businessModel: stay.businessModel,
             });
             return (
               <button
@@ -381,13 +320,13 @@ export function StayBookingWidget({
             type="text"
             value={guestNote}
             onChange={(e) => setGuestNote(e.target.value)}
-            placeholder={isVi ? 'Giờ bay, nhu cầu thêm...' : 'Arrival time, desk request...'}
+            placeholder={isVi ? 'Giờ bay, nhu cầu thêm...' : 'Arrival time, room request...'}
             className="min-h-[42px] w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 text-xs"
           />
         </label>
       </div>
 
-      {stay.businessModel === 'booking_flow' && user && (user.vatTaxId || user.rewardCreditVnd > 0) && (
+      {user && (user.vatTaxId || user.rewardCreditVnd > 0) && (
         <div className="space-y-2 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-3 text-xs">
           {user.membershipTier === 'premium' && user.vatTaxId && (
             <label className="flex cursor-pointer items-center justify-between gap-2">
@@ -424,13 +363,7 @@ export function StayBookingWidget({
       <div className="space-y-2 rounded-2xl border border-[#164E3F]/20 bg-[#FAF8F3] p-4 text-xs">
         <div className="flex items-center justify-between font-semibold text-[#164E3F]">
           <span>
-            {stay.businessModel === 'booking_flow'
-              ? isVi
-                ? 'Trả hôm nay (Phí giữ chỗ 12%)'
-                : 'Due today (12% booking fee)'
-              : isVi
-                ? 'Trả online hôm nay'
-                : 'Due online today'}
+            {isVi ? 'Trả hôm nay (Phí giữ chỗ 12%)' : 'Due today (12% booking fee)'}
           </span>
           <span className="text-sm font-bold text-[#164E3F]">
             {formatMoneyFromVnd(quote.feeOnlineVnd, currency)}
@@ -438,11 +371,7 @@ export function StayBookingWidget({
         </div>
 
         <div className="flex items-center justify-between text-[#17221E]">
-          <span>
-            {isVi
-              ? 'Trả chủ nhà khi nhận phòng'
-              : 'Pay host at check-in'}
-          </span>
+          <span>{isVi ? 'Trả chủ nhà khi nhận phòng' : 'Pay host at check-in'}</span>
           <span className="font-semibold">
             {formatMoneyFromVnd(quote.payAtCheckinVnd, currency)}
           </span>
@@ -479,12 +408,12 @@ export function StayBookingWidget({
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#164E3F]" />
         <div>
           <div className="font-bold text-[#164E3F]">
-            {isVi ? 'Hoàn 100% phí giữ chỗ nếu Wi-Fi không đạt' : '100% booking fee refund guarantee'}
+            {isVi ? 'Chính sách giữ chỗ và hủy phòng minh bạch' : 'Transparent BookingFlow terms'}
           </div>
           <p className="mt-0.5 text-[#53635D]">
             {isVi
-              ? `Hoàn đủ ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} nếu Wi-Fi hoặc bàn làm việc không đúng chứng nhận. Áp dụng chính sách hủy ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)}.`
-              : `Full refund of your ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} booking fee if Wi-Fi or desk setup fails to match at check-in. ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)} cancellation rules apply.`}
+              ? `${stay.isWifiVerified ? 'Chỗ ở có gắn badge Wi-Fi Verified độc lập.' : 'Tiện ích và tốc độ Wi-Fi do chủ nhà cung cấp.'} Phí giữ chỗ ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} áp dụng theo chính sách hủy ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)}.`
+              : `${stay.isWifiVerified ? 'This stay carries an optional Wi-Fi Verified badge.' : 'Amenities & Internet metrics are self-declared by the host.'} Your ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} fee follows ${formatCancellationPolicyLabel(stay.cancellationPolicy, locale)} cancellation rules.`}
           </p>
         </div>
       </div>
@@ -497,65 +426,50 @@ export function StayBookingWidget({
       )}
 
       {pendingBooking && (
-        <div className="space-y-3 rounded-2xl border-2 border-[#164E3F] bg-[#FAF8F3] p-4 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-1.5 font-bold text-[#164E3F]">
-              <CreditCard className="h-4 w-4" />
-              {isVi ? 'Thanh toán phí giữ chỗ 12%' : 'Pay 12% booking fee'}
-            </span>
-            <span className="font-mono text-[10px] text-[#53635D]">{pendingBooking.bookingCode}</span>
-          </div>
-          <p className="text-[#53635D]">
-            {isVi
-              ? `Trả ${formatMoneyFromVnd(pendingBooking.feeOnlineVnd, currency)} ngay bây giờ để khóa lịch và xem địa chỉ thật. Phần ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} trả cho chủ nhà khi nhận phòng.`
-              : `Pay ${formatMoneyFromVnd(pendingBooking.feeOnlineVnd, currency)} online now to lock dates and unlock the address. Pay ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} directly to host at check-in.`}
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleConfirmFeePayment}
-              disabled={paying}
-              className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-[#C25E28] px-4 py-2.5 text-xs font-bold text-white shadow hover:bg-[#ad5020] disabled:opacity-60"
-            >
-              {paying && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isVi
-                ? `Thanh toán ${formatMoneyFromVnd(pendingBooking.feeOnlineVnd, currency)} và khóa phòng`
-                : `Pay ${formatMoneyFromVnd(pendingBooking.feeOnlineVnd, currency)} and confirm`}
-            </button>
-          </div>
-        </div>
+        <GatewayCheckoutPanel
+          purpose="booking_fee"
+          bookingId={pendingBooking.bookingId}
+          amountVnd={pendingBooking.feeOnlineVnd}
+          title={
+            isVi
+              ? `Thanh toán giữ chỗ (${pendingBooking.bookingCode})`
+              : `Pay reservation fee (${pendingBooking.bookingCode})`
+          }
+          subtitle={
+            isVi
+              ? `Khóa lịch ngay khi thanh toán. Phần ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} trả chủ nhà khi nhận phòng.`
+              : `Locks your dates immediately. Pay ${formatMoneyFromVnd(pendingBooking.payAtCheckinVnd, currency)} directly to host at check-in.`
+          }
+          onPaid={() => {
+            setConfirmed({
+              bookingCode: pendingBooking.bookingCode,
+              status: 'RESERVED_LOCKED',
+              feePaidOnlineVnd: pendingBooking.feeOnlineVnd,
+              payAtCheckinVnd: pendingBooking.payAtCheckinVnd,
+            });
+            setPendingBooking(null);
+          }}
+        />
       )}
 
       {confirmed ? (
         <div className="space-y-3 rounded-2xl border border-[#164E3F]/30 bg-[#E7F1EC] p-4 text-xs text-[#17221E]">
           <div className="flex items-center gap-2 font-bold text-[#164E3F]">
             <CheckCircle2 className="h-4 w-4" />
-            {confirmed.status === 'RESERVED_LOCKED'
-              ? isVi
-                ? `Đã giữ phòng thành công (${confirmed.bookingCode})`
-                : `Dates locked (${confirmed.bookingCode})`
-              : isVi
-                ? `Đã ghi nhận đặt trực tiếp (${confirmed.bookingCode})`
-                : `Direct booking link ready (${confirmed.bookingCode})`}
+            {isVi
+              ? `Đã giữ phòng thành công (${confirmed.bookingCode})`
+              : `Dates locked (${confirmed.bookingCode})`}
           </div>
-          {confirmed.status === 'RESERVED_LOCKED' && (
-            <p className="text-[#53635D]">
-              {isVi
-                ? `Đã thanh toán ${formatMoneyFromVnd(confirmed.feePaidOnlineVnd, currency)} online. Phần ${formatMoneyFromVnd(confirmed.payAtCheckinVnd, currency)} trả chủ nhà khi nhận phòng.`
-                : `Paid ${formatMoneyFromVnd(confirmed.feePaidOnlineVnd, currency)} online. Pay ${formatMoneyFromVnd(confirmed.payAtCheckinVnd, currency)} to your host at check-in.`}
-            </p>
-          )}
-          {confirmed.directReferralUrl && (
-            <p className="text-[#53635D]">
-              {isVi ? 'Trang đặt phòng của chủ nhà:' : 'Host booking website:'}{' '}
-              <span className="break-all font-semibold text-[#164E3F]">{confirmed.directReferralUrl}</span>
-            </p>
-          )}
+          <p className="text-[#53635D]">
+            {isVi
+              ? `Đã thanh toán ${formatMoneyFromVnd(confirmed.feePaidOnlineVnd, currency)} online. Phần ${formatMoneyFromVnd(confirmed.payAtCheckinVnd, currency)} trả chủ nhà khi nhận phòng.`
+              : `Paid ${formatMoneyFromVnd(confirmed.feePaidOnlineVnd, currency)} online. Pay ${formatMoneyFromVnd(confirmed.payAtCheckinVnd, currency)} to your host at check-in.`}
+          </p>
           <Link
             href="/dashboard"
             className="inline-flex min-h-[40px] items-center rounded-lg bg-[#164E3F] px-3.5 py-2 font-semibold text-white"
           >
-            {isVi ? 'Xem địa chỉ và chứng nhận Wi-Fi' : 'View address & Wi-Fi certificate'}
+            {isVi ? 'Xem địa chỉ và thông tin nhận phòng' : 'View exact address & check-in details'}
           </Link>
         </div>
       ) : (
@@ -571,13 +485,9 @@ export function StayBookingWidget({
               ? isVi
                 ? 'Đăng nhập để giữ phòng (phí 12%)'
                 : 'Log in to reserve (12% fee)'
-              : stay.businessModel === 'booking_flow'
-                ? isVi
-                  ? `Đặt giữ chỗ ngay (${formatMoneyFromVnd(quote.feeOnlineVnd, currency)})`
-                  : `Reserve now, pay ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} today`
-                : isVi
-                  ? 'Mở trang đặt phòng của chủ nhà'
-                  : 'Continue to host website'}
+              : isVi
+                ? `Đặt giữ chỗ ngay (${formatMoneyFromVnd(quote.feeOnlineVnd, currency)})`
+                : `Reserve now · Pay ${formatMoneyFromVnd(quote.feeOnlineVnd, currency)} today`}
           </button>
         )
       )}

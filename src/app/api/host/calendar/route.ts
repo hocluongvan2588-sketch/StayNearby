@@ -3,6 +3,27 @@ import { requireRole } from '@/lib/auth/session';
 import { AppError } from '@/lib/errors';
 import { errJson, okJson } from '@/lib/http';
 import { toggleHostRoomBlock } from '@/modules/host';
+import { getHostCalendarData } from '@/modules/host-console';
+
+export async function GET(req: Request) {
+  try {
+    const user = await requireRole(['host', 'admin']);
+    const url = new URL(req.url);
+    const startDate = url.searchParams.get('startDate') ?? undefined;
+    const daysRaw = Number(url.searchParams.get('days') ?? 35);
+    const stayId = url.searchParams.get('stayId') ?? undefined;
+    const roomId = url.searchParams.get('roomId') ?? undefined;
+    const data = await getHostCalendarData(user, {
+      startDate,
+      days: Number.isFinite(daysRaw) ? daysRaw : 35,
+      stayId,
+      roomId,
+    });
+    return okJson(data);
+  } catch (err) {
+    return errJson(err);
+  }
+}
 
 const schema = z.object({
   roomId: z.string().uuid(),

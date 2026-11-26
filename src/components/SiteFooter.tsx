@@ -22,8 +22,8 @@ export function SiteFooter({
             <div className="font-serif-display text-2xl font-semibold">VietNomad Stays</div>
             <p className="text-sm leading-relaxed text-[#CDE0D9]">
               {isVi
-                ? 'Chỗ ở thuê theo tuần và tháng tại Việt Nam dành cho người làm việc từ xa. Wi-Fi đã đo tốc độ, có sẵn bàn làm việc và bếp.'
-                : 'Weekly and monthly stays in Vietnam for remote workers. Verified Wi-Fi speeds, real desks, and full kitchens.'}
+                ? 'Chỗ ở thuê theo tuần và tháng tại Việt Nam: lưu trú thoải mái, làm việc linh hoạt và hòa mình vào nhịp sống bản địa.'
+                : 'Weekly and monthly stays in Vietnam for comfortable long stays, remote work, and local living.'}
             </p>
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-[#E7F1EC]">
               {isVi ? 'Ở tối thiểu 7 đêm, không thu hoa hồng chủ nhà' : '7-night minimum, 0% host commission'}

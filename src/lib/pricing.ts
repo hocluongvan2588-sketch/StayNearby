@@ -15,7 +15,7 @@ export interface QuoteBreakdown {
   nights: number;
   baseTier: PackageDuration;
   extraNights: number;
-  businessModel: 'booking_flow' | 'stay_direct';
+  businessModel: 'booking_flow';
   wholesaleTotalVnd: number;
   baseBookingFeeVnd: number;
   serviceFeeVnd: number;
@@ -64,29 +64,43 @@ export function calculateWholesaleForNights(
 export function calculateStayQuote(params: {
   pkg: PackagePricingInput;
   nights: number;
-  businessModel: 'booking_flow' | 'stay_direct';
+  businessModel?: 'booking_flow';
   isPremiumMember?: boolean;
   applyVatFree?: boolean;
   vatTaxId?: string | null;
   availableRewardCreditVnd?: number;
   useRewardCredit?: boolean;
+  nightOverridesVnd?: Array<number | null>;
 }): QuoteBreakdown {
-  const { baseTier, extraNights, wholesaleTotalVnd } = calculateWholesaleForNights(
-    params.pkg,
-    params.nights
-  );
+  const {
+    baseTier,
+    extraNights,
+    wholesaleTotalVnd: baseWholesaleTotalVnd,
+  } = calculateWholesaleForNights(params.pkg, params.nights);
 
-  // PRD 1.1:
-  // P_host = wholesaleTotalVnd (paid directly to Host at check-in)
-  // Fee_online = Math.round(P_host * 0.12) (12% Booking & Verification Fee paid online)
+  const overrides = params.nightOverridesVnd ?? [];
+  const hasAnyOverride = overrides.some(
+    (v) => typeof v === 'number' && Number.isFinite(v) && v > 0
+  );
+  const wholesaleTotalVnd = hasAnyOverride
+    ? Math.round(
+        Array.from({ length: params.nights }, (_, idx) => {
+          const custom = overrides[idx];
+          if (typeof custom === 'number' && Number.isFinite(custom) && custom > 0) {
+            return custom;
+          }
+          return baseWholesaleTotalVnd / params.nights;
+        }).reduce((sum, n) => sum + n, 0)
+      )
+    : baseWholesaleTotalVnd;
+
+  // Unified BookingFlow (Option A: P_host + 12%):
+  // P_host = wholesaleTotalVnd (paid directly to Host at check-in, 0% host commission)
+  // Fee_online = Math.round(P_host * 0.12) (12% service & booking fee paid online)
   // Total_stay = P_host + Fee_online
-  const baseBookingFeeVnd =
-    params.businessModel === 'booking_flow'
-      ? Math.round(wholesaleTotalVnd * 0.12)
-      : 0;
+  const baseBookingFeeVnd = Math.round(wholesaleTotalVnd * 0.12);
 
   const eligibleVatFree =
-    params.businessModel === 'booking_flow' &&
     Boolean(params.isPremiumMember) &&
     Boolean(params.applyVatFree) &&
     Boolean(params.vatTaxId?.trim());
@@ -97,9 +111,7 @@ export function calculateStayQuote(params: {
 
   // Reward credit applies directly against the online booking fee
   const rewardCreditUsedVnd =
-    params.businessModel === 'booking_flow' &&
-    params.useRewardCredit &&
-    (params.availableRewardCreditVnd ?? 0) > 0
+    params.useRewardCredit && (params.availableRewardCreditVnd ?? 0) > 0
       ? Math.min(serviceFeeVnd, Math.round(params.availableRewardCreditVnd ?? 0))
       : 0;
 
@@ -116,16 +128,15 @@ export function calculateStayQuote(params: {
     weekNight > 0 ? Math.max(0, Math.round(((weekNight - monthNight) / weekNight) * 100)) : 0;
 
   // Premium members earn 4% reward credit calculated against the all-inclusive booking value
-  const rewardCreditEarnedVnd =
-    params.businessModel === 'booking_flow' && params.isPremiumMember
-      ? Math.round(totalStayVnd * 0.04)
-      : 0;
+  const rewardCreditEarnedVnd = params.isPremiumMember
+    ? Math.round(totalStayVnd * 0.04)
+    : 0;
 
   return {
     nights: params.nights,
     baseTier,
     extraNights,
-    businessModel: params.businessModel,
+    businessModel: 'booking_flow',
     wholesaleTotalVnd,
     baseBookingFeeVnd,
     serviceFeeVnd,

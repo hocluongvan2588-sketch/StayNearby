@@ -5,8 +5,7 @@ import { getConfig } from '@/lib/config';
 import { getServerPreferences } from '@/lib/preferences';
 import { getDestinations, getLifestyles } from '@/modules/catalog';
 import { PreferencesProvider } from '@/components/PreferencesProvider';
-import { SiteHeader } from '@/components/SiteHeader';
-import { SiteFooter } from '@/components/SiteFooter';
+import { AppShellSwitch } from '@/components/shells/AppShellSwitch';
 
 export const metadata: Metadata = {
   title: 'VietNomad Stays | Extended Stays for Remote Work in Vietnam',
@@ -33,13 +32,14 @@ export default async function RootLayout({
           initialLocale={prefs.locale}
           initialCurrency={prefs.currency}
         >
-          <SiteHeader
+          <AppShellSwitch
             user={user}
             destinations={destinations}
             lifestyles={lifestyles}
-          />
-          <main className="flex-1">{children}</main>
-          <SiteFooter destinations={destinations} demoEnabled={getConfig().demoMode} />
+            demoEnabled={getConfig().demoMode}
+          >
+            {children}
+          </AppShellSwitch>
         </PreferencesProvider>
       </body>
     </html>

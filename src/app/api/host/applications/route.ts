@@ -9,12 +9,14 @@ const schema = z.object({
   stayName: z.string().min(3).max(120),
   destinationSlug: z.string().min(2),
   propertyType: z.enum(['apartment', 'coliving', 'boutique_hotel', 'villa', 'eco_lodge']),
-  businessModel: z.enum(['booking_flow', 'stay_direct']),
-  measuredDownloadMbps: z.number().int().min(10).max(5000),
-  hasKitchen: z.boolean(),
-  hasLaundry: z.boolean(),
-  hasWorkspace: z.boolean(),
-  directBookingUrl: z.string().optional(),
+  measuredDownloadMbps: z.number().int().min(0).max(5000).optional(),
+  hasKitchen: z.boolean().optional(),
+  hasLaundry: z.boolean().optional(),
+  hasWorkspace: z.boolean().optional(),
+  hasErgonomicChair: z.boolean().optional(),
+  hasExternalMonitor: z.boolean().optional(),
+  kitchenType: z.enum(['full', 'kitchenette', 'shared', 'none']).optional(),
+  laundryType: z.enum(['in_unit', 'building', 'service', 'none']).optional(),
 });
 
 export async function POST(req: Request) {
@@ -23,7 +25,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      throw new AppError('VALIDATION_ERROR', 'Please fill out all required stay application fields.');
+      throw new AppError('VALIDATION_ERROR', 'Please fill out your business name, stay name, destination, and property type.');
     }
     const result = await submitHostApplication(user, parsed.data);
     return okJson(result, 201);

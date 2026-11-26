@@ -39,7 +39,7 @@ export default async function DealsPage() {
         <p className="text-sm text-[#53635D]">
           {isVi
             ? 'Tất cả chỗ ở dưới đây đang còn phòng cho gói 30 đêm, hiển thị sẵn tiền cọc 12% và phần trả chủ nhà khi nhận phòng.'
-            : 'All places below are open for 30-night stays, with tested Wi-Fi speeds and upfront payment totals.'}
+            : 'All places below are open for 30-night stays, with reported Wi-Fi speeds and upfront BookingFlow payment totals.'}
         </p>
       </div>
 

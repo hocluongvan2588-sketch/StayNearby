@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { CheckCircle2, Loader2, ShieldCheck, Wallet, Zap } from 'lucide-react';
+import { CheckCircle2, Loader2, ShieldCheck, Sparkles, Zap } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
 import type { DestinationSummary } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
@@ -21,12 +21,12 @@ export function ListYourStayClient({
   const [stayName, setStayName] = useState('');
   const [destinationSlug, setDestinationSlug] = useState(destinations[0]?.slug ?? 'da-nang');
   const [propertyType, setPropertyType] = useState<'apartment' | 'coliving' | 'boutique_hotel' | 'villa' | 'eco_lodge'>('apartment');
-  const [businessModel, setBusinessModel] = useState<'booking_flow' | 'stay_direct'>('booking_flow');
-  const [measuredDownloadMbps, setMeasuredDownloadMbps] = useState(250);
-  const [directBookingUrl, setDirectBookingUrl] = useState('');
-  const [hasKitchen, setHasKitchen] = useState(true);
-  const [hasLaundry, setHasLaundry] = useState(true);
+  const [measuredDownloadMbps, setMeasuredDownloadMbps] = useState(150);
   const [hasWorkspace, setHasWorkspace] = useState(true);
+  const [hasErgonomicChair, setHasErgonomicChair] = useState(false);
+  const [hasExternalMonitor, setHasExternalMonitor] = useState(false);
+  const [kitchenType, setKitchenType] = useState<'full' | 'kitchenette' | 'shared' | 'none'>('full');
+  const [laundryType, setLaundryType] = useState<'in_unit' | 'building' | 'service' | 'none'>('in_unit');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [submittedId, setSubmittedId] = useState('');
@@ -48,12 +48,14 @@ export function ListYourStayClient({
           stayName,
           destinationSlug,
           propertyType,
-          businessModel,
-          measuredDownloadMbps: Number(measuredDownloadMbps),
-          hasKitchen,
-          hasLaundry,
+          measuredDownloadMbps: Math.max(0, Number(measuredDownloadMbps) || 0),
           hasWorkspace,
-          directBookingUrl: businessModel === 'stay_direct' ? directBookingUrl : undefined,
+          hasErgonomicChair,
+          hasExternalMonitor,
+          kitchenType,
+          laundryType,
+          hasKitchen: kitchenType !== 'none',
+          hasLaundry: laundryType !== 'none',
         }),
       });
       const json = await res.json();
@@ -72,78 +74,82 @@ export function ListYourStayClient({
       <div className="grid gap-8 rounded-3xl border border-[#E5DFD3] bg-[#0F392E] p-8 text-[#FAF8F3] lg:grid-cols-12 lg:items-center lacquer-shadow">
         <div className="space-y-4 lg:col-span-7">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-[#E6B87A]">
-            {isVi ? 'Trung bình 28 đêm mỗi đơn, chỉ nhận chỗ ở riêng tư' : '28 nights average booking, private spaces only'}
+            {isVi ? 'Đăng chỗ ở miễn phí (€0) · 0% hoa hồng chủ nhà' : 'Free host onboarding (€0) · 0% host commission'}
           </span>
           <h1 className="font-serif-display text-4xl font-semibold leading-tight sm:text-5xl">
             {isVi
-              ? 'Đón khách thuê theo tuần và tháng, nhận đủ 100% tiền nhà.'
-              : 'Welcome guests staying weeks or months, with 0% host commission.'}
+              ? 'Đón khách lưu trú dài ngày, nhận trọn 100% tiền thuê.'
+              : 'Welcome weekly & monthly guests with 0% host commission.'}
           </h1>
           <p className="text-sm text-[#DCECE5]">
             {isVi
-              ? 'Phí kiểm duyệt một lần là 39 EUR. Sau khi được duyệt, bạn chủ động đặt giá theo gói 7, 14, 21, 30 đêm và cập nhật tốc độ Wi-Fi.'
-              : 'One-time €39 verification fee. Once approved, set your weekly and monthly rates and manage bookings in your Host Portal.'}
+              ? 'Đăng ký hoàn toàn miễn phí — không thu phí khởi tạo, không bắt buộc kiểm tra Wi-Fi hay thiết bị đầu vào. Bạn tự khai tiện nghi và tùy chọn yêu cầu badge Wi-Fi Verified / Work-Ready bất cứ lúc nào.'
+              : 'Free to join — zero onboarding fees and zero mandatory Wi-Fi or hardware gates. Self-declare your property amenities and optionally request Wi-Fi Verified or Work-Ready badges later.'}
           </p>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:col-span-5">
           <div className="rounded-2xl bg-white/10 p-4">
             <Zap className="mb-2 h-5 w-5 text-[#E6B87A]" />
-            <div className="font-semibold">{isVi ? 'Đặt qua VietNomad (0% hoa hồng)' : 'Book on VietNomad (0% commission)'}</div>
+            <div className="font-semibold">
+              {isVi ? 'BookingFlow · 0% hoa hồng chủ nhà' : 'BookingFlow · 0% host commission'}
+            </div>
             <p className="mt-1 text-xs text-[#CDE0D9]">
               {isVi
-                ? 'Khách đóng 12% phí giữ chỗ online và trả 100% tiền thuê trực tiếp cho bạn khi nhận phòng. Hỗ trợ đồng bộ lịch từ Airbnb và Booking.com.'
-                : 'Guests pay a 12% fee online and pay 100% of your rent at check-in. Syncs automatically with Airbnb and Booking.com.'}
+                ? 'Khách đóng 12% phí giữ chỗ online để khóa lịch, và trả 100% tiền phòng trực tiếp cho bạn khi nhận phòng. Đồng bộ lịch iCal tự động từ Airbnb và Booking.com.'
+                : 'Guests pay a 12% booking fee online to lock dates and pay 100% of rent directly to you at check-in. Syncs iCal with Airbnb & Booking.com.'}
             </p>
           </div>
           <div className="rounded-2xl bg-white/10 p-4">
-            <Wallet className="mb-2 h-5 w-5 text-[#E6B87A]" />
-            <div className="font-semibold">{isVi ? 'Đặt trực tiếp chủ nhà (phí 1%)' : 'Direct Booking (1% referral fee)'}</div>
+            <Sparkles className="mb-2 h-5 w-5 text-[#E6B87A]" />
+            <div className="font-semibold">
+              {isVi ? 'Badge kiểm định tùy chọn' : 'Optional Trust Badges'}
+            </div>
             <p className="mt-1 text-xs text-[#CDE0D9]">
               {isVi
-                ? 'Chuyển khách sang đặt trực tiếp trên website riêng của bạn, phí giới thiệu 1% trừ vào ví quảng cáo.'
-                : 'Send guests straight to your own website. A 1% referral fee is deducted from your ad balance.'}
+                ? 'Không bắt buộc bàn làm việc hay tốc độ tối thiểu để đăng phòng. Nếu muốn nổi bật, bạn có thể xin cấp badge Wi-Fi Verified hoặc Work-Ready.'
+                : 'No desk or minimum speed required to list. Request optional Wi-Fi Verified or Work-Ready badges whenever your setup qualifies.'}
             </p>
           </div>
         </div>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-12">
-        <div className="space-y-5 rounded-3xl border border-[#E5DFD3] bg-white p-7 lg:col-span-5 h-fit">
+        <div className="h-fit space-y-5 rounded-3xl border border-[#E5DFD3] bg-white p-7 lg:col-span-5">
           <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-            {isVi ? 'Điều kiện để được duyệt' : 'Requirements to list'}
+            {isVi ? 'Cách VietNomad Stays hoạt động' : 'How listing works'}
           </h2>
           <ul className="space-y-3 text-sm text-[#53635D]">
             <li className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#164E3F]" />
               <span>
                 {isVi
-                  ? 'Không gian riêng khép kín (căn hộ, biệt thự, phòng coliving hoặc khách sạn). Không nhận phòng ghép ở chung nhà.'
-                  : 'Private self-contained spaces only (apartments, villas, coliving, boutique hotels). No shared spare rooms.'}
+                  ? 'Miễn phí 100% đăng ký và quản lý chỗ ở — không thu phí xét duyệt.'
+                  : '100% free to list — zero onboarding fees and zero commission on your rent.'}
               </span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#164E3F]" />
               <span>
                 {isVi
-                  ? 'Có bàn ghế làm việc riêng, bếp nấu ăn và máy giặt.'
-                  : 'Must include a dedicated desk, kitchen facilities, and laundry.'}
+                  ? 'Chủ nhà tự mô tả trung thực không gian sống: tốc độ Wi-Fi dự kiến, bàn làm việc, bếp và máy giặt để khách lọc đúng nhu cầu.'
+                  : 'Self-declare amenities (desk, chair, monitor, kitchen, laundry, reported Wi-Fi) so guests can filter for what matters to them.'}
               </span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#164E3F]" />
               <span>
                 {isVi
-                  ? 'Lịch phòng cập nhật liên tục cho các gói từ 7 đến 30 đêm.'
-                  : 'Live calendar supporting 7, 14, 21, and 30-night stays.'}
+                  ? 'Hỗ trợ đầy đủ các gói 7, 14, 21, 30 đêm và quản lý ảnh, phòng, lịch iCal ngay trong Host Portal.'
+                  : 'Manage 7/14/21/30-night pricing, multi-room types, photo galleries, and iCal sync in your Host Studio.'}
               </span>
             </li>
           </ul>
           <div className="rounded-2xl bg-[#FAF8F3] p-4 text-xs text-[#53635D]">
             <ShieldCheck className="mr-1 inline h-4 w-4 text-[#164E3F]" />
             {isVi
-              ? 'Sau khi bạn bấm Gửi duyệt, quản trị viên sẽ kiểm tra tốc độ Wi-Fi và đưa chỗ ở lên trang chủ.'
-              : 'After you submit for review, an admin verifies your Wi-Fi speed and publishes your stay.'}
+              ? 'Sau khi duyệt hồ sơ cơ bản, chỗ ở sẽ hiển thị trực tiếp và Admin có thể cấp thêm badge Wi-Fi Verified hoặc Work-Ready nếu đủ điều kiện.'
+              : 'Once published, you can request optional Wi-Fi Verified or Work-Ready badges anytime via Admin verification.'}
           </div>
         </div>
 
@@ -152,7 +158,7 @@ export function ListYourStayClient({
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-lg font-bold text-[#164E3F]">
                 <CheckCircle2 className="h-6 w-6" />
-                {isVi ? 'Đã gửi duyệt chỗ ở mới!' : 'Submitted for review!'}
+                {isVi ? 'Đã gửi hồ sơ đăng chỗ ở miễn phí!' : 'Listing application submitted!'}
               </div>
               <p className="text-sm text-[#53635D]">
                 {isVi ? 'Mã hồ sơ:' : 'Application ID:'}{' '}
@@ -160,7 +166,7 @@ export function ListYourStayClient({
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link href="/host" className="rounded-xl bg-[#164E3F] px-5 py-2.5 text-sm font-semibold text-white">
-                  {isVi ? 'Mở trang quản lý nhà' : 'Open Host Portal'}
+                  {isVi ? 'Mở trang quản lý nhà' : 'Open Host Studio'}
                 </Link>
                 <Link href="/admin" className="rounded-xl border border-[#E5DFD3] px-5 py-2.5 text-sm font-semibold text-[#17221E]">
                   {isVi ? 'Xem hàng đợi duyệt' : 'View review queue'}
@@ -170,13 +176,13 @@ export function ListYourStayClient({
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-                {isVi ? 'Điền thông tin chỗ ở để gửi duyệt (phí 39 EUR)' : 'Submit your property for review (€39 one-time fee)'}
+                {isVi ? 'Đăng ký chỗ ở miễn phí (€0)' : 'Submit your stay for free (€0 fee)'}
               </h2>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-[#53635D]">
-                    {isVi ? 'Tên chủ nhà hoặc công ty' : 'Owner or business name'}
+                    {isVi ? 'Tên chủ nhà hoặc thương hiệu' : 'Owner or business name'}
                   </label>
                   <input
                     type="text"
@@ -196,7 +202,7 @@ export function ListYourStayClient({
                     required
                     value={stayName}
                     onChange={(e) => setStayName(e.target.value)}
-                    placeholder="My An Work Suites"
+                    placeholder="My An Courtyard Apartments"
                     className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3.5 py-2.5 text-sm"
                   />
                 </div>
@@ -229,20 +235,20 @@ export function ListYourStayClient({
                     className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5 text-sm font-medium"
                   >
                     <option value="apartment">{isVi ? 'Căn hộ dịch vụ' : 'Apartment'}</option>
-                    <option value="coliving">{isVi ? 'Nhà ở chung (Coliving)' : 'Coliving'}</option>
-                    <option value="boutique_hotel">{isVi ? 'Khách sạn nhỏ' : 'Boutique Hotel'}</option>
+                    <option value="coliving">{isVi ? 'Coliving' : 'Coliving'}</option>
+                    <option value="boutique_hotel">{isVi ? 'Khách sạn boutique' : 'Boutique Hotel'}</option>
                     <option value="villa">{isVi ? 'Biệt thự riêng' : 'Villa'}</option>
-                    <option value="eco_lodge">{isVi ? 'Nhà gỗ nghỉ dưỡng' : 'Nature Lodge'}</option>
+                    <option value="eco_lodge">{isVi ? 'Nhà gỗ nghỉ dưỡng' : 'Eco Lodge'}</option>
                   </select>
                 </div>
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-[#53635D]">
-                    {isVi ? 'Tốc độ Wi-Fi đo được (Mbps)' : 'Tested Wi-Fi speed (Mbps)'}
+                    {isVi ? 'Tốc độ Wi-Fi ước tính (Mbps)' : 'Reported Wi-Fi (Mbps, optional)'}
                   </label>
                   <input
                     type="number"
-                    min={15}
-                    max={2000}
+                    min={0}
+                    max={5000}
                     value={measuredDownloadMbps}
                     onChange={(e) => setMeasuredDownloadMbps(Number(e.target.value))}
                     className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5 text-sm font-semibold"
@@ -250,70 +256,57 @@ export function ListYourStayClient({
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setBusinessModel('booking_flow')}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    businessModel === 'booking_flow'
-                      ? 'border-[#164E3F] bg-[#E7F1EC]'
-                      : 'border-[#E5DFD3] bg-[#FAF8F3]'
-                  }`}
-                >
-                  <div className="text-sm font-bold text-[#164E3F]">
-                    {isVi ? 'Đặt qua VietNomad (0% hoa hồng)' : 'Book on VietNomad (0% commission)'}
-                  </div>
-                  <div className="mt-1 text-xs text-[#53635D]">
-                    {isVi ? 'Khách đóng 12% giữ chỗ và trả tiền nhà cho bạn khi đến.' : 'Guests pay 12% online and pay you rent at check-in.'}
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setBusinessModel('stay_direct')}
-                  className={`rounded-2xl border p-4 text-left transition ${
-                    businessModel === 'stay_direct'
-                      ? 'border-[#C25E28] bg-[#FAEDE5]'
-                      : 'border-[#E5DFD3] bg-[#FAF8F3]'
-                  }`}
-                >
-                  <div className="text-sm font-bold text-[#C25E28]">
-                    {isVi ? 'Đặt trực tiếp chủ nhà (phí 1%)' : 'Direct Booking (1% referral fee)'}
-                  </div>
-                  <div className="mt-1 text-xs text-[#53635D]">
-                    {isVi ? 'Chuyển khách sang đặt phòng trên website của bạn.' : 'Send guests directly to your own booking link.'}
-                  </div>
-                </button>
-              </div>
-
-              {businessModel === 'stay_direct' && (
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-[#53635D]">
-                    {isVi ? 'Đường dẫn website đặt phòng (HTTPS)' : 'Direct booking URL (HTTPS)'}
+                    {isVi ? 'Khu bếp (tự khai)' : 'Kitchen availability'}
                   </label>
-                  <input
-                    type="url"
-                    required
-                    value={directBookingUrl}
-                    onChange={(e) => setDirectBookingUrl(e.target.value)}
-                    placeholder="https://yourproperty.vn/book"
-                    className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3.5 py-2.5 text-sm"
-                  />
+                  <select
+                    value={kitchenType}
+                    onChange={(e) => setKitchenType(e.target.value as typeof kitchenType)}
+                    className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5 text-sm font-medium"
+                  >
+                    <option value="full">{isVi ? 'Bếp riêng đầy đủ' : 'Full private kitchen'}</option>
+                    <option value="kitchenette">{isVi ? 'Bếp nhỏ gọn (Kitchenette)' : 'Kitchenette'}</option>
+                    <option value="shared">{isVi ? 'Bếp chung' : 'Shared kitchen'}</option>
+                    <option value="none">{isVi ? 'Không có bếp' : 'No kitchen'}</option>
+                  </select>
                 </div>
-              )}
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-[#53635D]">
+                    {isVi ? 'Giặt sấy (tự khai)' : 'Laundry options'}
+                  </label>
+                  <select
+                    value={laundryType}
+                    onChange={(e) => setLaundryType(e.target.value as typeof laundryType)}
+                    className="w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5 text-sm font-medium"
+                  >
+                    <option value="in_unit">{isVi ? 'Máy giặt trong phòng' : 'In-unit washer'}</option>
+                    <option value="building">{isVi ? 'Khu giặt sấy tòa nhà' : 'Building laundry'}</option>
+                    <option value="service">{isVi ? 'Dịch vụ giặt ủi' : 'Laundry service'}</option>
+                    <option value="none">{isVi ? 'Không có máy giặt' : 'No laundry'}</option>
+                  </select>
+                </div>
+              </div>
 
-              <div className="flex flex-wrap gap-4 pt-1 text-xs font-medium">
-                <label className="flex items-center gap-1.5">
-                  <input type="checkbox" checked={hasWorkspace} onChange={(e) => setHasWorkspace(e.target.checked)} className="accent-[#164E3F]" />
-                  {isVi ? 'Có bàn ghế làm việc' : 'Dedicated desk'}
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input type="checkbox" checked={hasKitchen} onChange={(e) => setHasKitchen(e.target.checked)} className="accent-[#164E3F]" />
-                  {isVi ? 'Có bếp nấu' : 'Kitchen'}
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input type="checkbox" checked={hasLaundry} onChange={(e) => setHasLaundry(e.target.checked)} className="accent-[#164E3F]" />
-                  {isVi ? 'Có máy giặt' : 'Laundry'}
-                </label>
+              <div className="rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4">
+                <div className="mb-2 text-xs font-semibold text-[#53635D]">
+                  {isVi ? 'Tiện ích làm việc (tùy chọn, không bắt buộc)' : 'Workspace setup (optional self-declared)'}
+                </div>
+                <div className="flex flex-wrap gap-4 text-xs font-medium text-[#17221E]">
+                  <label className="flex items-center gap-1.5">
+                    <input type="checkbox" checked={hasWorkspace} onChange={(e) => setHasWorkspace(e.target.checked)} className="accent-[#164E3F]" />
+                    {isVi ? 'Có bàn làm việc riêng' : 'Dedicated desk'}
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <input type="checkbox" checked={hasErgonomicChair} onChange={(e) => setHasErgonomicChair(e.target.checked)} className="accent-[#164E3F]" />
+                    {isVi ? 'Ghế công thái học' : 'Ergonomic chair'}
+                  </label>
+                  <label className="flex items-center gap-1.5">
+                    <input type="checkbox" checked={hasExternalMonitor} onChange={(e) => setHasExternalMonitor(e.target.checked)} className="accent-[#164E3F]" />
+                    {isVi ? 'Màn hình rời' : 'External monitor'}
+                  </label>
+                </div>
               </div>
 
               {error && (
@@ -330,11 +323,11 @@ export function ListYourStayClient({
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {user
                   ? isVi
-                    ? 'Thanh toán €39 và Gửi duyệt'
-                    : 'Pay €39 and Submit for review'
+                    ? 'Đăng chỗ ở miễn phí (€0)'
+                    : 'Submit listing for free (€0)'
                   : isVi
-                    ? 'Đăng nhập để Gửi duyệt'
-                    : 'Log in to Submit for review'}
+                    ? 'Đăng nhập để Gửi duyệt miễn phí'
+                    : 'Log in to Submit for free'}
               </button>
             </form>
           )}

@@ -37,11 +37,10 @@ describe('NomadStays Pricing, Extra Nights & Fee Models', () => {
     });
   });
 
-  it('computes BookingFlow quote with 12% fee, 4% member reward, and VAT-free business mode', () => {
+  it('computes unified BookingFlow quote with 12% fee, 4% member reward, and VAT-free business mode', () => {
     const standardQuote = calculateStayQuote({
       pkg,
       nights: 30,
-      businessModel: 'booking_flow',
       isPremiumMember: true,
       applyVatFree: false,
       vatTaxId: 'EU-VAT-999',
@@ -64,7 +63,6 @@ describe('NomadStays Pricing, Extra Nights & Fee Models', () => {
     const vatFreeQuote = calculateStayQuote({
       pkg,
       nights: 30,
-      businessModel: 'booking_flow',
       isPremiumMember: true,
       applyVatFree: true,
       vatTaxId: 'EU-VAT-999',
@@ -77,23 +75,15 @@ describe('NomadStays Pricing, Extra Nights & Fee Models', () => {
     );
     expect(vatFreeQuote.feeOnlineVnd).toBe(vatFreeQuote.serviceFeeVnd);
     expect(vatFreeQuote.payAtCheckinVnd).toBe(18_300_000);
-  });
 
-  it('computes StayDirect™ quote with 0% traveler markup', () => {
-    const directQuote = calculateStayQuote({
+    const defaultGuestQuote = calculateStayQuote({
       pkg,
       nights: 14,
-      businessModel: 'stay_direct',
-      isPremiumMember: true,
-      applyVatFree: true,
-      vatTaxId: 'EU-VAT-999',
     });
-
-    expect(directQuote.serviceFeeVnd).toBe(0);
-    expect(directQuote.feeOnlineVnd).toBe(0);
-    expect(directQuote.payAtCheckinVnd).toBe(9_800_000);
-    expect(directQuote.vatDiscountVnd).toBe(0);
-    expect(directQuote.guestTotalVnd).toBe(9_800_000);
+    expect(defaultGuestQuote.serviceFeeVnd).toBe(Math.round(9_800_000 * 0.12));
+    expect(defaultGuestQuote.feeOnlineVnd).toBe(Math.round(9_800_000 * 0.12));
+    expect(defaultGuestQuote.payAtCheckinVnd).toBe(9_800_000);
+    expect(defaultGuestQuote.guestTotalVnd).toBe(9_800_000 + Math.round(9_800_000 * 0.12));
   });
 });
 

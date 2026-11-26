@@ -67,8 +67,8 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
           </h2>
           <p className="text-sm leading-relaxed text-[#CDE0D9]">
             {isVi
-              ? 'Hệ thống tìm thẳng theo giá gói, thành phố và tốc độ Wi-Fi đo thực tế.'
-              : 'Matches live room availability, verified Wi-Fi speed, and monthly prices.'}
+              ? 'Hệ thống tìm thẳng theo giá gói, thành phố, tiện nghi và tốc độ Wi-Fi.'
+              : 'Matches live room availability, amenities, reported Wi-Fi speed, and monthly prices.'}
           </p>
         </div>
 

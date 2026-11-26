@@ -10,12 +10,15 @@ export async function GET(req: Request) {
       checkIn: searchParams.get('checkIn') ?? undefined,
       nights: searchParams.get('nights') ? Number(searchParams.get('nights')) : undefined,
       minWifiMbps: searchParams.get('minWifi') ? Number(searchParams.get('minWifi')) : undefined,
-      businessModel: (searchParams.get('model') as 'booking_flow' | 'stay_direct' | 'all') ?? 'all',
+      hasWorkspace: searchParams.get('workspace') === '1',
+      hasErgonomicChair: searchParams.get('chair') === '1',
       hasMonitor: searchParams.get('monitor') === '1',
       hasCallBooth: searchParams.get('booth') === '1',
       fullKitchen: searchParams.get('kitchen') === '1',
       inUnitLaundry: searchParams.get('laundry') === '1',
       petFriendly: searchParams.get('pet') === '1',
+      wifiVerifiedOnly: searchParams.get('wifiVerified') === '1',
+      workReadyOnly: searchParams.get('workReady') === '1',
       sort: (searchParams.get('sort') as 'wifi_desc' | 'price_asc' | 'savings_desc' | 'rating_desc') ?? 'wifi_desc',
     });
     return okJson({ stays });

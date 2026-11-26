@@ -143,7 +143,7 @@ export async function dispatchBookingLockedNotifications(
     phoneOverride: row.host_whatsapp,
   });
 
-  const guestSubject = `[${row.booking_code}] Confirmed: ${row.stay_title} (Wi-Fi certificate included)`;
+  const guestSubject = `[${row.booking_code}] Confirmed: ${row.stay_title}`;
   const guestPayload = {
     bookingCode: row.booking_code,
     stayTitle: row.stay_title,
@@ -159,7 +159,7 @@ export async function dispatchBookingLockedNotifications(
     hostName: row.host_name,
     hostWhatsapp: row.host_whatsapp,
     hostWhatsappLink,
-    wifiCertificate: {
+    wifiProfile: {
       downloadMbps: toNum(row.wifi_download_mbps),
       uploadMbps: toNum(row.wifi_upload_mbps),
       jitterMs: toNum(row.wifi_jitter_ms),
@@ -167,7 +167,7 @@ export async function dispatchBookingLockedNotifications(
       speedtestProofUrl: row.speedtest_proof_url,
     },
     guaranteeNote:
-      '100% booking fee refund guarantee if Wi-Fi or workspace at check-in falls below this certificate.',
+      'Confirmed on VietNomad Stays. Standard property cancellation policy applies.',
   };
 
   const guestStatus = await maybeSendResendEmail(
@@ -177,7 +177,7 @@ export async function dispatchBookingLockedNotifications(
      <p>Paid online (12% booking fee): <strong>${formatVndExact(feeOnlineVnd)}</strong></p>
      <p>Due at check-in (pay directly to host): <strong>${formatVndExact(payAtCheckinVnd)}</strong></p>
      <p>Address: ${row.exact_address}</p>
-     <p>Verified Wi-Fi: ${row.wifi_download_mbps} Mbps down / ${row.wifi_upload_mbps} Mbps up (${row.wifi_jitter_ms}ms latency)</p>`
+     <p>Reported Wi-Fi: ${row.wifi_download_mbps} Mbps down / ${row.wifi_upload_mbps} Mbps up (${row.wifi_jitter_ms}ms latency)</p>`
   );
 
   const hostSubject = `[New Booking ${row.booking_code}] ${row.guest_name}, collect ${formatVndExact(payAtCheckinVnd)} at check-in`;

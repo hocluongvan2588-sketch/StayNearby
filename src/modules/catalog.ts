@@ -2,6 +2,7 @@ import { dbQuery, toNum } from '@/lib/db';
 import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
 import type { Locale } from '@/lib/i18n';
 import { calculateStayQuote } from '@/lib/pricing';
+import { parseHouseRules, type HostHouseRules } from '@/modules/host';
 
 export interface CoworkingSpot {
   name: string;
@@ -25,14 +26,17 @@ export interface StayCardItem {
   neighborhoodEn: string;
   neighborhoodVi: string;
   propertyType: string;
-  businessModel: 'booking_flow' | 'stay_direct';
+  businessModel: 'booking_flow';
   isInstantBook: boolean;
   cancellationPolicy: 'flexible' | 'moderate' | 'strict';
   wifiDownloadMbps: number;
   wifiUploadMbps: number;
   wifiJitterMs: number;
-  verificationTier: 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+  verificationTier: 'SELF_DECLARED' | 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+  isWifiVerified: boolean;
+  isWorkReady: boolean;
   verifiedAt: string;
+  hasWorkspace: boolean;
   hasErgonomicChair: boolean;
   hasExternalMonitor: boolean;
   hasCallBooth: boolean;
@@ -129,6 +133,18 @@ export interface StayRoomDetail {
     dealMonthLabel: string;
   }[];
   unavailableDates: string[];
+  customPricesByDate: Record<string, number>;
+  minNightsByDate: Record<string, number>;
+}
+
+export interface StayGuestReviewItem {
+  id: string;
+  guestName: string;
+  rating: number;
+  comment: string;
+  hostReply: string | null;
+  hostRepliedAt: string | null;
+  createdAt: string;
 }
 
 export interface StayDetail extends StayCardItem {
@@ -138,7 +154,13 @@ export interface StayDetail extends StayCardItem {
   descriptionEn: string;
   descriptionVi: string;
   registrationCode: string;
-  directBookingUrl: string | null;
+  checkinFrom: string;
+  checkoutBefore: string;
+  defaultMinNights: number;
+  houseRules: HostHouseRules;
+  reviews: StayGuestReviewItem[];
+  reviewsAvg: number | null;
+  reviewsCount: number;
   wifiTestedAt: string;
   wifiTesterNote: string;
   speedtestProofUrl: string | null;
@@ -168,7 +190,6 @@ function parseJsonArray<T>(raw: unknown): T[] {
 }
 
 function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]): StayCardItem {
-  const businessModel = row.business_model as 'booking_flow' | 'stay_direct';
   const pkgInput = {
     wholesale7Vnd: toNum(row.wholesale_7_vnd),
     wholesale14Vnd: toNum(row.wholesale_14_vnd),
@@ -178,14 +199,12 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
     extraNightVnd: toNum(row.extra_night_vnd),
   };
 
-  const q7 = calculateStayQuote({ pkg: pkgInput, nights: 7, businessModel });
-  const q30 = calculateStayQuote({ pkg: pkgInput, nights: 30, businessModel });
+  const q7 = calculateStayQuote({ pkg: pkgInput, nights: 7, businessModel: 'booking_flow' });
+  const q30 = calculateStayQuote({ pkg: pkgInput, nights: 30, businessModel: 'booking_flow' });
 
   const compareDisplay =
     pkgInput.compare30Vnd && pkgInput.compare30Vnd > pkgInput.wholesale30Vnd
-      ? businessModel === 'booking_flow'
-        ? Math.round(pkgInput.compare30Vnd * 1.12)
-        : pkgInput.compare30Vnd
+      ? Math.round(pkgInput.compare30Vnd * 1.12)
       : null;
 
   const dealSavingsPct =
@@ -194,6 +213,25 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
       : 0;
 
   const coworking = parseJsonArray<CoworkingSpot>(row.nearby_coworking);
+  const rawTier = String(row.verification_tier ?? 'SELF_DECLARED');
+  const verificationTier: StayCardItem['verificationTier'] =
+    rawTier === 'VIETNOMAD_CERTIFIED'
+      ? 'VIETNOMAD_CERTIFIED'
+      : rawTier === 'HOST_VERIFIED'
+        ? 'HOST_VERIFIED'
+        : 'SELF_DECLARED';
+  const isWifiVerified =
+    row.is_wifi_verified !== undefined && row.is_wifi_verified !== null
+      ? Boolean(row.is_wifi_verified)
+      : verificationTier === 'VIETNOMAD_CERTIFIED';
+  const hasWorkspace =
+    row.has_workspace !== undefined && row.has_workspace !== null
+      ? Boolean(row.has_workspace)
+      : true;
+  const isWorkReady =
+    row.is_work_ready !== undefined && row.is_work_ready !== null
+      ? Boolean(row.is_work_ready)
+      : isWifiVerified && hasWorkspace;
 
   return {
     id: String(row.id),
@@ -208,17 +246,17 @@ function mapStayRowToCard(row: Record<string, unknown>, lifestyleSlugs: string[]
     neighborhoodEn: String(row.neighborhood_en),
     neighborhoodVi: String(row.neighborhood_vi),
     propertyType: String(row.property_type),
-    businessModel,
+    businessModel: 'booking_flow',
     isInstantBook: Boolean(row.is_instant_book),
     cancellationPolicy: row.cancellation_policy as 'flexible' | 'moderate' | 'strict',
     wifiDownloadMbps: toNum(row.wifi_download_mbps),
     wifiUploadMbps: toNum(row.wifi_upload_mbps),
     wifiJitterMs: toNum(row.wifi_jitter_ms),
-    verificationTier:
-      row.verification_tier === 'HOST_VERIFIED'
-        ? 'HOST_VERIFIED'
-        : 'VIETNOMAD_CERTIFIED',
+    verificationTier,
+    isWifiVerified,
+    isWorkReady,
     verifiedAt: new Date(String(row.verified_at ?? row.wifi_tested_at ?? Date.now())).toISOString(),
+    hasWorkspace,
     hasErgonomicChair: Boolean(row.has_ergonomic_chair),
     hasExternalMonitor: Boolean(row.has_external_monitor),
     hasCallBooth: Boolean(row.has_call_booth),
@@ -310,12 +348,15 @@ export interface SearchStaysFilter {
   checkIn?: string;
   nights?: number;
   minWifiMbps?: number;
-  businessModel?: 'booking_flow' | 'stay_direct' | 'all';
+  hasWorkspace?: boolean;
+  hasErgonomicChair?: boolean;
   hasMonitor?: boolean;
   hasCallBooth?: boolean;
   fullKitchen?: boolean;
   inUnitLaundry?: boolean;
   petFriendly?: boolean;
+  wifiVerifiedOnly?: boolean;
+  workReadyOnly?: boolean;
   maxMonthlyVnd?: number;
   sort?: 'wifi_desc' | 'price_asc' | 'savings_desc' | 'rating_desc';
 }
@@ -390,8 +431,11 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
   if (filters.minWifiMbps && filters.minWifiMbps > 0) {
     items = items.filter((s) => s.wifiDownloadMbps >= filters.minWifiMbps!);
   }
-  if (filters.businessModel && filters.businessModel !== 'all') {
-    items = items.filter((s) => s.businessModel === filters.businessModel);
+  if (filters.hasWorkspace) {
+    items = items.filter((s) => s.hasWorkspace);
+  }
+  if (filters.hasErgonomicChair) {
+    items = items.filter((s) => s.hasErgonomicChair);
   }
   if (filters.hasMonitor) {
     items = items.filter((s) => s.hasExternalMonitor);
@@ -407,6 +451,12 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
   }
   if (filters.petFriendly) {
     items = items.filter((s) => s.petFriendly);
+  }
+  if (filters.wifiVerifiedOnly) {
+    items = items.filter((s) => s.isWifiVerified);
+  }
+  if (filters.workReadyOnly) {
+    items = items.filter((s) => s.isWorkReady);
   }
   if (filters.maxMonthlyVnd && filters.maxMonthlyVnd > 0) {
     items = items.filter((s) => s.monthDisplayVnd <= filters.maxMonthlyVnd!);
@@ -474,31 +524,71 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
 
   const today = getTodayIsoVietnam();
   const horizon = addDaysIso(today, 90);
-  const locksRes = await dbQuery<{
-    room_id: string;
-    stay_date: string | Date;
-    booked_units: number;
-    blocked_units: number;
-  }>(
-    `SELECT room_id, stay_date, booked_units, blocked_units
-     FROM room_night_locks
-     WHERE room_id = ANY($1::uuid[]) AND stay_date >= $2::date AND stay_date <= $3::date`,
-    [roomsRes.rows.map((rm) => String(rm.id)), today, horizon]
-  );
+  const [locksRes, reviewsRes] = await Promise.all([
+    dbQuery<{
+      room_id: string;
+      stay_date: string | Date;
+      booked_units: number;
+      blocked_units: number;
+      custom_nightly_vnd: string | number | null;
+      min_nights: number | null;
+    }>(
+      `SELECT room_id, stay_date, booked_units, blocked_units, custom_nightly_vnd, min_nights
+       FROM room_night_locks
+       WHERE room_id = ANY($1::uuid[]) AND stay_date >= $2::date AND stay_date <= $3::date`,
+      [roomsRes.rows.map((rm) => String(rm.id)), today, horizon]
+    ),
+    dbQuery<{
+      id: string;
+      guest_name: string;
+      rating: number;
+      comment: string;
+      host_reply: string | null;
+      host_replied_at: string | Date | null;
+      created_at: string | Date;
+    }>(
+      `SELECT sr.id,
+              COALESCE(u.full_name, 'Verified Guest') AS guest_name,
+              sr.rating,
+              sr.comment,
+              sr.host_reply,
+              sr.host_replied_at,
+              sr.created_at
+       FROM stay_reviews sr
+       LEFT JOIN users u ON u.id = sr.guest_id
+       WHERE sr.stay_id = $1
+       ORDER BY sr.created_at DESC`,
+      [row.id]
+    ),
+  ]);
 
   const rooms: StayRoomDetail[] = roomsRes.rows.map((rm) => {
     const unitsTotal = toNum(rm.units_total, 1);
-    const unavailableDates = locksRes.rows
-      .filter(
-        (l) =>
-          l.room_id === String(rm.id) &&
-          toNum(l.booked_units) + toNum(l.blocked_units) >= unitsTotal
-      )
+    const roomLocks = locksRes.rows.filter((l) => l.room_id === String(rm.id));
+    const unavailableDates = roomLocks
+      .filter((l) => toNum(l.booked_units) + toNum(l.blocked_units) >= unitsTotal)
       .map((l) =>
         l.stay_date instanceof Date
           ? l.stay_date.toISOString().slice(0, 10)
           : String(l.stay_date).slice(0, 10)
       );
+
+    const customPricesByDate: Record<string, number> = {};
+    const minNightsByDate: Record<string, number> = {};
+    for (const l of roomLocks) {
+      const iso =
+        l.stay_date instanceof Date
+          ? l.stay_date.toISOString().slice(0, 10)
+          : String(l.stay_date).slice(0, 10);
+      if (l.custom_nightly_vnd !== null && l.custom_nightly_vnd !== undefined) {
+        const val = toNum(l.custom_nightly_vnd);
+        if (val > 0) customPricesByDate[iso] = val;
+      }
+      if (l.min_nights !== null && l.min_nights !== undefined) {
+        const mn = toNum(l.min_nights);
+        if (mn > 0) minNightsByDate[iso] = mn;
+      }
+    }
 
     const roomPackages = pkgsRes.rows
       .filter((p) => String(p.room_id) === String(rm.id))
@@ -543,8 +633,30 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
       icalSyncStatus: String(rm.ical_sync_status ?? 'idle'),
       packages: roomPackages,
       unavailableDates,
+      customPricesByDate,
+      minNightsByDate,
     };
   });
+
+  const reviews: StayGuestReviewItem[] = reviewsRes.rows.map((rv) => ({
+    id: String(rv.id),
+    guestName: String(rv.guest_name),
+    rating: toNum(rv.rating, 5),
+    comment: String(rv.comment),
+    hostReply: rv.host_reply ? String(rv.host_reply) : null,
+    hostRepliedAt: rv.host_replied_at
+      ? new Date(String(rv.host_replied_at)).toISOString()
+      : null,
+    createdAt: new Date(String(rv.created_at)).toISOString(),
+  }));
+
+  const reviewsCount = reviews.length;
+  const reviewsAvg =
+    reviewsCount > 0
+      ? Number(
+          (reviews.reduce((s, r) => s + r.rating, 0) / reviewsCount).toFixed(2)
+        )
+      : null;
 
   return {
     ...card,
@@ -554,7 +666,13 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     descriptionEn: String(row.description_en),
     descriptionVi: String(row.description_vi),
     registrationCode: String(row.registration_code ?? ''),
-    directBookingUrl: row.direct_booking_url ? String(row.direct_booking_url) : null,
+    checkinFrom: String(row.checkin_from ?? '14:00'),
+    checkoutBefore: String(row.checkout_before ?? '12:00'),
+    defaultMinNights: Math.max(1, toNum(row.default_min_nights, 1)),
+    houseRules: parseHouseRules(row.house_rules),
+    reviews,
+    reviewsAvg,
+    reviewsCount,
     wifiTestedAt: new Date(String(row.wifi_tested_at)).toISOString(),
     wifiTesterNote: String(row.wifi_tester_note),
     speedtestProofUrl: row.speedtest_proof_url ? String(row.speedtest_proof_url) : null,

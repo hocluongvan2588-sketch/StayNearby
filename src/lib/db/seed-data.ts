@@ -98,16 +98,16 @@ export const DEMO_CREDENTIALS = [
     email: 'direct@vietnomad.demo',
     password: 'StayDirect!2026',
     role: 'host' as const,
-    labelEn: 'Host Partner (Direct Booking, 1% Wallet)',
-    labelVi: 'Chủ nhà đối tác (Đặt trực tiếp 1%)',
+    labelEn: 'Host Partner (Ho Chi Minh City & Phu Quoc, 0% fee)',
+    labelVi: 'Chủ nhà đối tác (TP.HCM & Phú Quốc, 0% hoa hồng)',
   },
   {
     key: 'admin',
     email: 'admin@vietnomad.demo',
     password: 'AdminOps!2026',
     role: 'admin' as const,
-    labelEn: 'Platform Admin & Wi-Fi Verifier',
-    labelVi: 'Quản trị & Kiểm định Wi-Fi',
+    labelEn: 'Platform Admin & Badge Verifier',
+    labelVi: 'Quản trị & Kiểm định Badge',
   },
 ];
 
@@ -184,7 +184,7 @@ export async function runSeed(): Promise<void> {
         vatId: null,
         phone: '+84 91 888 2345',
         stage: 'active',
-        note: 'Host using direct booking in Ho Chi Minh City and Phu Quoc.',
+        note: 'BookingFlow host managing stays in Ho Chi Minh City and Phu Quoc.',
       },
       {
         id: SEED_IDS.users.admin,
@@ -201,7 +201,7 @@ export async function runSeed(): Promise<void> {
         vatId: null,
         phone: '+84 98 222 1100',
         stage: 'active',
-        note: 'Head of Vietnam Wi-Fi Verification & Host Onboarding.',
+        note: 'Head of Vietnam Host Onboarding & Optional Verification Badges.',
       },
     ];
 
@@ -232,17 +232,6 @@ export async function runSeed(): Promise<void> {
         ]
       );
     }
-
-    await dbQuery(
-      `INSERT INTO host_wallets (host_id, balance_vnd) VALUES ($1, $2)
-       ON CONFLICT (host_id) DO NOTHING`,
-      [SEED_IDS.users.hostStayDirect, 3048000]
-    );
-    await dbQuery(
-      `INSERT INTO host_wallets (host_id, balance_vnd) VALUES ($1, $2)
-       ON CONFLICT (host_id) DO NOTHING`,
-      [SEED_IDS.users.hostBookingFlow, 1270000]
-    );
 
     const destinations = [
       {
@@ -524,7 +513,6 @@ export async function runSeed(): Promise<void> {
         regCode: 'DN-VN-2026-0412',
         propertyType: 'apartment',
         businessModel: 'booking_flow',
-        directUrl: null,
         policy: 'flexible',
         down: 540,
         up: 410,
@@ -533,6 +521,9 @@ export async function runSeed(): Promise<void> {
         wsEn: 'Solid oak 160cm desk, Herman-style mesh chair, 27-inch 4K USB-C monitor included.',
         wsVi: 'Bàn gỗ sồi 1m6, ghế công thái học lưng lưới, kèm sẵn màn hình rời 4K 27 inch.',
         wsImg: '/images/workspaces/ergonomic-indochine-desk.jpg',
+        hasWorkspace: true,
+        isWifiVerified: true,
+        isWorkReady: true,
         ergo: true,
         monitor: true,
         booth: false,
@@ -606,7 +597,6 @@ export async function runSeed(): Promise<void> {
         regCode: 'HN-TH-2026-108',
         propertyType: 'boutique_hotel',
         businessModel: 'booking_flow',
-        directUrl: null,
         policy: 'moderate',
         down: 465,
         up: 350,
@@ -615,6 +605,9 @@ export async function runSeed(): Promise<void> {
         wsEn: 'Executive walnut desk overlooking West Lake greenery + dedicated 200cm call backdrop.',
         wsVi: 'Bàn gỗ óc chó hướng vườn xanh Hồ Tây, phông nền gọn đẹp khi họp video.',
         wsImg: '/images/workspaces/ergonomic-indochine-desk.jpg',
+        hasWorkspace: true,
+        isWifiVerified: true,
+        isWorkReady: true,
         ergo: true,
         monitor: false,
         booth: true,
@@ -686,7 +679,6 @@ export async function runSeed(): Promise<void> {
         regCode: 'QA-HA-2026-290',
         propertyType: 'villa',
         businessModel: 'booking_flow',
-        directUrl: null,
         policy: 'flexible',
         down: 315,
         up: 290,
@@ -695,6 +687,9 @@ export async function runSeed(): Promise<void> {
         wsEn: 'Handcrafted teak desk + rattan reading nook overlooking koi courtyard.',
         wsVi: 'Bàn làm việc gỗ tếch thủ công nhìn thẳng ra vườn và hồ koi.',
         wsImg: '/images/workspaces/ergonomic-indochine-desk.jpg',
+        hasWorkspace: true,
+        isWifiVerified: true,
+        isWorkReady: true,
         ergo: true,
         monitor: false,
         booth: false,
@@ -755,18 +750,17 @@ export async function runSeed(): Promise<void> {
         subtitleEn: 'Boutique coliving with 680 Mbps fiber, call booths & weekly founder dinners',
         subtitleVi: 'Coliving cao cấp 680 Mbps, bốt họp riêng & kết nối startup tại Thảo Điền',
         descEn:
-          'Book directly with the coliving host at no extra fee. Features private sunlit lofts, a shared kitchen, and a 40-seat coworking floor.',
+          'Private sunlit lofts paired with a vibrant shared chef kitchen and a 40-seat coworking floor in Thao Dien. Reserve with a 12% online booking fee and pay the host at check-in (0% host commission).',
         descVi:
-          'Đặt trực tiếp với chủ nhà, không mất phí trung gian. Phòng loft riêng tư kết hợp khu làm việc chung 40 chỗ và phòng gọi cách âm.',
+          'Phòng loft riêng tư tràn ngập ánh sáng kết hợp bếp chung rộng và không gian làm việc 40 chỗ tại Thảo Điền. Giữ phòng online với 12% phí và thanh toán tiền phòng cho chủ nhà khi nhận phòng (0% hoa hồng chủ nhà).',
         neighborhoodEn: 'Thao Dien, Thu Duc, Ho Chi Minh City',
         neighborhoodVi: 'Thảo Điền, TP. Thủ Đức, TP. Hồ Chí Minh',
         exactAddress: '24 Xuan Thuy, Thao Dien, Thu Duc, Ho Chi Minh City',
-        checkinEn: 'Instant direct reservation on Thao Dien Founders portal with 24h reception.',
-        checkinVi: 'Đặt trực tiếp trên hệ thống đối tác Thảo Điền với lễ tân 24h.',
+        checkinEn: '24/7 reception check-in; details unlocked immediately once reservation is locked.',
+        checkinVi: 'Lễ tân 24/7; hướng dẫn nhận phòng mở khóa ngay sau khi xác nhận đặt phòng.',
         regCode: 'HCM-TD-2026-771',
         propertyType: 'coliving',
-        businessModel: 'stay_direct',
-        directUrl: 'https://thaodienfounders.example.vn/book',
+        businessModel: 'booking_flow',
         policy: 'moderate',
         down: 680,
         up: 590,
@@ -775,6 +769,9 @@ export async function runSeed(): Promise<void> {
         wsEn: 'In-room work desk + 24/7 private glass acoustic video-call booths downstairs.',
         wsVi: 'Bàn làm việc riêng trong phòng + hệ thống bốt kính cách âm mở 24/7.',
         wsImg: '/images/workspaces/vietnam-coworking-lounge.jpg',
+        hasWorkspace: true,
+        isWifiVerified: true,
+        isWorkReady: true,
         ergo: true,
         monitor: true,
         booth: true,
@@ -812,10 +809,10 @@ export async function runSeed(): Promise<void> {
         pkgId: SEED_IDS.packages.thaoDienDirect,
         verificationTier: 'VIETNOMAD_CERTIFIED',
         hostWhatsapp: '+84909778899',
-        pkgNameEn: 'Founders Direct Retail Package',
-        pkgNameVi: 'Gói Coliving Trực Tiếp (0% Markup)',
-        pkgDescEn: 'Direct host rate with no platform fee. Includes coffee bar and community brunch.',
-        pkgDescVi: 'Giá trực tiếp từ chủ nhà, tặng kèm cà phê sáng và bữa trưa cộng đồng.',
+        pkgNameEn: 'Founders Long-Stay Coliving Package',
+        pkgNameVi: 'Gói Coliving Dài Ngày Thảo Điền',
+        pkgDescEn: 'Pay 12% online to lock dates, settle 100% of rent directly with the host at check-in. Includes coffee bar and community brunch.',
+        pkgDescVi: 'Thanh toán 12% giữ chỗ online, thanh toán tiền phòng cho chủ nhà khi nhận phòng. Tặng kèm cà phê sáng và brunch cộng đồng.',
         w7: 7100000,
         w14: 13200000,
         w21: 18600000,
@@ -846,7 +843,6 @@ export async function runSeed(): Promise<void> {
         regCode: 'LD-DL-2026-144',
         propertyType: 'eco_lodge',
         businessModel: 'booking_flow',
-        directUrl: null,
         policy: 'flexible',
         down: 290,
         up: 245,
@@ -855,6 +851,9 @@ export async function runSeed(): Promise<void> {
         wsEn: 'Panoramic forest window desk + ergonomic chair + UPS backup power.',
         wsVi: 'Bàn nhìn thẳng ra rừng thông + ghế công thái học + bộ lưu điện dự phòng.',
         wsImg: '/images/workspaces/ergonomic-indochine-desk.jpg',
+        hasWorkspace: true,
+        isWifiVerified: true,
+        isWorkReady: true,
         ergo: true,
         monitor: false,
         booth: false,
@@ -914,9 +913,9 @@ export async function runSeed(): Promise<void> {
         subtitleEn: '30-day visa-free island workcation villa with plunge pool & dual fiber',
         subtitleVi: 'Biệt thự hồ bơi riêng cho workation miễn visa 30 ngày tại Phú Quốc',
         descEn:
-          'Arrive internationally under Phu Quoc’s 30-day visa exemption and settle straight into island productivity. Book directly with the villa team with zero platform fees.',
+          'Arrive internationally under Phu Quoc’s 30-day visa exemption and unwind in a sunlit private pool villa near Ong Lang Beach. Lock your dates online with 12% and settle rent directly with the villa team at check-in.',
         descVi:
-          'Bay thẳng quốc tế để được miễn visa 30 ngày tại Phú Quốc và đặt phòng trực tiếp với đội ngũ quản lý biệt thự.',
+          'Bay thẳng quốc tế để hưởng miễn visa 30 ngày tại Phú Quốc và nghỉ dưỡng dài ngày tại biệt thự hồ bơi riêng gần bãi Ông Lang. Giữ lịch với 12% phí online và thanh toán tiền phòng cho chủ nhà khi nhận phòng.',
         neighborhoodEn: 'Ong Lang Coast, Phu Quoc',
         neighborhoodVi: 'Bãi Ông Lang, Phú Quốc',
         exactAddress: '77 Ong Lang Coast Road, Cua Duong, Phu Quoc, Kien Giang',
@@ -924,16 +923,18 @@ export async function runSeed(): Promise<void> {
         checkinVi: 'Chủ nhà đón tiếp trực tiếp tại cổng biệt thự; hỗ trợ thuê xe máy tại chỗ.',
         regCode: 'KG-PQ-2026-318',
         propertyType: 'villa',
-        businessModel: 'stay_direct',
-        directUrl: 'https://emeraldbayphuquoc.example.vn/reserve',
+        businessModel: 'booking_flow',
         policy: 'moderate',
         down: 265,
         up: 220,
         jitter: 4,
-        testerNote: 'Dual-SIM 5G failover + 265 Mbps underground fiber',
+        testerNote: 'Host-reported dual-SIM 5G failover + 265 Mbps underground fiber',
         wsEn: 'Air-conditioned study nook + shaded garden pergola table.',
         wsVi: 'Góc làm việc điều hòa trong nhà + bàn gỗ ngoài hiên râm mát.',
         wsImg: '/images/workspaces/ergonomic-indochine-desk.jpg',
+        hasWorkspace: true,
+        isWifiVerified: false,
+        isWorkReady: false,
         ergo: true,
         monitor: false,
         booth: false,
@@ -967,12 +968,12 @@ export async function runSeed(): Promise<void> {
         roomImg: '/images/stays/phuquoc-coastal-villa.jpg',
         roomFeatures: ['Private Pool', 'Full Kitchen', 'Air-con Study', 'Washer-Dryer', 'Beach Access'],
         pkgId: SEED_IDS.packages.phuQuocDirect,
-        verificationTier: 'HOST_VERIFIED',
+        verificationTier: 'SELF_DECLARED',
         hostWhatsapp: '+84919665544',
-        pkgNameEn: '30-Day Direct Island Package',
+        pkgNameEn: '30-Day Island Sanctuary Package',
         pkgNameVi: 'Gói 30 Ngày Miễn Visa Đảo Ngọc',
-        pkgDescEn: 'Direct rate with the villa team and zero platform fee.',
-        pkgDescVi: 'Giá trực tiếp từ biệt thự, không cộng thêm phí trung gian.',
+        pkgDescEn: 'Pay 12% online to reserve dates; settle 100% of host stay rate directly on arrival.',
+        pkgDescVi: 'Thanh toán 12% giữ chỗ online, trả 100% tiền phòng cho chủ nhà khi nhận phòng.',
         w7: 7800000,
         w14: 14200000,
         w21: 19600000,
@@ -1003,7 +1004,6 @@ export async function runSeed(): Promise<void> {
         regCode: 'DN-ST-2026-509',
         propertyType: 'apartment',
         businessModel: 'booking_flow',
-        directUrl: null,
         policy: 'flexible',
         down: 610,
         up: 520,
@@ -1012,6 +1012,9 @@ export async function runSeed(): Promise<void> {
         wsEn: 'Two work setups: panoramic teak terrace desk + indoor 4K monitor office.',
         wsVi: 'Hai khu làm việc: bàn gỗ hướng vịnh ngoài ban công + góc màn hình 4K trong nhà.',
         wsImg: '/images/workspaces/ergonomic-indochine-desk.jpg',
+        hasWorkspace: true,
+        isWifiVerified: true,
+        isWorkReady: true,
         ergo: true,
         monitor: true,
         booth: true,
@@ -1081,7 +1084,6 @@ export async function runSeed(): Promise<void> {
         regCode: 'DN-HR-2026-615',
         propertyType: 'apartment',
         businessModel: 'booking_flow',
-        directUrl: null,
         policy: 'flexible',
         down: 480,
         up: 380,
@@ -1090,6 +1092,9 @@ export async function runSeed(): Promise<void> {
         wsEn: 'Solid teak river-view desk, ergonomic mesh chair, and warm task lamp.',
         wsVi: 'Bàn gỗ tếch hướng sông Hàn, ghế công thái học lưng lưới và đèn làm việc dịu mắt.',
         wsImg: '/images/workspaces/ergonomic-indochine-desk.jpg',
+        hasWorkspace: true,
+        isWifiVerified: true,
+        isWorkReady: true,
         ergo: true,
         monitor: true,
         booth: false,
@@ -1159,7 +1164,6 @@ export async function runSeed(): Promise<void> {
         regCode: 'LD-DL-2026-281',
         propertyType: 'apartment',
         businessModel: 'booking_flow',
-        directUrl: null,
         policy: 'flexible',
         down: 380,
         up: 310,
@@ -1168,6 +1172,9 @@ export async function runSeed(): Promise<void> {
         wsEn: 'Window teak desk facing Xuan Huong morning mist with 27-inch 4K monitor.',
         wsVi: 'Bàn gỗ hướng sương sớm Hồ Xuân Hương kèm sẵn màn hình 4K 27 inch.',
         wsImg: '/images/workspaces/ergonomic-indochine-desk.jpg',
+        hasWorkspace: true,
+        isWifiVerified: true,
+        isWorkReady: false,
         ergo: true,
         monitor: true,
         booth: false,
@@ -1237,7 +1244,6 @@ export async function runSeed(): Promise<void> {
         regCode: 'LD-DL-2026-412',
         propertyType: 'villa',
         businessModel: 'booking_flow',
-        directUrl: null,
         policy: 'moderate',
         down: 440,
         up: 360,
@@ -1246,6 +1252,9 @@ export async function runSeed(): Promise<void> {
         wsEn: 'Dual-person oak work table, private call room, 4K display, and valley glass windows.',
         wsVi: 'Bàn gỗ sồi cho hai người, phòng gọi điện cách âm, màn hình 4K và cửa kính nhìn ra thung lũng.',
         wsImg: '/images/workspaces/ergonomic-indochine-desk.jpg',
+        hasWorkspace: true,
+        isWifiVerified: true,
+        isWorkReady: true,
         ergo: true,
         monitor: true,
         booth: true,
@@ -1302,19 +1311,28 @@ export async function runSeed(): Promise<void> {
           id, slug, host_id, destination_id, title_en, title_vi, subtitle_en, subtitle_vi,
           description_en, description_vi, neighborhood_en, neighborhood_vi, exact_address,
           checkin_instructions_en, checkin_instructions_vi, registration_code,
-          property_type, business_model, direct_booking_url, status, is_instant_book,
+          property_type, business_model, status, is_instant_book,
           cancellation_policy, wifi_download_mbps, wifi_upload_mbps, wifi_jitter_ms,
           wifi_tested_at, wifi_tester_note, speedtest_proof_url, workspace_video_url,
-          verified_at, verification_tier, host_whatsapp,
+          verified_at, verification_tier, is_wifi_verified, is_work_ready, host_whatsapp,
           workspace_summary_en, workspace_summary_vi,
-          workspace_photo_url, has_ergonomic_chair, has_external_monitor, has_call_booth,
+          workspace_photo_url, has_workspace, has_ergonomic_chair, has_external_monitor, has_call_booth,
           kitchen_type, laundry_type, pet_friendly, wheelchair_friendly,
           google_rating, google_review_count, map_x, map_y, hero_image,
           gallery_images, amenities, nearby_coworking
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'live',TRUE,
-          $20,$21,$22,$23,NOW(),$24,$25,$26,NOW(),$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'live',TRUE,
+          $19,$20,$21,$22,NOW(),$23,$24,$25,NOW(),$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48
         ) ON CONFLICT (id) DO UPDATE SET
+          business_model = EXCLUDED.business_model,
+          description_en = EXCLUDED.description_en,
+          description_vi = EXCLUDED.description_vi,
+          checkin_instructions_en = EXCLUDED.checkin_instructions_en,
+          checkin_instructions_vi = EXCLUDED.checkin_instructions_vi,
+          verification_tier = EXCLUDED.verification_tier,
+          is_wifi_verified = EXCLUDED.is_wifi_verified,
+          is_work_ready = EXCLUDED.is_work_ready,
+          has_workspace = EXCLUDED.has_workspace,
           workspace_photo_url = EXCLUDED.workspace_photo_url,
           gallery_images = EXCLUDED.gallery_images`,
         [
@@ -1336,7 +1354,6 @@ export async function runSeed(): Promise<void> {
           s.regCode,
           s.propertyType,
           s.businessModel,
-          s.directUrl,
           s.policy,
           s.down,
           s.up,
@@ -1345,10 +1362,13 @@ export async function runSeed(): Promise<void> {
           `/api/stays/${s.slug}/speedtest-proof`,
           `/api/stays/${s.slug}/speedtest-proof?view=tour`,
           s.verificationTier,
+          s.isWifiVerified,
+          s.isWorkReady,
           s.hostWhatsapp,
           s.wsEn,
           s.wsVi,
           s.wsImg,
+          s.hasWorkspace,
           s.ergo,
           s.monitor,
           s.booth,
@@ -1468,7 +1488,7 @@ export async function runSeed(): Promise<void> {
         role: 'guest',
         channel: 'email',
         contact: 'nomad@vietnomad.demo',
-        subject: '[VN-940218] Confirmed: An Thuong Coastal Atelier (Wi-Fi certificate included)',
+        subject: '[VN-940218] Confirmed: An Thuong Coastal Atelier',
       },
       {
         id: '71000000-0000-4000-8000-000000000002',
@@ -1503,18 +1523,111 @@ export async function runSeed(): Promise<void> {
       );
     }
 
+    // Seed booking timeline event & guest-host thread for VN-940218
+    await dbQuery(
+      `INSERT INTO booking_events (
+        id, booking_id, actor_user_id, actor_role, event_type, summary, metadata_json
+      ) VALUES (
+        $1, $2, $3, 'guest', 'booking_confirmed',
+        '12% booking fee paid online (1,224,000₫); 14 nights locked.',
+        '{"bookingCode":"VN-940218"}'::jsonb
+      ) ON CONFLICT (id) DO NOTHING`,
+      [
+        '72000000-0000-4000-8000-000000000001',
+        sampleBookingId,
+        SEED_IDS.users.nomadFree,
+      ]
+    );
+
+    const sampleConvId = '73000000-0000-4000-8000-000000000001';
+    await dbQuery(
+      `INSERT INTO conversations (
+        id, stay_id, booking_id, host_id, guest_id,
+        last_message_preview, host_unread_count, guest_unread_count
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        'Hi Linh, my flight arrives in Da Nang around 15:30 — will early check-in work?',
+        1, 0
+      ) ON CONFLICT (id) DO NOTHING`,
+      [
+        sampleConvId,
+        SEED_IDS.stays.myKheAtelier,
+        sampleBookingId,
+        SEED_IDS.users.hostBookingFlow,
+        SEED_IDS.users.nomadFree,
+      ]
+    );
+
+    await dbQuery(
+      `INSERT INTO messages (
+        id, conversation_id, sender_id, sender_role, body
+      ) VALUES (
+        $1, $2, $3, 'guest',
+        'Hi Linh, my flight arrives in Da Nang around 15:30 — will self check-in instructions be sent on arrival day?'
+      ) ON CONFLICT (id) DO NOTHING`,
+      [
+        '74000000-0000-4000-8000-000000000001',
+        sampleConvId,
+        SEED_IDS.users.nomadFree,
+      ]
+    );
+
+    const quickReplies = [
+      {
+        id: '75000000-0000-4000-8000-000000000001',
+        title: 'Self check-in details',
+        body: 'Welcome! Your smart-lock PIN is active from 14:00 on check-in day. Let me know your flight arrival time so we can prepare the room.',
+        sortOrder: 1,
+      },
+      {
+        id: '75000000-0000-4000-8000-000000000002',
+        title: 'Wi-Fi credentials',
+        body: 'Primary fiber Wi-Fi network details are on the desk card inside your suite. Reach out anytime if you need a backup Ethernet cable.',
+        sortOrder: 2,
+      },
+      {
+        id: '75000000-0000-4000-8000-000000000003',
+        title: 'Check-in rent reminder',
+        body: 'Just a quick note that your 12% online booking fee is already settled. You can pay the remaining host stay balance via cash or VietQR transfer upon check-in.',
+        sortOrder: 3,
+      },
+    ];
+    for (const qr of quickReplies) {
+      await dbQuery(
+        `INSERT INTO host_quick_replies (id, host_id, title, body, sort_order)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (id) DO NOTHING`,
+        [qr.id, SEED_IDS.users.hostBookingFlow, qr.title, qr.body, qr.sortOrder]
+      );
+    }
+
+    await dbQuery(
+      `INSERT INTO host_settings (
+        host_id, display_name, contact_phone, whatsapp_number, zalo_handle,
+        payout_method, bank_name, bank_account_name, notify_email, notify_in_app, auto_ical_sync
+      ) VALUES
+      ($1, 'Linh Tran — An Thuong & Tay Ho Homes', '+84 905 112 889', '+84905112889', '@linhtran_stays', 'direct_checkin_and_bank', 'Vietcombank Da Nang', 'TRAN THI LINH', TRUE, TRUE, TRUE),
+      ($2, 'Minh Nguyen — Saigon & Phu Quoc Stays', '+84 908 334 991', '+84908334991', '@minhnguyen_coliving', 'direct_checkin_and_bank', 'Techcombank Ho Chi Minh', 'NGUYEN QUOC MINH', TRUE, TRUE, TRUE)
+      ON CONFLICT (host_id) DO NOTHING`,
+      [SEED_IDS.users.hostBookingFlow, SEED_IDS.users.hostStayDirect]
+    );
+
     // Seed sample pending host application so Admin moderation queue has immediate data
     await dbQuery(
       `INSERT INTO host_applications (
         id, applicant_user_id, business_name, stay_name, destination_slug,
         property_type, business_model, application_fee_eur, application_fee_paid,
         measured_download_mbps, has_kitchen, has_laundry, has_workspace,
-        direct_booking_url, status, review_note
+        has_ergonomic_chair, has_external_monitor, kitchen_type, laundry_type,
+        status, review_note
       ) VALUES (
-        $1,$2,'Hue Riverfront Heritage Co.','Perfume River Work Suites','hoi-an',
-        'boutique_hotel','booking_flow',39,TRUE,340,TRUE,TRUE,TRUE,NULL,'submitted',
-        'Awaiting admin Wi-Fi test sign-off'
-      ) ON CONFLICT (id) DO NOTHING`,
+        $1,$2,'Hue Riverfront Heritage Co.','Perfume River Suites','hoi-an',
+        'boutique_hotel','booking_flow',0,TRUE,340,TRUE,TRUE,TRUE,TRUE,FALSE,'full','in_unit','submitted',
+        'Free listing submitted — ready for approval & optional badge review'
+      ) ON CONFLICT (id) DO UPDATE SET
+        application_fee_eur = 0,
+        stay_name = EXCLUDED.stay_name,
+        review_note = EXCLUDED.review_note`,
       ['80000000-0000-4000-8000-000000000001', SEED_IDS.users.hostBookingFlow]
     );
 

@@ -14,12 +14,10 @@ export async function getAdminConsoleData() {
     ),
     dbQuery(
       `SELECT s.*, u.full_name AS host_name, d.name_en AS destination_name_en,
-              COALESCE(hw.balance_vnd, 0) AS wallet_balance_vnd,
               r.id AS room_id, r.ical_url, r.ical_last_synced_at, r.ical_sync_status
        FROM stays s
        JOIN users u ON u.id = s.host_id
        JOIN destinations d ON d.id = s.destination_id
-       LEFT JOIN host_wallets hw ON hw.host_id = s.host_id
        LEFT JOIN LATERAL (
          SELECT id, ical_url, ical_last_synced_at, ical_sync_status
          FROM stay_rooms sr WHERE sr.stay_id = s.id LIMIT 1
@@ -80,14 +78,15 @@ export async function getAdminConsoleData() {
       wifiDownloadMbps: toNum(s.wifi_download_mbps),
       wifiUploadMbps: toNum(s.wifi_upload_mbps),
       wifiJitterMs: toNum(s.wifi_jitter_ms),
-      verificationTier: String(s.verification_tier ?? 'VIETNOMAD_CERTIFIED'),
+      verificationTier: String(s.verification_tier ?? 'SELF_DECLARED'),
+      isWifiVerified: Boolean(s.is_wifi_verified),
+      isWorkReady: Boolean(s.is_work_ready),
       verifiedAt: new Date(String(s.verified_at ?? s.wifi_tested_at)).toISOString(),
       speedtestProofUrl: s.speedtest_proof_url ? String(s.speedtest_proof_url) : '',
       workspaceVideoUrl: s.workspace_video_url ? String(s.workspace_video_url) : '',
       roomId: s.room_id ? String(s.room_id) : null,
       icalUrl: s.ical_url ? String(s.ical_url) : '',
       icalSyncStatus: String(s.ical_sync_status ?? 'idle'),
-      walletBalanceVnd: toNum(s.wallet_balance_vnd),
     })),
     crmUsers: crmRes.rows.map((u) => ({
       id: String(u.id),
@@ -153,9 +152,14 @@ export async function reviewHostApplication(
       stay_name: string;
       destination_slug: string;
       property_type: string;
-      business_model: 'booking_flow' | 'stay_direct';
       measured_download_mbps: number;
-      direct_booking_url: string | null;
+      has_kitchen: boolean;
+      has_laundry: boolean;
+      has_workspace: boolean;
+      has_ergonomic_chair: boolean;
+      has_external_monitor: boolean;
+      kitchen_type: string | null;
+      laundry_type: string | null;
       status: string;
     }>('SELECT * FROM host_applications WHERE id = $1 FOR UPDATE', [applicationId]);
 
@@ -190,30 +194,55 @@ export async function reviewHostApplication(
     const slug = `${slugBase}-${stayId.slice(0, 6)}`;
     const regCode = `VN-NEW-${stayId.slice(0, 6).toUpperCase()}`;
 
+    const resolvedKitchen =
+      app.kitchen_type && ['full', 'kitchenette', 'shared', 'none'].includes(app.kitchen_type)
+        ? app.kitchen_type
+        : app.has_kitchen
+          ? 'full'
+          : 'none';
+    const resolvedLaundry =
+      app.laundry_type && ['in_unit', 'building', 'service', 'none'].includes(app.laundry_type)
+        ? app.laundry_type
+        : app.has_laundry
+          ? 'in_unit'
+          : 'none';
+    const hasWorkspace = Boolean(app.has_workspace);
+    const hasChair = Boolean(app.has_ergonomic_chair);
+    const hasMonitor = Boolean(app.has_external_monitor);
+    const wifiSpeed = Math.max(0, toNum(app.measured_download_mbps, 0));
+
+    const amenitiesList: string[] = [];
+    if (wifiSpeed > 0) amenitiesList.push(`Wi-Fi (~${wifiSpeed} Mbps host-reported)`);
+    if (hasWorkspace) amenitiesList.push('Dedicated Desk');
+    if (hasChair) amenitiesList.push('Ergonomic Chair');
+    if (hasMonitor) amenitiesList.push('External Monitor');
+    if (resolvedKitchen !== 'none') amenitiesList.push('Kitchen');
+    if (resolvedLaundry !== 'none') amenitiesList.push('Laundry');
+
     await tx.query(
       `INSERT INTO stays (
         id, slug, host_id, destination_id, title_en, title_vi, subtitle_en, subtitle_vi,
         description_en, description_vi, neighborhood_en, neighborhood_vi, exact_address,
         checkin_instructions_en, checkin_instructions_vi, registration_code,
-        property_type, business_model, direct_booking_url, status, is_instant_book,
+        property_type, business_model, status, is_instant_book,
         cancellation_policy, wifi_download_mbps, wifi_upload_mbps, wifi_jitter_ms,
-        verification_tier, verified_at,
+        verification_tier, is_wifi_verified, is_work_ready, verified_at,
         wifi_tester_note, workspace_summary_en, workspace_summary_vi, workspace_photo_url,
-        has_ergonomic_chair, has_external_monitor, has_call_booth, kitchen_type, laundry_type,
+        has_workspace, has_ergonomic_chair, has_external_monitor, has_call_booth, kitchen_type, laundry_type,
         map_x, map_y, hero_image, gallery_images, amenities, nearby_coworking
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,'Verified Vietnam work-ready residence','Lưu trú chuẩn làm việc từ xa tại Việt Nam',
-        'Newly onboarded and speed-verified stay ready for 7 to 30+ night bookings.',
-        'Chỗ ở mới được kiểm định tốc độ Wi-Fi và đầy đủ tiện ích làm việc dài ngày.',
+        $1,$2,$3,$4,$5,$6,'Comfortable Vietnam residence for 7 to 30+ night stays','Không gian lưu trú thoải mái từ 7 đến 30+ đêm tại Việt Nam',
+        'Newly listed property ready for comfortable weekly and monthly stays across Vietnam.',
+        'Chỗ ở mới sẵn sàng cho lưu trú theo tuần và theo tháng thoải mái tại Việt Nam.',
         $7,$8,'Address unlocked upon confirmation','Smart lock details emailed upon confirmation',
         'Mã nhận phòng gửi tự động sau khi đặt',$9,
-        $10,$11,$12,'live',TRUE,'flexible',$13,$14,3,
-        'HOST_VERIFIED', NOW(),
-        'Admin-verified onboarding speed test','Dedicated indoor desk + ergonomic seating',
-        'Bàn làm việc riêng và ghế công thái học','/images/workspaces/ergonomic-indochine-desk.jpg',
-        TRUE,FALSE,FALSE,'full','in_unit',$15,$16,'/images/stays/hanoi-tayho-jade.jpg',
+        $10,'booking_flow','live',TRUE,'flexible',$11,$12,4,
+        'SELF_DECLARED', FALSE, FALSE, NOW(),
+        'Host-declared property amenities & Internet profile',
+        $13,$14,'/images/workspaces/ergonomic-indochine-desk.jpg',
+        $15,$16,$17,FALSE,$18,$19,$20,$21,'/images/stays/hanoi-tayho-jade.jpg',
         '["/images/stays/hanoi-tayho-jade.jpg","/images/workspaces/ergonomic-indochine-desk.jpg"]'::jsonb,
-        '["Verified Wi-Fi","Dedicated Desk","Full Kitchen","Laundry"]'::jsonb,
+        $22::jsonb,
         '[]'::jsonb
       )`,
       [
@@ -227,12 +256,18 @@ export async function reviewHostApplication(
         dest.name_vi,
         regCode,
         app.property_type,
-        app.business_model,
-        app.direct_booking_url,
-        toNum(app.measured_download_mbps, 120),
-        Math.round(toNum(app.measured_download_mbps, 120) * 0.75),
+        wifiSpeed,
+        Math.round(wifiSpeed * 0.75),
+        hasWorkspace ? 'Dedicated desk available' : 'Comfortable living space',
+        hasWorkspace ? 'Có bàn làm việc riêng' : 'Không gian sinh hoạt thoải mái',
+        hasWorkspace,
+        hasChair,
+        hasMonitor,
+        resolvedKitchen,
+        resolvedLaundry,
         dest.map_x,
         dest.map_y,
+        JSON.stringify(amenitiesList),
       ]
     );
 
@@ -241,12 +276,12 @@ export async function reviewHostApplication(
         id, stay_id, name_en, name_vi, description_en, description_vi,
         max_guests, beds_count, units_total, room_image, room_features
       ) VALUES (
-        $1,$2,'Work-Ready Private Studio','Studio Làm Việc Riêng Tư',
-        'Private residence with desk, kitchen, and laundry kit.',
-        'Không gian riêng có bàn làm việc, bếp và máy giặt.',
-        2,1,2,'/images/stays/hanoi-tayho-jade.jpg','["Dedicated Desk","Kitchen","Laundry"]'::jsonb
+        $1,$2,'Private Studio','Studio Riêng Tư',
+        'Comfortable private apartment for weekly and monthly stays.',
+        'Căn hộ riêng thoải mái cho lưu trú theo tuần và theo tháng.',
+        2,1,2,'/images/stays/hanoi-tayho-jade.jpg',$3::jsonb
       )`,
-      [roomId, stayId]
+      [roomId, stayId, JSON.stringify(amenitiesList)]
     );
 
     const today = getTodayIsoVietnam();
@@ -290,21 +325,46 @@ export async function updateAdminStayVerification(
   _admin: SessionUser,
   stayId: string,
   input: {
-    verificationTier: 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+    verificationTier?: 'SELF_DECLARED' | 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
+    isWifiVerified?: boolean;
+    isWorkReady?: boolean;
     speedtestProofUrl?: string;
     workspaceVideoUrl?: string;
   }
 ) {
   if (!isValidUuid(stayId)) throw new AppError('VALIDATION_ERROR', 'Invalid stay ID.');
+
+  const currentRes = await dbQuery<{
+    verification_tier: string;
+    is_wifi_verified: boolean;
+    is_work_ready: boolean;
+  }>('SELECT verification_tier, is_wifi_verified, is_work_ready FROM stays WHERE id = $1', [stayId]);
+  const cur = currentRes.rows[0];
+  if (!cur) throw new AppError('NOT_FOUND', 'Stay not found.');
+
+  const nextWifi = input.isWifiVerified ?? Boolean(cur.is_wifi_verified);
+  const nextWorkReady = input.isWorkReady ?? Boolean(cur.is_work_ready);
+  const nextTier =
+    input.verificationTier ??
+    (nextWifi && nextWorkReady
+      ? 'VIETNOMAD_CERTIFIED'
+      : nextWifi || nextWorkReady
+        ? 'HOST_VERIFIED'
+        : 'SELF_DECLARED');
+
   await dbQuery(
     `UPDATE stays
      SET verification_tier = $1,
+         is_wifi_verified = $2,
+         is_work_ready = $3,
          verified_at = NOW(),
-         speedtest_proof_url = COALESCE($2, speedtest_proof_url),
-         workspace_video_url = COALESCE($3, workspace_video_url)
-     WHERE id = $4`,
+         speedtest_proof_url = COALESCE($4, speedtest_proof_url),
+         workspace_video_url = COALESCE($5, workspace_video_url)
+     WHERE id = $6`,
     [
-      input.verificationTier,
+      nextTier,
+      nextWifi,
+      nextWorkReady,
       input.speedtestProofUrl?.trim() || null,
       input.workspaceVideoUrl?.trim() || null,
       stayId,

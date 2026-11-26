@@ -10,6 +10,7 @@ import {
 import { dbQuery, dbTransaction, toNum, type DbClient } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { calculateCancellationOutcome, calculateStayQuote } from '@/lib/pricing';
+import { refundGatewayTransactionIfLive } from '@/lib/stripe-refund';
 import { dispatchBookingLockedNotifications } from '@/modules/notifications';
 
 export interface CreateBookingInput {
@@ -25,7 +26,7 @@ export interface CreateBookingInput {
   checkoutMode?: 'intent' | 'instant';
 }
 
-async function lockRoomNightsTx(
+export async function lockRoomNightsTx(
   tx: DbClient,
   roomId: string,
   unitsTotal: number,
@@ -97,6 +98,33 @@ async function verifyAvailabilityReadOnlyTx(
   }
 }
 
+export async function logBookingEventTx(
+  tx: DbClient,
+  params: {
+    bookingId: string;
+    actorUserId?: string | null;
+    actorRole: 'guest' | 'host' | 'admin' | 'system';
+    eventType: string;
+    summary: string;
+    metadata?: Record<string, unknown>;
+  }
+) {
+  await tx.query(
+    `INSERT INTO booking_events (
+      id, booking_id, actor_user_id, actor_role, event_type, summary, metadata_json
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+    [
+      crypto.randomUUID(),
+      params.bookingId,
+      params.actorUserId ?? null,
+      params.actorRole,
+      params.eventType,
+      params.summary,
+      JSON.stringify(params.metadata ?? {}),
+    ]
+  );
+}
+
 export async function createStayBooking(user: SessionUser, input: CreateBookingInput) {
   if (!isValidUuid(input.stayId) || !isValidUuid(input.roomId) || !isValidUuid(input.packageId)) {
     throw new AppError('VALIDATION_ERROR', 'Invalid stay, room, or package identifier.');
@@ -121,8 +149,9 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       stay_id: string;
       host_id: string;
       status: string;
-      business_model: 'booking_flow' | 'stay_direct';
-      direct_booking_url: string | null;
+      business_model: 'booking_flow';
+      is_instant_book: boolean;
+      default_min_nights: number | null;
       cancellation_policy: 'flexible' | 'moderate' | 'strict';
       room_id: string;
       max_guests: number;
@@ -138,7 +167,8 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       compare_30_vnd: string | number | null;
       extra_night_vnd: string | number;
     }>(
-      `SELECT s.id AS stay_id, s.host_id, s.status, s.business_model, s.direct_booking_url,
+      `SELECT s.id AS stay_id, s.host_id, s.status, s.business_model,
+              s.is_instant_book, s.default_min_nights,
               s.cancellation_policy,
               r.id AS room_id, r.max_guests, r.units_total,
               p.id AS pkg_id, p.is_listed, p.valid_from, p.valid_to,
@@ -181,6 +211,42 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       );
     }
 
+    const lockOverridesRes = await tx.query<{
+      stay_date: string | Date;
+      custom_nightly_vnd: string | number | null;
+      min_nights: number | null;
+    }>(
+      `SELECT stay_date, custom_nightly_vnd, min_nights
+       FROM room_night_locks
+       WHERE room_id = $1 AND stay_date >= $2::date AND stay_date < $3::date`,
+      [meta.room_id, input.checkIn, checkOut]
+    );
+    const lockMap = new Map<string, { customNightlyVnd: number | null; minNights: number | null }>();
+    let requiredMinNights = Math.max(7, toNum(meta.default_min_nights, 7));
+    for (const row of lockOverridesRes.rows) {
+      const dt =
+        row.stay_date instanceof Date
+          ? row.stay_date.toISOString().slice(0, 10)
+          : String(row.stay_date).slice(0, 10);
+      const minN = row.min_nights ? toNum(row.min_nights, 7) : null;
+      if (minN && minN > requiredMinNights) requiredMinNights = minN;
+      lockMap.set(dt, {
+        customNightlyVnd:
+          row.custom_nightly_vnd !== null && row.custom_nightly_vnd !== undefined
+            ? toNum(row.custom_nightly_vnd)
+            : null,
+        minNights: minN,
+      });
+    }
+    if (input.nights < requiredMinNights) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        `Selected dates require a minimum stay of ${requiredMinNights} nights.`
+      );
+    }
+
+    const nightOverridesVnd = nightDates.map((dt) => lockMap.get(dt)?.customNightlyVnd ?? null);
+
     const userRes = await tx.query<{
       membership_tier: 'free' | 'premium';
       reward_credit_vnd: string | number;
@@ -204,92 +270,19 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         extraNightVnd: toNum(meta.extra_night_vnd),
       },
       nights: input.nights,
-      businessModel: meta.business_model,
+      businessModel: 'booking_flow',
       isPremiumMember: freshUser.membership_tier === 'premium',
       applyVatFree: input.applyVatFree,
       vatTaxId: freshUser.vat_tax_id,
       availableRewardCreditVnd: toNum(freshUser.reward_credit_vnd),
       useRewardCredit: input.useRewardCredit,
+      nightOverridesVnd,
     });
 
     const bookingId = crypto.randomUUID();
     const bookingCode = `VN-${crypto.randomInt(100000, 999999)}`;
 
-    if (meta.business_model === 'stay_direct') {
-      const referralFeeVnd = Math.max(5000, Math.round(quote.totalStayVnd * 0.01));
-      const walletRes = await tx.query<{ balance_vnd: string | number }>(
-        'SELECT balance_vnd FROM host_wallets WHERE host_id = $1 FOR UPDATE',
-        [meta.host_id]
-      );
-      const balance = toNum(walletRes.rows[0]?.balance_vnd, 0);
-      if (balance < referralFeeVnd) {
-        throw new AppError(
-          'INSUFFICIENT_WALLET',
-          'Host direct-booking balance is low. Please try again later or book directly on VietNomad.'
-        );
-      }
-
-      await tx.query(
-        'UPDATE host_wallets SET balance_vnd = balance_vnd - $1, updated_at = NOW() WHERE host_id = $2',
-        [referralFeeVnd, meta.host_id]
-      );
-
-      const destinationUrl = meta.direct_booking_url || 'https://example.vn/direct-booking';
-      await tx.query(
-        `INSERT INTO staydirect_referrals (
-          id, stay_id, package_id, member_id, nights, retail_total_vnd, referral_fee_vnd, destination_url
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [
-          crypto.randomUUID(),
-          meta.stay_id,
-          meta.pkg_id,
-          user.id,
-          input.nights,
-          quote.totalStayVnd,
-          referralFeeVnd,
-          destinationUrl,
-        ]
-      );
-
-      await tx.query(
-        `INSERT INTO bookings (
-          id, booking_code, stay_id, room_id, package_id, guest_id, business_model,
-          status, check_in, check_out, nights, guests_count, wholesale_total_vnd,
-          service_fee_vnd, vat_discount_vnd, reward_credit_used_vnd, guest_total_vnd,
-          booking_fee_online_vnd, pay_at_checkin_vnd,
-          reward_credit_earned_vnd, cancellation_policy, guest_note
-        ) VALUES ($1,$2,$3,$4,$5,$6,'stay_direct','direct_referral',$7,$8,$9,$10,$11,0,0,0,$12,0,$11,0,$13,$14)`,
-        [
-          bookingId,
-          bookingCode,
-          meta.stay_id,
-          meta.room_id,
-          meta.pkg_id,
-          user.id,
-          input.checkIn,
-          checkOut,
-          input.nights,
-          input.guestsCount,
-          quote.payAtCheckinVnd,
-          quote.totalStayVnd,
-          meta.cancellation_policy,
-          (input.guestNote ?? '').trim(),
-        ]
-      );
-
-      return {
-        bookingId,
-        bookingCode,
-        status: 'direct_referral' as const,
-        businessModel: 'stay_direct' as const,
-        directReferralUrl: destinationUrl,
-        referralFeeChargedVnd: referralFeeVnd,
-        paymentIntentId: null,
-        quote,
-      };
-    }
-
-    // BookingFlow: mandatory 12% Booking & Verification Fee collected online; 100% of host net rate (P_host) paid directly at check-in
+    // Unified BookingFlow: 12% Booking & Service Fee collected online; 100% of host rate paid directly at check-in
     const unitsTotal = toNum(meta.units_total, 1);
     const paymentIntentId = `pi_vn_${crypto.randomBytes(8).toString('hex')}`;
 
@@ -299,7 +292,13 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       await verifyAvailabilityReadOnlyTx(tx, meta.room_id, unitsTotal, input.checkIn, checkOut);
     }
 
-    const initialStatus = checkoutMode === 'instant' ? 'RESERVED_LOCKED' : 'PENDING_PAYMENT';
+    const instantApproved = Boolean(meta.is_instant_book);
+    const initialStatus =
+      checkoutMode === 'instant'
+        ? instantApproved
+          ? 'RESERVED_LOCKED'
+          : 'PENDING_HOST_APPROVAL'
+        : 'PENDING_PAYMENT';
 
     if (checkoutMode === 'instant') {
       if (quote.rewardCreditUsedVnd > 0) {
@@ -351,6 +350,19 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       ]
     );
 
+    await logBookingEventTx(tx, {
+      bookingId,
+      actorUserId: user.id,
+      actorRole: 'guest',
+      eventType: checkoutMode === 'instant' ? 'booking_confirmed' : 'booking_created',
+      summary:
+        checkoutMode === 'instant'
+          ? instantApproved
+            ? `Instant booking created and locked (${input.nights} nights).`
+            : `Booking request submitted awaiting host approval (${input.nights} nights).`
+          : `Reservation initialized awaiting 12% online fee (${input.nights} nights).`,
+    });
+
     if (checkoutMode === 'instant') {
       await dispatchBookingLockedNotifications(tx, bookingId);
     }
@@ -360,12 +372,119 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       bookingCode,
       status: initialStatus,
       businessModel: 'booking_flow' as const,
-      directReferralUrl: null,
-      referralFeeChargedVnd: 0,
       paymentIntentId,
       quote,
     };
   });
+}
+
+export async function markBookingPaidInTx(
+  tx: DbClient,
+  bookingId: string,
+  paymentMeta?: {
+    provider?: string;
+    referenceCode?: string;
+    externalPaymentId?: string | null;
+  }
+) {
+  const res = await tx.query<{
+    id: string;
+    booking_code: string;
+    guest_id: string;
+    room_id: string;
+    status: string;
+    check_in: string | Date;
+    check_out: string | Date;
+    booking_fee_online_vnd: string | number;
+    pay_at_checkin_vnd: string | number;
+    reward_credit_used_vnd: string | number;
+    reward_credit_earned_vnd: string | number;
+    payment_intent_id: string | null;
+    units_total: number;
+    is_instant_book: boolean;
+  }>(
+    `SELECT b.*, sr.units_total, s.is_instant_book
+     FROM bookings b
+     JOIN stay_rooms sr ON sr.id = b.room_id
+     JOIN stays s ON s.id = b.stay_id
+     WHERE b.id = $1 FOR UPDATE`,
+    [bookingId]
+  );
+
+  const b = res.rows[0];
+  if (!b) throw new AppError('NOT_FOUND', 'Booking not found.');
+  if (b.status === 'RESERVED_LOCKED' || b.status === 'PENDING_HOST_APPROVAL') {
+    return {
+      bookingId: b.id,
+      bookingCode: b.booking_code,
+      status: b.status as 'RESERVED_LOCKED' | 'PENDING_HOST_APPROVAL',
+      feePaidOnlineVnd: toNum(b.booking_fee_online_vnd),
+      payAtCheckinVnd: toNum(b.pay_at_checkin_vnd),
+      paymentIntentId: b.payment_intent_id,
+    };
+  }
+  if (b.status !== 'PENDING_PAYMENT') {
+    throw new AppError('CONFLICT', 'This booking does not require online payment.');
+  }
+
+  const checkInIso =
+    b.check_in instanceof Date
+      ? b.check_in.toISOString().slice(0, 10)
+      : String(b.check_in).slice(0, 10);
+  const checkOutIso =
+    b.check_out instanceof Date
+      ? b.check_out.toISOString().slice(0, 10)
+      : String(b.check_out).slice(0, 10);
+
+  const nightDates = enumerateStayNights(checkInIso, checkOutIso);
+  await lockRoomNightsTx(tx, b.room_id, toNum(b.units_total, 1), nightDates);
+
+  const usedCredit = toNum(b.reward_credit_used_vnd);
+  const earnedCredit = toNum(b.reward_credit_earned_vnd);
+  const netCredit = earnedCredit - usedCredit;
+  if (netCredit !== 0) {
+    await tx.query(
+      'UPDATE users SET reward_credit_vnd = GREATEST(0, reward_credit_vnd + $1) WHERE id = $2',
+      [netCredit, b.guest_id]
+    );
+  }
+
+  const nextPaymentIntentId = paymentMeta?.externalPaymentId || b.payment_intent_id;
+  const nextProvider = paymentMeta?.provider || 'sandbox';
+  const nextRef = paymentMeta?.referenceCode || b.booking_code;
+  const nextStatus = b.is_instant_book ? 'RESERVED_LOCKED' : 'PENDING_HOST_APPROVAL';
+
+  await tx.query(
+    `UPDATE bookings
+     SET status = $5,
+         paid_at = NOW(),
+         payment_intent_id = $2,
+         payment_provider = $3,
+         payment_reference = $4
+     WHERE id = $1`,
+    [b.id, nextPaymentIntentId, nextProvider, nextRef, nextStatus]
+  );
+
+  await logBookingEventTx(tx, {
+    bookingId: b.id,
+    actorUserId: b.guest_id,
+    actorRole: 'guest',
+    eventType: b.is_instant_book ? 'fee_paid_locked' : 'fee_paid_pending_host',
+    summary: b.is_instant_book
+      ? `12% booking fee paid (${nextProvider}); dates locked immediately.`
+      : `12% booking fee paid (${nextProvider}); awaiting host confirmation.`,
+  });
+
+  await dispatchBookingLockedNotifications(tx, b.id);
+
+  return {
+    bookingId: b.id,
+    bookingCode: b.booking_code,
+    status: nextStatus as 'RESERVED_LOCKED' | 'PENDING_HOST_APPROVAL',
+    feePaidOnlineVnd: toNum(b.booking_fee_online_vnd),
+    payAtCheckinVnd: toNum(b.pay_at_checkin_vnd),
+    paymentIntentId: nextPaymentIntentId,
+  };
 }
 
 export async function confirmBookingFeePayment(user: SessionUser, bookingId: string) {
@@ -374,87 +493,16 @@ export async function confirmBookingFeePayment(user: SessionUser, bookingId: str
   }
 
   return dbTransaction(async (tx) => {
-    const res = await tx.query<{
-      id: string;
-      booking_code: string;
-      guest_id: string;
-      room_id: string;
-      status: string;
-      check_in: string | Date;
-      check_out: string | Date;
-      booking_fee_online_vnd: string | number;
-      pay_at_checkin_vnd: string | number;
-      reward_credit_used_vnd: string | number;
-      reward_credit_earned_vnd: string | number;
-      payment_intent_id: string | null;
-      units_total: number;
-    }>(
-      `SELECT b.*, sr.units_total
-       FROM bookings b
-       JOIN stay_rooms sr ON sr.id = b.room_id
-       WHERE b.id = $1 FOR UPDATE`,
+    const ownerRes = await tx.query<{ guest_id: string }>(
+      'SELECT guest_id FROM bookings WHERE id = $1',
       [bookingId]
     );
-
-    const b = res.rows[0];
-    if (!b) throw new AppError('NOT_FOUND', 'Booking not found.');
-    if (b.guest_id !== user.id && user.role !== 'admin') {
+    const owner = ownerRes.rows[0];
+    if (!owner) throw new AppError('NOT_FOUND', 'Booking not found.');
+    if (owner.guest_id !== user.id && user.role !== 'admin') {
       throw new AppError('FORBIDDEN', 'You cannot pay for another member’s booking.');
     }
-    if (b.status === 'RESERVED_LOCKED') {
-      return {
-        bookingId: b.id,
-        bookingCode: b.booking_code,
-        status: 'RESERVED_LOCKED' as const,
-        feePaidOnlineVnd: toNum(b.booking_fee_online_vnd),
-        payAtCheckinVnd: toNum(b.pay_at_checkin_vnd),
-        paymentIntentId: b.payment_intent_id,
-      };
-    }
-    if (b.status !== 'PENDING_PAYMENT') {
-      throw new AppError('CONFLICT', 'This booking does not require online payment.');
-    }
-
-    const checkInIso =
-      b.check_in instanceof Date
-        ? b.check_in.toISOString().slice(0, 10)
-        : String(b.check_in).slice(0, 10);
-    const checkOutIso =
-      b.check_out instanceof Date
-        ? b.check_out.toISOString().slice(0, 10)
-        : String(b.check_out).slice(0, 10);
-
-    const nightDates = enumerateStayNights(checkInIso, checkOutIso);
-    await lockRoomNightsTx(tx, b.room_id, toNum(b.units_total, 1), nightDates);
-
-    const usedCredit = toNum(b.reward_credit_used_vnd);
-    const earnedCredit = toNum(b.reward_credit_earned_vnd);
-    const netCredit = earnedCredit - usedCredit;
-    if (netCredit !== 0) {
-      await tx.query(
-        'UPDATE users SET reward_credit_vnd = GREATEST(0, reward_credit_vnd + $1) WHERE id = $2',
-        [netCredit, b.guest_id]
-      );
-    }
-
-    await tx.query(
-      `UPDATE bookings
-       SET status = 'RESERVED_LOCKED',
-           paid_at = NOW()
-       WHERE id = $1`,
-      [b.id]
-    );
-
-    await dispatchBookingLockedNotifications(tx, b.id);
-
-    return {
-      bookingId: b.id,
-      bookingCode: b.booking_code,
-      status: 'RESERVED_LOCKED' as const,
-      feePaidOnlineVnd: toNum(b.booking_fee_online_vnd),
-      payAtCheckinVnd: toNum(b.pay_at_checkin_vnd),
-      paymentIntentId: b.payment_intent_id,
-    };
+    return markBookingPaidInTx(tx, bookingId);
   });
 }
 
@@ -479,8 +527,157 @@ export async function confirmCheckInCompleted(actor: SessionUser, bookingId: str
     }
 
     await tx.query(`UPDATE bookings SET status = 'CHECKED_IN_COMPLETED' WHERE id = $1`, [b.id]);
+    await logBookingEventTx(tx, {
+      bookingId: b.id,
+      actorUserId: actor.id,
+      actorRole: actor.role === 'admin' ? 'admin' : 'host',
+      eventType: 'checked_in_completed',
+      summary: 'Host confirmed guest check-in and direct rent settlement.',
+    });
     return { bookingId: b.id, status: 'CHECKED_IN_COMPLETED' as const };
   });
+}
+
+export async function respondToPendingBooking(
+  actor: SessionUser,
+  bookingId: string,
+  decision: 'approve' | 'decline',
+  note?: string
+) {
+  if (!isValidUuid(bookingId)) throw new AppError('VALIDATION_ERROR', 'Invalid booking id.');
+
+  return dbTransaction(async (tx) => {
+    const res = await tx.query<{
+      id: string;
+      booking_code: string;
+      stay_id: string;
+      host_id: string;
+      guest_id: string;
+      room_id: string;
+      status: string;
+      check_in: string | Date;
+      check_out: string | Date;
+      booking_fee_online_vnd: string | number;
+      reward_credit_used_vnd: string | number;
+      reward_credit_earned_vnd: string | number;
+    }>(
+      `SELECT b.*, s.host_id
+       FROM bookings b
+       JOIN stays s ON s.id = b.stay_id
+       WHERE b.id = $1 FOR UPDATE`,
+      [bookingId]
+    );
+    const b = res.rows[0];
+    if (!b) throw new AppError('NOT_FOUND', 'Booking not found.');
+    if (actor.role !== 'admin' && b.host_id !== actor.id) {
+      throw new AppError('FORBIDDEN', 'Only the property host or admin can respond to this request.');
+    }
+    if (b.status !== 'PENDING_HOST_APPROVAL') {
+      throw new AppError('CONFLICT', 'Only reservations awaiting host approval can be approved or declined.');
+    }
+
+    if (decision === 'approve') {
+      await tx.query(
+        `UPDATE bookings
+         SET status = 'RESERVED_LOCKED',
+             host_internal_note = CASE WHEN $2 <> '' THEN $2 ELSE host_internal_note END
+         WHERE id = $1`,
+        [b.id, (note ?? '').trim()]
+      );
+      await logBookingEventTx(tx, {
+        bookingId: b.id,
+        actorUserId: actor.id,
+        actorRole: actor.role === 'admin' ? 'admin' : 'host',
+        eventType: 'host_approved',
+        summary: note?.trim()
+          ? `Host approved booking request (${note.trim()}).`
+          : 'Host approved booking request.',
+      });
+      await dispatchBookingLockedNotifications(tx, b.id);
+      return { bookingId: b.id, status: 'RESERVED_LOCKED' as const };
+    }
+
+    // Decline: release locked nights, refund 12% online fee & reverse credit adjustments
+    const checkInIso =
+      b.check_in instanceof Date
+        ? b.check_in.toISOString().slice(0, 10)
+        : String(b.check_in).slice(0, 10);
+    const checkOutIso =
+      b.check_out instanceof Date
+        ? b.check_out.toISOString().slice(0, 10)
+        : String(b.check_out).slice(0, 10);
+    const nightDates = enumerateStayNights(checkInIso, checkOutIso);
+    for (const dt of nightDates) {
+      await tx.query(
+        `UPDATE room_night_locks
+         SET booked_units = GREATEST(0, booked_units - 1)
+         WHERE room_id = $1 AND stay_date = $2::date`,
+        [b.room_id, dt]
+      );
+    }
+
+    const used = toNum(b.reward_credit_used_vnd);
+    const earned = toNum(b.reward_credit_earned_vnd);
+    const creditDelta = used - earned;
+    if (creditDelta !== 0) {
+      await tx.query(
+        'UPDATE users SET reward_credit_vnd = GREATEST(0, reward_credit_vnd + $1) WHERE id = $2',
+        [creditDelta, b.guest_id]
+      );
+    }
+
+    const feePaid = toNum(b.booking_fee_online_vnd);
+    const declineNote = (note ?? '').trim() || 'Declined by host';
+    await tx.query(
+      `UPDATE bookings
+       SET status = 'cancelled',
+           refund_amount_vnd = $1,
+           host_internal_note = $2,
+           cancelled_at = NOW()
+       WHERE id = $3`,
+      [feePaid, declineNote, b.id]
+    );
+
+    await refundGatewayTransactionIfLive(tx, {
+      bookingId: b.id,
+      refundAmountVnd: feePaid,
+    });
+
+    await logBookingEventTx(tx, {
+      bookingId: b.id,
+      actorUserId: actor.id,
+      actorRole: actor.role === 'admin' ? 'admin' : 'host',
+      eventType: 'host_declined',
+      summary: `Host declined booking request (${declineNote}); 12% online fee refunded.`,
+    });
+
+    return { bookingId: b.id, status: 'cancelled' as const, refundAmountVnd: feePaid };
+  });
+}
+
+export async function updateHostBookingNote(
+  actor: SessionUser,
+  bookingId: string,
+  hostInternalNote: string
+) {
+  if (!isValidUuid(bookingId)) throw new AppError('VALIDATION_ERROR', 'Invalid booking id.');
+  const res = await dbQuery<{ id: string; host_id: string }>(
+    `SELECT b.id, s.host_id
+     FROM bookings b
+     JOIN stays s ON s.id = b.stay_id
+     WHERE b.id = $1`,
+    [bookingId]
+  );
+  const b = res.rows[0];
+  if (!b) throw new AppError('NOT_FOUND', 'Booking not found.');
+  if (actor.role !== 'admin' && b.host_id !== actor.id) {
+    throw new AppError('FORBIDDEN', 'Only the property host or admin can update notes.');
+  }
+  await dbQuery(`UPDATE bookings SET host_internal_note = $1 WHERE id = $2`, [
+    hostInternalNote.trim().slice(0, 1500),
+    bookingId,
+  ]);
+  return { ok: true };
 }
 
 export async function refundWifiMismatch(
@@ -511,11 +708,11 @@ export async function refundWifiMismatch(
     );
     const b = res.rows[0];
     if (!b) throw new AppError('NOT_FOUND', 'Booking not found.');
-    if (actor.role !== 'admin' && b.guest_id !== actor.id && b.host_id !== actor.id) {
-      throw new AppError('FORBIDDEN', 'Not authorized to trigger mismatch refund on this booking.');
+    if (actor.role !== 'admin') {
+      throw new AppError('FORBIDDEN', 'Only VietNomad admins can approve an administrative fee refund.');
     }
     if (b.status !== 'RESERVED_LOCKED' && b.status !== 'confirmed') {
-      throw new AppError('CONFLICT', 'Wi-Fi mismatch refund applies to active locked reservations.');
+      throw new AppError('CONFLICT', 'Administrative fee refund applies to active locked reservations.');
     }
 
     const feePaid = toNum(b.booking_fee_online_vnd);
@@ -547,7 +744,7 @@ export async function refundWifiMismatch(
     }
 
     const cleanReason =
-      reason.trim() || 'Check-in Wi-Fi speed or workspace did not match verified certificate';
+      reason.trim() || 'Administrative booking fee refund approved';
 
     await tx.query(
       `UPDATE bookings
@@ -562,7 +759,7 @@ export async function refundWifiMismatch(
     await tx.query(
       `INSERT INTO booking_notifications (
         id, booking_id, recipient_role, channel, recipient_contact, subject, payload_json, status
-      ) VALUES ($1,$2,'guest','email','member','100% Booking Fee Refund Issued (Wi-Fi Guarantee)',$3,'sent')`,
+      ) VALUES ($1,$2,'guest','email','member','Administrative Booking Fee Refund Issued',$3,'sent')`,
       [
         crypto.randomUUID(),
         b.id,
@@ -573,6 +770,14 @@ export async function refundWifiMismatch(
         }),
       ]
     );
+
+    await logBookingEventTx(tx, {
+      bookingId: b.id,
+      actorUserId: actor.id,
+      actorRole: 'admin',
+      eventType: 'admin_fee_refunded',
+      summary: `Admin issued booking fee refund (${cleanReason}).`,
+    });
 
     return {
       bookingId: b.id,
@@ -616,6 +821,13 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
         `UPDATE bookings SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`,
         [b.id]
       );
+      await logBookingEventTx(tx, {
+        bookingId: b.id,
+        actorUserId: user.id,
+        actorRole: 'guest',
+        eventType: 'cancelled_unpaid',
+        summary: 'Unpaid reservation request cancelled by guest.',
+      });
       return {
         bookingId: b.id,
         tier: 'cooling_off' as const,
@@ -624,7 +836,11 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
       };
     }
 
-    if (b.status !== 'RESERVED_LOCKED' && b.status !== 'confirmed') {
+    if (
+      b.status !== 'RESERVED_LOCKED' &&
+      b.status !== 'confirmed' &&
+      b.status !== 'PENDING_HOST_APPROVAL'
+    ) {
       throw new AppError('CONFLICT', 'Only active reservations can be cancelled here.');
     }
 
@@ -642,14 +858,21 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
         ? toNum(b.booking_fee_online_vnd)
         : toNum(b.guest_total_vnd);
 
-    const outcome = calculateCancellationOutcome({
-      policy: b.cancellation_policy,
-      guestTotalVnd: toNum(b.guest_total_vnd),
-      paidOnlineVnd,
-      nights: toNum(b.nights),
-      checkInIso,
-      bookedAt: new Date(String(b.created_at)),
-    });
+    const outcome =
+      b.status === 'PENDING_HOST_APPROVAL'
+        ? {
+            tier: 'cooling_off' as const,
+            refundAmountVnd: paidOnlineVnd,
+            creditIssuedVnd: 0,
+          }
+        : calculateCancellationOutcome({
+            policy: b.cancellation_policy,
+            guestTotalVnd: toNum(b.guest_total_vnd),
+            paidOnlineVnd,
+            nights: toNum(b.nights),
+            checkInIso,
+            bookedAt: new Date(String(b.created_at)),
+          });
 
     const nights = enumerateStayNights(checkInIso, checkOutIso);
     for (const dt of nights) {
@@ -680,6 +903,19 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
       [outcome.refundAmountVnd, outcome.creditIssuedVnd, b.id]
     );
 
+    await logBookingEventTx(tx, {
+      bookingId: b.id,
+      actorUserId: user.id,
+      actorRole: 'guest',
+      eventType: 'cancelled_by_guest',
+      summary: `Reservation cancelled (${outcome.tier}); refund ${outcome.refundAmountVnd}₫, credit ${outcome.creditIssuedVnd}₫.`,
+    });
+
+    await refundGatewayTransactionIfLive(tx, {
+      bookingId: b.id,
+      refundAmountVnd: outcome.refundAmountVnd,
+    });
+
     return { bookingId: b.id, ...outcome };
   });
 }
@@ -691,8 +927,9 @@ export async function getMemberDashboard(userId: string) {
               s.slug AS stay_slug, s.title_en, s.title_vi, s.hero_image,
               s.exact_address, s.checkin_instructions_en, s.checkin_instructions_vi,
               s.wifi_download_mbps, s.wifi_upload_mbps, s.wifi_jitter_ms,
-              s.verification_tier, s.speedtest_proof_url, s.workspace_video_url,
-              s.host_whatsapp, s.direct_booking_url,
+              s.verification_tier, s.is_wifi_verified, s.is_work_ready,
+              s.speedtest_proof_url, s.workspace_video_url,
+              s.host_whatsapp,
               d.name_en AS destination_name_en, d.name_vi AS destination_name_vi,
               r.name_en AS room_name_en, r.name_vi AS room_name_vi
        FROM bookings b
@@ -808,11 +1045,12 @@ export async function getMemberDashboard(userId: string) {
         wifiDownloadMbps: toNum(b.wifi_download_mbps),
         wifiUploadMbps: toNum(b.wifi_upload_mbps),
         wifiJitterMs: toNum(b.wifi_jitter_ms),
-        verificationTier: String(b.verification_tier ?? 'VIETNOMAD_CERTIFIED'),
+        verificationTier: String(b.verification_tier ?? 'SELF_DECLARED'),
+        isWifiVerified: Boolean(b.is_wifi_verified),
+        isWorkReady: Boolean(b.is_work_ready),
         speedtestProofUrl: b.speedtest_proof_url ? String(b.speedtest_proof_url) : null,
         workspaceVideoUrl: b.workspace_video_url ? String(b.workspace_video_url) : null,
         hostWhatsapp: String(b.host_whatsapp ?? '+84901234567'),
-        directBookingUrl: b.direct_booking_url ? String(b.direct_booking_url) : null,
         exactAddress: unlockAddress ? String(b.exact_address) : null,
         checkinInstructionsEn: unlockAddress ? String(b.checkin_instructions_en) : null,
         checkinInstructionsVi: unlockAddress ? String(b.checkin_instructions_vi) : null,
@@ -821,7 +1059,6 @@ export async function getMemberDashboard(userId: string) {
       };
     }),
     savedStays: savedRes.rows.map((s) => {
-      const bm = String(s.business_model);
       const raw30 = toNum(s.wholesale_30_vnd);
       return {
         id: String(s.id),
@@ -830,10 +1067,10 @@ export async function getMemberDashboard(userId: string) {
         titleVi: String(s.title_vi),
         heroImage: String(s.hero_image),
         wifiDownloadMbps: toNum(s.wifi_download_mbps),
-        businessModel: bm,
+        businessModel: 'booking_flow',
         destinationNameEn: String(s.destination_name_en),
         destinationNameVi: String(s.destination_name_vi),
-        monthDisplayVnd: bm === 'booking_flow' ? Math.round(raw30 * 1.12) : raw30,
+        monthDisplayVnd: Math.round(raw30 * 1.12),
       };
     }),
     rsvps: rsvpsRes.rows.map((e) => ({
