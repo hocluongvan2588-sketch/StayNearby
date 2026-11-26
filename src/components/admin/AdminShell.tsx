@@ -12,7 +12,6 @@ import {
   ClipboardCheck,
   Compass,
   Globe,
-  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -100,13 +99,6 @@ export function AdminShell({
       labelVi: 'Khách hàng (CRM)',
       icon: Users,
       active: false,
-    },
-    {
-      href: '/admin/demo',
-      labelEn: 'Demo Accounts',
-      labelVi: 'Tài khoản mẫu',
-      icon: KeyRound,
-      active: pathname === '/admin/demo',
     },
   ];
 
@@ -227,13 +219,7 @@ export function AdminShell({
             </button>
             <div>
               <div className="text-sm font-semibold text-[#17221E] sm:text-base">
-                {pathname === '/admin/demo'
-                  ? isVi
-                    ? 'Chuyển nhanh tài khoản mẫu'
-                    : 'Demo Account Switcher'
-                  : isVi
-                    ? 'Trung tâm kiểm duyệt & vận hành'
-                    : 'Moderation & Operations'}
+                {isVi ? 'Trung tâm kiểm duyệt & vận hành' : 'Moderation & Operations'}
               </div>
               <div className="hidden text-[11px] text-[#53635D] sm:block">
                 {isVi
@@ -342,14 +328,6 @@ export function AdminShell({
                     >
                       <Building2 className="h-3.5 w-3.5 text-[#53635D]" />
                       Host Console
-                    </Link>
-                    <Link
-                      href="/admin/demo"
-                      onClick={() => setOpenMenu(null)}
-                      className="flex items-center gap-2 rounded-lg px-2.5 py-2 hover:bg-[#FAF8F3]"
-                    >
-                      <KeyRound className="h-3.5 w-3.5 text-[#53635D]" />
-                      {isVi ? 'Chuyển tài khoản mẫu' : 'Demo Switcher'}
                     </Link>
                     <Link
                       href="/"

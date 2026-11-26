@@ -6,10 +6,8 @@ import { usePreferences } from './PreferencesProvider';
 
 export function SiteFooter({
   destinations,
-  demoEnabled = false,
 }: {
   destinations: DestinationSummary[];
-  demoEnabled?: boolean;
 }) {
   const { locale } = usePreferences();
   const isVi = locale === 'vi';
@@ -93,13 +91,6 @@ export function SiteFooter({
                   {isVi ? 'Quản lý kiểm duyệt' : 'Admin verification'}
                 </Link>
               </li>
-              {demoEnabled && (
-                <li>
-                  <Link href="/admin/demo" className="hover:text-white">
-                    {isVi ? 'Chuyển nhanh tài khoản mẫu' : 'Demo account switcher'}
-                  </Link>
-                </li>
-              )}
             </ul>
           </div>
         </div>

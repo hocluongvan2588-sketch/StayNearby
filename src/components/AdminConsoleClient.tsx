@@ -232,12 +232,6 @@ export function AdminConsoleClient({ data }: { data: AdminConsoleData }) {
                 : 'Review free (€0) host applications, toggle optional Wi-Fi Verified / Work-Ready badges, and monitor bookings.'}
             </p>
           </div>
-          <Link
-            href="/admin/demo"
-            className="rounded-lg border border-[#E5DFD3] bg-white px-4 py-2 text-xs font-semibold text-[#17221E] hover:bg-[#FAF8F3]"
-          >
-            {isVi ? 'Chuyển nhanh tài khoản mẫu' : 'Demo account switcher'}
-          </Link>
         </div>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
