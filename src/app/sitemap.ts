@@ -33,6 +33,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const cmsRoutes = cmsItems.map((c) => ({
     url: `${baseUrl}/guides/${c.slug}`,
     lastModified: new Date(c.updatedAt),
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
   }));
 
   return [...staticRoutes, ...destinationRoutes, ...stayRoutes, ...cmsRoutes];

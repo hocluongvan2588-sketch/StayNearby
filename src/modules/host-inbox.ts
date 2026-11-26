@@ -304,6 +304,98 @@ export type InboxMessageItem = Awaited<ReturnType<typeof getConversationMessages
 export type HostQuickReplyItem = HostInboxPayload['quickReplies'][number];
 
 
+export async function getGuestInquiryThreadForStay(
+  guest: SessionUser,
+  staySlug: string
+) {
+  const stayRes = await dbQuery<{ id: string }>(
+    `SELECT id FROM stays WHERE slug = $1`,
+    [staySlug]
+  );
+  const stay = stayRes.rows[0];
+  if (!stay) throw new AppError('NOT_FOUND', 'Stay not found.');
+
+  const convRes = await dbQuery<{ id: string }>(
+    `SELECT id FROM conversations WHERE stay_id = $1 AND guest_id = $2`,
+    [stay.id, guest.id]
+  );
+  const conv = convRes.rows[0];
+  if (!conv) return { conversationId: null as string | null, messages: [] as InboxMessageItem[] };
+
+  const messages = await getConversationMessages(guest, conv.id);
+  return { conversationId: conv.id, messages };
+}
+
+export async function sendGuestInquiryToHost(
+  guest: SessionUser,
+  staySlug: string,
+  body: string
+) {
+  const cleanBody = body.trim().slice(0, 4000);
+  if (cleanBody.length < 2) {
+    throw new AppError('VALIDATION_ERROR', 'Please enter a message for the host.');
+  }
+
+  return dbTransaction(async (tx) => {
+    const stayRes = await tx.query<{ id: string; host_id: string }>(
+      `SELECT id, host_id FROM stays WHERE slug = $1`,
+      [staySlug]
+    );
+    const stay = stayRes.rows[0];
+    if (!stay) throw new AppError('NOT_FOUND', 'Stay not found.');
+    if (stay.host_id === guest.id) {
+      throw new AppError('VALIDATION_ERROR', 'You are the host of this property.');
+    }
+
+    let conversationId: string;
+    const existing = await tx.query<{ id: string }>(
+      `SELECT id FROM conversations WHERE stay_id = $1 AND guest_id = $2`,
+      [stay.id, guest.id]
+    );
+    if (existing.rows[0]) {
+      conversationId = existing.rows[0].id;
+    } else {
+      conversationId = crypto.randomUUID();
+      await tx.query(
+        `INSERT INTO conversations (id, stay_id, host_id, guest_id)
+         VALUES ($1, $2, $3, $4)`,
+        [conversationId, stay.id, stay.host_id, guest.id]
+      );
+    }
+
+    const msgId = crypto.randomUUID();
+    await tx.query(
+      `INSERT INTO messages (id, conversation_id, sender_id, sender_role, body)
+       VALUES ($1, $2, $3, 'guest', $4)`,
+      [msgId, conversationId, guest.id, cleanBody]
+    );
+
+    await tx.query(
+      `UPDATE conversations
+       SET last_message_preview = $1,
+           last_message_at = NOW(),
+           host_unread_count = host_unread_count + 1
+       WHERE id = $2`,
+      [cleanBody.slice(0, 140), conversationId]
+    );
+
+    return {
+      conversationId,
+      message: {
+        id: msgId,
+        conversationId,
+        senderId: guest.id,
+        senderName: guest.fullName,
+        senderRole: 'guest',
+        body: cleanBody,
+        imageUrl: null,
+        readAt: null,
+        createdAt: new Date().toISOString(),
+      },
+    };
+  });
+}
+
 export async function createHostQuickReply(
   user: SessionUser,
   input: { title: string; body: string }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, MessageCircle, Send, Sparkles } from 'lucide-react';
+import { Loader2, MessageCircle, Send } from 'lucide-react';
 import type { ConciergeResponse } from '@/modules/concierge';
 import { usePreferences } from './PreferencesProvider';
 import { PaginatedStayGrid } from './PaginatedStayGrid';
@@ -17,14 +17,14 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
 
   const presets = isVi
     ? [
-        'Gần biển Đà Nẵng 1 tháng, bếp riêng, Wi-Fi mạnh',
-        'Yên tĩnh tại Đà Lạt, giá dưới 700 USD một tháng',
-        'Căn hộ tại Thảo Điền, TP.HCM ở 2 tuần',
+        'Gần biển Đà Nẵng 2 tuần, có bếp riêng và nhiều quán ăn địa phương',
+        'Đà Lạt yên tĩnh nghỉ dưỡng 1 tháng, giá dưới 700 USD',
+        'Căn hộ ấm cúng tại Thảo Điền TP.HCM hoặc Phố cổ Hội An',
       ]
     : [
-        'Beach stay in Da Nang for 1 month with full kitchen',
-        'Quiet month in Da Lat under $700',
-        'Thao Dien Saigon apartment for 2 weeks',
+        'Beach stay in Da Nang for 2 weeks with full kitchen',
+        'Quiet highland retreat in Da Lat for 1 month under $700',
+        'Walkable apartment in Hoi An or Thao Dien Saigon',
       ];
 
   async function submitPrompt(textToRun: string) {
@@ -41,34 +41,35 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(json.error?.message ?? (isVi ? 'Không thể tìm phòng lúc này.' : 'Could not run search.'));
+        setError(
+          json.error?.message ??
+            (isVi ? 'Không thể tìm phòng lúc này.' : 'Could not run search.')
+        );
       } else {
         setResult(json.result);
       }
     } catch {
-      setError(isVi ? 'Lỗi kết nối. Vui lòng thử lại.' : 'Connection failed. Please retry.');
+      setError(
+        isVi ? 'Lỗi kết nối. Vui lòng thử lại.' : 'Connection failed. Please retry.'
+      );
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <section className="rounded-3xl border border-[#164E3F]/20 bg-[#0F392E] p-6 text-[#FAF8F3] sm:p-10 lacquer-shadow">
+    <section className="rounded-2xl bg-[#0F392E] p-6 text-[#FAF8F3] sm:p-10">
       <div className="grid gap-8 lg:grid-cols-12 lg:items-center">
-        <div className="space-y-4 lg:col-span-5">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-[#E6B87A]">
-            <Sparkles className="h-3.5 w-3.5" />
-            {isVi ? 'Tìm phòng nhanh' : 'Smart Stay Finder'}
-          </div>
-          <h2 className="font-serif-display text-3xl font-semibold leading-tight">
+        <div className="space-y-3 lg:col-span-5">
+          <h2 className="text-2xl font-semibold leading-tight sm:text-3xl">
             {isVi
-              ? 'Mô tả chuyến đi của bạn để tìm phòng còn trống.'
-              : 'Describe your trip to see open stays right away.'}
+              ? 'Mô tả kỳ nghỉ bạn mong muốn.'
+              : 'Tell us what kind of stay you are looking for.'}
           </h2>
           <p className="text-sm leading-relaxed text-[#CDE0D9]">
             {isVi
-              ? 'Lọc trực tiếp theo thành phố, ngân sách, tiện nghi sinh hoạt và tốc độ Wi-Fi.'
-              : 'Matches live availability, city, monthly budget, home amenities, and Wi-Fi speeds.'}
+              ? 'Gợi ý ngay chỗ ở còn phòng phù hợp theo thành phố, ngân sách, khu phố và tiện nghi sống.'
+              : 'Instantly surface open stays matching your city, budget, neighborhood vibe, and home comforts.'}
           </p>
         </div>
 
@@ -86,8 +87,8 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
               onChange={(e) => setPrompt(e.target.value)}
               placeholder={
                 isVi
-                  ? 'Ví dụ: Ở 1 tháng gần biển Đà Nẵng, bếp riêng, dưới $900...'
-                  : 'Example: Beach month in Da Nang, full kitchen, under $900...'
+                  ? 'Ví dụ: Gần biển Đà Nẵng 2 tuần, bếp riêng, dưới $900...'
+                  : 'Example: Beach stay in Da Nang for 2 weeks, full kitchen, under $900...'
               }
               className="flex-1 rounded-xl border border-white/20 bg-white px-4 py-3 text-sm text-[#17221E] placeholder-[#53635D] outline-none focus:ring-2 focus:ring-[#E6B87A]"
             />
@@ -96,8 +97,12 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
               disabled={loading}
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#C25E28] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#ad5020] disabled:opacity-60"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {isVi ? 'Tìm ngay' : 'Find stays'}
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {isVi ? 'Tìm gợi ý' : 'Find stays'}
             </button>
           </form>
 
@@ -124,10 +129,10 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
 
       {result && (
         <div className="mt-8 space-y-5 border-t border-white/15 pt-6">
-          <div className="flex flex-col justify-between gap-3 rounded-2xl bg-white/10 p-4 text-sm text-[#FAF8F3] sm:flex-row sm:items-center">
+          <div className="flex flex-col justify-between gap-3 rounded-xl bg-white/10 p-4 text-sm text-[#FAF8F3] sm:flex-row sm:items-center">
             <div>
               <span className="mr-2 font-semibold text-[#E6B87A]">
-                {isVi ? 'Gợi ý phù hợp:' : 'Top matches:'}
+                {isVi ? 'Kết quả phù hợp:' : 'Top matches:'}
               </span>
               {result.summary}
             </div>
@@ -138,7 +143,7 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
               className="inline-flex min-h-[40px] shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#25D366] px-4 py-2 text-xs font-bold text-[#0F392E] transition hover:brightness-105"
             >
               <MessageCircle className="h-4 w-4" />
-              {isVi ? 'Nhắn hỗ trợ qua WhatsApp' : 'Ask on WhatsApp'}
+              {isVi ? 'Hỏi hỗ trợ qua WhatsApp' : 'Ask via WhatsApp'}
             </a>
           </div>
           <PaginatedStayGrid

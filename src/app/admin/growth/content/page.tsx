@@ -1,12 +1,28 @@
 import { AdminAccessWall, requireAdminPageAccess } from '@/lib/admin-page-guard';
-import { listCmsContents } from '@/modules/admin-bos';
-import { ContentSeoView } from '@/components/admin/bos/GrowthClient';
+import { listAdminCmsContents, listCmsCategories } from '@/modules/cms-vietnomad';
+import { ContentHubClient } from '@/components/cms-admin/ContentHubClient';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminContentSeoPage() {
   const access = await requireAdminPageAccess('content', 'view');
   if (!access.allowed) return <AdminAccessWall reason={access.reason} email={access.email} />;
-  const contents = await listCmsContents();
-  return <ContentSeoView initialContents={contents} />;
+
+  const [items, categories] = await Promise.all([
+    listAdminCmsContents({}),
+    listCmsCategories(),
+  ]);
+
+  const actions = access.actor.permissions.content?.actions ?? [];
+  const canApprove = actions.includes('approve');
+  const canDelete = actions.includes('delete');
+
+  return (
+    <ContentHubClient
+      initialItems={items}
+      categories={categories}
+      canApprove={canApprove}
+      canDelete={canDelete}
+    />
+  );
 }

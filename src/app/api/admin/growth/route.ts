@@ -95,6 +95,8 @@ const postSchema = z.discriminatedUnion('kind', [
       'article',
       'landing_page',
       'destination_guide',
+      'neighborhood_guide',
+      'local_guide',
       'faq',
       'announcement',
       'hero_banner',

@@ -90,7 +90,7 @@ export function SiteHeader({
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-40 border-b border-[#E5DFD3] bg-[#FAF8F3]/95 backdrop-blur-md"
+      className="sticky top-0 z-40 border-b border-[#E5DFD3] bg-white/95 backdrop-blur-md"
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         {/* Brand */}
@@ -99,7 +99,7 @@ export function SiteHeader({
           className="flex shrink-0 items-center gap-2.5 text-[#17221E] transition hover:opacity-85"
           onClick={() => setOpenMenu(null)}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#164E3F] text-[#FAF8F3] shadow-sm">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#164E3F] text-[#FAF8F3]">
             <svg viewBox="0 0 28 28" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9">
               <path d="M4 18.5L14 7l10 11.5H4z" strokeLinejoin="round" />
               <path d="M10.5 21.5a5 5 0 017 0" strokeLinecap="round" />
@@ -109,7 +109,7 @@ export function SiteHeader({
             <span className="font-serif-display block text-lg font-semibold tracking-tight text-[#164E3F]">
               VietNomad
             </span>
-            <span className="block text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A67C2E]">
+            <span className="block text-[9px] font-semibold uppercase tracking-[0.18em] text-[#53635D]">
               Vietnam Stays
             </span>
           </div>
@@ -160,7 +160,13 @@ export function SiteHeader({
                             {isVi ? d.nameVi : d.nameEn}
                           </span>
                           <span className="text-xs text-[#53635D]">
-                            {d.avgWifiMbps} Mbps
+                            {d.liveStaysCount > 0
+                              ? isVi
+                                ? `${d.liveStaysCount} chỗ ở`
+                                : `${d.liveStaysCount} stays`
+                              : isVi
+                                ? d.regionVi.split(',')[0]
+                                : d.regionEn.split(',')[0]}
                           </span>
                         </Link>
                       ))}

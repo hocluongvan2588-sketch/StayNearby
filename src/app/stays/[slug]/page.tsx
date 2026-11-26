@@ -1,38 +1,35 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
-  ArrowLeft,
-  Briefcase,
-  CheckCircle2,
-  ExternalLink,
-  Laptop,
+  CalendarCheck,
+  ChevronRight,
+  KeyRound,
   MapPin,
-  MessageCircle,
-  Monitor,
-  Shield,
-  ShieldCheck,
   Star,
   Utensils,
-  Wifi,
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getConfig } from '@/lib/config';
-import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
-import { getServerPreferences } from '@/lib/preferences';
+import { dbQuery } from '@/lib/db';
 import {
+  formatCancellationPolicyLabel,
+  formatCountNoun,
   formatKitchenTypeLabel,
   formatLaundryTypeLabel,
-  formatMoneyFromVnd,
-  formatPlaceCategoryLabel,
-  formatVerificationTierLabel,
-  formatVndExact,
+  formatPropertyTypeLabel,
 } from '@/lib/i18n';
-import { formatPropertyTypeLabel, getStayDetailBySlug } from '@/modules/catalog';
-import { buildConciergeWhatsappUrl } from '@/modules/notifications';
+import { getServerPreferences } from '@/lib/preferences';
+import { getStayDetailBySlug } from '@/modules/catalog';
 import { getPlatformFeeConfig } from '@/modules/platform-settings';
+import { StayAmenitiesSection } from '@/components/StayAmenitiesSection';
 import { StayBookingWidget } from '@/components/StayBookingWidget';
+import { StayDescriptionToggle } from '@/components/StayDescriptionToggle';
 import { StayGuestReviewsSection } from '@/components/StayGuestReviewsSection';
+import { StayHeaderActions } from '@/components/StayHeaderActions';
+import { StayHostSection } from '@/components/StayHostSection';
+import { StayNeighborhoodExplore } from '@/components/StayNeighborhoodExplore';
 import { StayPhotoGallery } from '@/components/StayPhotoGallery';
+import { StayWorkspaceSection } from '@/components/StayWorkspaceSection';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,346 +47,299 @@ export default async function StayDetailPage({
   ]);
 
   if (!stay) notFound();
+
+  let initialSaved = false;
+  if (user) {
+    const savedRes = await dbQuery<{ stay_id: string }>(
+      'SELECT stay_id FROM saved_stays WHERE user_id = $1 AND stay_id = $2 LIMIT 1',
+      [user.id, stay.id]
+    );
+    initialSaved = Boolean(savedRes.rows[0]);
+  }
+
   const isVi = prefs.locale === 'vi';
   const serviceFeePct = Math.round(feeConfig.serviceFeeRate * 100);
-  const hostCommissionPct = Math.round(feeConfig.hostCommissionRate * 100);
-  const defaultCheckIn = addDaysIso(getTodayIsoVietnam(), 7);
-  const conciergeWhatsappUrl = buildConciergeWhatsappUrl({
-    stayTitle: isVi ? stay.titleVi : stay.titleEn,
-    checkIn: defaultCheckIn,
-    nights: 30,
-    serviceFeePct,
-    locale: prefs.locale,
-  });
+  const title = isVi ? stay.titleVi : stay.titleEn;
+  const destinationName = isVi ? stay.destinationNameVi : stay.destinationNameEn;
+  const neighborhoodName = isVi ? stay.neighborhoodVi : stay.neighborhoodEn;
+  const description = isVi ? stay.descriptionVi : stay.descriptionEn;
+  const hostBio = isVi ? stay.hostBioVi || stay.hostBioEn : stay.hostBioEn || stay.hostBioVi;
+  const workspaceSummary = isVi ? stay.workspaceSummaryVi : stay.workspaceSummaryEn;
+  const destinationTagline = isVi
+    ? stay.destination.taglineVi
+    : stay.destination.taglineEn;
+
+  // Property overview stats (only render facts that actually exist)
+  const overviewStats: string[] = [];
+  if (stay.maxGuests > 0) {
+    overviewStats.push(
+      formatCountNoun(stay.maxGuests, 'guest', 'guests', 'khách', prefs.locale)
+    );
+  }
+  if (stay.bedrooms !== null && stay.bedrooms > 0) {
+    overviewStats.push(
+      formatCountNoun(stay.bedrooms, 'bedroom', 'bedrooms', 'phòng ngủ', prefs.locale)
+    );
+  }
+  if (stay.bedsCount > 0) {
+    overviewStats.push(
+      formatCountNoun(stay.bedsCount, 'bed', 'beds', 'giường', prefs.locale)
+    );
+  }
+  if (stay.bathrooms !== null && stay.bathrooms > 0) {
+    overviewStats.push(
+      formatCountNoun(stay.bathrooms, 'bathroom', 'bathrooms', 'phòng tắm', prefs.locale)
+    );
+  }
+  if (stay.areaSqm !== null && stay.areaSqm > 0) {
+    overviewStats.push(`${stay.areaSqm} m²`);
+  }
+
+  const propertyLabel = formatPropertyTypeLabel(stay.propertyType, prefs.locale);
+  const overviewTitle = stay.isEntirePlace
+    ? isVi
+      ? `Toàn bộ ${propertyLabel.toLowerCase()} tại ${neighborhoodName || destinationName}`
+      : `Entire ${propertyLabel.toLowerCase()} in ${neighborhoodName || destinationName}`
+    : isVi
+      ? `${propertyLabel} tại ${neighborhoodName || destinationName}`
+      : `${propertyLabel} in ${neighborhoodName || destinationName}`;
+
+  const roomPhotos = stay.rooms
+    .filter((rm) => Boolean(rm.roomImage))
+    .map((rm) => ({
+      url: rm.roomImage,
+      label: isVi ? rm.nameVi : rm.nameEn,
+    }));
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 text-xs text-[#53635D]">
-        <div className="flex items-center gap-2">
-          <Link href="/stays" className="inline-flex items-center gap-1 font-semibold text-[#164E3F] hover:underline">
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {isVi ? 'Danh sách chỗ ở' : 'All stays'}
+    <div className="bg-white">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* Clean Minimal Breadcrumb */}
+        <nav
+          aria-label="Breadcrumb"
+          className="mb-4 flex flex-wrap items-center gap-1.5 text-xs text-[#53635D]"
+        >
+          <Link href="/stays" className="font-medium text-[#164E3F] hover:underline">
+            {isVi ? 'Chỗ ở' : 'Stays'}
           </Link>
-          <span>/</span>
+          <ChevronRight className="h-3.5 w-3.5 text-[#A5A095]" />
           <Link href={`/destinations/${stay.destinationSlug}`} className="hover:underline">
-            {isVi ? stay.destinationNameVi : stay.destinationNameEn}
+            {destinationName}
           </Link>
-          <span>/</span>
-          <span className="text-[#17221E]">{isVi ? stay.titleVi : stay.titleEn}</span>
-        </div>
-        <span className="rounded-full border border-[#E5DFD3] bg-white px-3 py-1 font-medium">
-          {isVi ? 'Mã đăng ký:' : 'Listing ID:'} {stay.registrationCode}
-        </span>
-      </div>
+          <ChevronRight className="h-3.5 w-3.5 text-[#A5A095]" />
+          <span className="truncate text-[#17221E]">{title}</span>
+        </nav>
 
-      <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-            <span className="rounded-full bg-[#164E3F] px-3 py-1 text-white">
-              {formatPropertyTypeLabel(stay.propertyType, prefs.locale)}
-            </span>
-            {stay.isWifiVerified && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#164E3F]/25 bg-[#E7F1EC] px-3 py-1 text-[#164E3F]">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                {isVi ? 'Wi-Fi Verified' : 'Wi-Fi Verified'}
-              </span>
-            )}
-            {stay.isWorkReady && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#A67C2E]/35 bg-[#FAF8F3] px-3 py-1 text-[#A67C2E]">
-                <Briefcase className="h-3.5 w-3.5" />
-                {isVi ? 'Work-Ready' : 'Work-Ready'}
-              </span>
-            )}
-            {!stay.isWifiVerified && !stay.isWorkReady && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-1 text-[#53635D]">
-                {formatVerificationTierLabel(stay.verificationTier, prefs.locale)}
-              </span>
-            )}
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#FAF8F3] px-3 py-1 text-[#A67C2E] border border-[#E5DFD3]">
-              <Star className="h-3.5 w-3.5" fill="#A67C2E" />
-              {stay.googleRating.toFixed(1)} ({stay.googleReviewCount} {isVi ? 'đánh giá Google' : 'Google reviews'})
-            </span>
-          </div>
-          <h1 className="font-serif-display mt-2 text-3xl font-semibold text-[#17221E] sm:text-5xl">
-            {isVi ? stay.titleVi : stay.titleEn}
-          </h1>
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-[#53635D]">
-            <MapPin className="h-4 w-4 text-[#C25E28]" />
-            {isVi ? stay.neighborhoodVi : stay.neighborhoodEn}.{' '}
-            {isVi
-              ? 'Địa chỉ cụ thể được gửi ngay sau khi xác nhận đặt phòng.'
-              : 'Exact address is shared once your booking is confirmed.'}
-          </p>
-        </div>
-      </div>
+        {/* Section 1: Property Header */}
+        <header className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div className="space-y-2">
+            <h1 className="text-[28px] font-semibold leading-[1.15] tracking-tight text-[#17221E] sm:text-[34px]">
+              {title}
+            </h1>
 
-      <StayPhotoGallery
-        title={isVi ? stay.titleVi : stay.titleEn}
-        heroImage={stay.heroImage}
-        workspacePhotoUrl={stay.workspacePhotoUrl}
-        galleryImages={stay.galleryImages}
-        locale={prefs.locale}
-      />
-
-      <div className="grid gap-10 lg:grid-cols-12">
-        <div className="space-y-10 lg:col-span-7">
-          <section className="rounded-3xl border border-[#164E3F]/25 bg-white p-6 lacquer-shadow">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E7F1EC] text-[#164E3F]">
-                  <Wifi className="h-5 w-5" />
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[#53635D]">
+              {stay.reviewsAvg !== null && stay.reviewsCount > 0 ? (
+                <span className="inline-flex items-center gap-1 font-medium text-[#17221E]">
+                  <Star className="h-4 w-4 text-[#17221E]" fill="#17221E" />
+                  <span>{stay.reviewsAvg.toFixed(1)}</span>
+                  <span className="text-[#53635D]">
+                    ({formatCountNoun(stay.reviewsCount, 'review', 'reviews', 'đánh giá', prefs.locale)})
+                  </span>
                 </span>
-                <div>
-                  <h2 className="font-serif-display text-xl font-semibold text-[#17221E]">
-                    {stay.isWifiVerified
-                      ? isVi
-                        ? 'Tốc độ Internet đã kiểm định (Wi-Fi Verified)'
-                        : 'Verified Wi-Fi Speed'
-                      : isVi
-                        ? 'Thông số Internet chủ nhà cung cấp'
-                        : 'Host-Reported Wi-Fi Speed'}
-                  </h2>
-                  <p className="text-xs text-[#53635D]">{stay.wifiTesterNote}</p>
-                </div>
-              </div>
-              <span className="rounded-full bg-[#E7F1EC] px-3 py-1 text-xs font-semibold text-[#164E3F]">
-                {isVi ? 'Cập nhật' : 'Updated'} {stay.wifiTestedAt.slice(0, 10)}
-              </span>
-            </div>
+              ) : stay.googleReviewCount > 0 ? (
+                <span className="inline-flex items-center gap-1 font-medium text-[#17221E]">
+                  <Star className="h-4 w-4 text-[#A67C2E]" fill="#A67C2E" />
+                  <span>{stay.googleRating.toFixed(1)}</span>
+                  <span className="text-[#53635D]">
+                    ({stay.googleReviewCount} {isVi ? 'đánh giá Google' : 'Google reviews'})
+                  </span>
+                </span>
+              ) : null}
 
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-2xl bg-[#FAF8F3] p-4">
-                <div className="text-xs text-[#53635D]">{isVi ? 'Tải xuống' : 'Download'}</div>
-                <div className="font-serif-display text-2xl font-bold text-[#164E3F]">
-                  {stay.wifiDownloadMbps} <span className="text-xs font-normal">Mbps</span>
-                </div>
-              </div>
-              <div className="rounded-2xl bg-[#FAF8F3] p-4">
-                <div className="text-xs text-[#53635D]">{isVi ? 'Tải lên' : 'Upload'}</div>
-                <div className="font-serif-display text-2xl font-bold text-[#17221E]">
-                  {stay.wifiUploadMbps} <span className="text-xs font-normal">Mbps</span>
-                </div>
-              </div>
-              <div className="rounded-2xl bg-[#FAF8F3] p-4">
-                <div className="text-xs text-[#53635D]">{isVi ? 'Độ trễ' : 'Jitter'}</div>
-                <div className="font-serif-display text-2xl font-bold text-[#C25E28]">
-                  {stay.wifiJitterMs} <span className="text-xs font-normal">ms</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#E5DFD3] pt-4 text-xs">
-              <div className="text-[#53635D]">
-                {stay.isWifiVerified
-                  ? isVi
-                    ? `Kiểm định thực tế ngày ${stay.verifiedAt.slice(0, 10)}.`
-                    : `Independently tested on ${stay.verifiedAt.slice(0, 10)}.`
-                  : isVi
-                    ? 'Thông số Wi-Fi được chủ nhà tự khai trên hệ thống.'
-                    : 'Wi-Fi details self-declared by the host.'}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {stay.speedtestProofUrl && (
-                  <a
-                    href={stay.speedtestProofUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-lg border border-[#164E3F]/25 bg-[#E7F1EC] px-3 py-1.5 font-semibold text-[#164E3F] hover:bg-[#d7eae0]"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    {isVi ? 'Xem hồ sơ Wi-Fi' : 'View Wi-Fi profile'}
-                  </a>
-                )}
-                {stay.workspaceVideoUrl && (
-                  <a
-                    href={stay.workspaceVideoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-1.5 font-semibold text-[#17221E] hover:bg-[#F2EDE3]"
-                  >
-                    <Laptop className="h-3.5 w-3.5 text-[#C25E28]" />
-                    {isVi ? 'Xem chi tiết bàn làm việc' : 'View workspace details'}
-                  </a>
-                )}
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-[#C25E28]/25 bg-[#FAF8F3] p-6">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-              <div className="space-y-1">
-                <div className="text-xs font-bold uppercase tracking-wider text-[#C25E28]">
-                  {isVi
-                    ? `Thanh toán ${serviceFeePct}% online · Trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng`
-                    : `Pay ${serviceFeePct}% online today · Pay rent to host at check-in`}
-                </div>
-                <h3 className="font-serif-display text-xl font-semibold text-[#17221E]">
-                  {isVi
-                    ? `Trả ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, prefs.currency, { fxRates: feeConfig.fxRates })} hôm nay, trả ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, prefs.currency, { fxRates: feeConfig.fxRates })} cho chủ nhà khi nhận phòng`
-                    : `Pay ${formatMoneyFromVnd(stay.monthFeeOnlineVnd, prefs.currency, { fxRates: feeConfig.fxRates })} today, pay ${formatMoneyFromVnd(stay.monthPayAtCheckinVnd, prefs.currency, { fxRates: feeConfig.fxRates })} to host at check-in`}
-                </h3>
-                <p className="text-xs text-[#53635D]">
-                  {isVi
-                    ? `Bạn xem phòng khi nhận chìa khóa trước khi thanh toán tiền thuê nhà cho chủ nhà (${hostCommissionPct}% hoa hồng chủ nhà).`
-                    : `Inspect the place at check-in before settling rent directly with your host (${hostCommissionPct}% host commission).`}
-                </p>
-              </div>
-              <a
-                href={conciergeWhatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-[#25D366] px-4 py-2.5 text-xs font-bold text-[#0F392E] shadow-sm transition hover:brightness-105"
+              <Link
+                href={`/destinations/${stay.destinationSlug}`}
+                className="inline-flex items-center gap-1 font-medium text-[#17221E] underline-offset-4 hover:underline"
               >
-                <MessageCircle className="h-4 w-4" />
-                {isVi ? 'Nhắn hỗ trợ qua WhatsApp' : 'Ask on WhatsApp'}
-              </a>
+                <MapPin className="h-4 w-4 text-[#C25E28]" />
+                <span>{[neighborhoodName, destinationName].filter(Boolean).join(' · ')}</span>
+              </Link>
             </div>
-          </section>
+          </div>
 
-          <section className="space-y-3">
-            <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? 'Thông tin chỗ ở' : 'About this stay'}
-            </h2>
-            <p className="text-sm leading-relaxed text-[#53635D]">
-              {isVi ? stay.descriptionVi : stay.descriptionEn}
-            </p>
-            <div className="flex flex-wrap gap-2 pt-2">
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-medium border border-[#E5DFD3]">
-                <Shield className="h-3.5 w-3.5 text-[#164E3F]" />
-                {isVi ? 'Không gian riêng, không ở ghép' : 'Private space, no home-share'}
-              </span>
-              {stay.hasWorkspace && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7F1EC] px-3 py-1.5 text-xs font-semibold text-[#164E3F]">
-                  <Laptop className="h-3.5 w-3.5" /> {isVi ? 'Có bàn làm việc riêng' : 'Dedicated Desk'}
-                </span>
-              )}
-              {stay.hasExternalMonitor && (
-                <span className="inline-flex items-center gap-1.5 rounded-xl bg-[#E7F1EC] px-3 py-1.5 text-xs font-semibold text-[#164E3F]">
-                  <Monitor className="h-3.5 w-3.5" /> {isVi ? 'Có sẵn màn hình 4K' : '4K Monitor Included'}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-medium border border-[#E5DFD3]">
-                <Utensils className="h-3.5 w-3.5 text-[#C25E28]" />
-                {formatKitchenTypeLabel(stay.kitchenType, prefs.locale)},{' '}
-                {formatLaundryTypeLabel(stay.laundryType, prefs.locale)}
-              </span>
-            </div>
-          </section>
+          <StayHeaderActions
+            stayId={stay.id}
+            staySlug={stay.slug}
+            stayTitle={title}
+            locale={prefs.locale}
+            initialSaved={initialSaved}
+            isAuthenticated={Boolean(user)}
+          />
+        </header>
 
-          <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6">
-            <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? 'Không gian sống & tiện nghi' : 'Living space & amenities'}
-            </h2>
-            <p className="mt-2 text-sm text-[#53635D]">
-              {isVi ? stay.workspaceSummaryVi : stay.workspaceSummaryEn}
-            </p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              {stay.amenities.map((a) => (
-                <div key={a} className="flex items-center gap-2 text-sm text-[#17221E]">
-                  <CheckCircle2 className="h-4 w-4 text-[#164E3F]" />
-                  <span>{a}</span>
-                </div>
-              ))}
-            </div>
-          </section>
+        {/* Section 2: Photo Gallery */}
+        <StayPhotoGallery
+          title={title}
+          heroImage={stay.heroImage}
+          workspacePhotoUrl={stay.workspacePhotoUrl}
+          hasWorkspace={stay.hasWorkspace}
+          galleryImages={stay.galleryImages}
+          roomPhotos={roomPhotos}
+          locale={prefs.locale}
+        />
 
-          <section className="rounded-3xl border border-[#E5DFD3] bg-white p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-                {isVi ? 'Chỗ làm việc chung gần nhất' : 'Nearby coworking spaces'}
+        {/* Main 2-Column Content + Sticky Booking Sidebar */}
+        <div className="grid gap-12 lg:grid-cols-12">
+          {/* Left Column: Open Sections */}
+          <div className="divide-y divide-[#E5DFD3] lg:col-span-7">
+            {/* Section 3: Property Overview */}
+            <section className="pb-8">
+              <h2 className="text-[22px] font-semibold tracking-tight text-[#17221E] sm:text-[24px]">
+                {overviewTitle}
               </h2>
-              <span className="text-xs text-[#53635D]">
-                {isVi ? 'Trong bán kính 2.5 km' : 'Within 2.5 km'}
-              </span>
-            </div>
+              {overviewStats.length > 0 && (
+                <p className="mt-1.5 text-[15px] text-[#53635D]">
+                  {overviewStats.join(' · ')}
+                </p>
+              )}
 
-            {stay.nearbyCoworking.length === 0 ? (
-              <p className="text-sm text-[#53635D]">
-                {isVi
-                  ? 'Chủ nhà chưa liệt kê thêm coworking lân cận.'
-                  : 'No nearby coworking spots listed yet.'}
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {stay.nearbyCoworking.map((cw) => (
-                  <div
-                    key={cw.name}
-                    className="flex flex-col justify-between gap-2 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4 sm:flex-row sm:items-center"
-                  >
+              <ul className="mt-6 space-y-4">
+                {(stay.kitchenType !== 'none' || stay.laundryType !== 'none') && (
+                  <li className="flex items-start gap-3.5">
+                    <Utensils className="mt-0.5 h-5 w-5 shrink-0 text-[#17221E] stroke-[1.6]" />
                     <div>
-                      <div className="font-semibold text-[#17221E]">{cw.name}</div>
-                      <div className="text-xs text-[#53635D]">
-                        {isVi ? cw.noteVi : cw.noteEn}
-                        {cw.hasCallBooth && (
-                          <span className="ml-2 rounded bg-[#E7F1EC] px-1.5 py-0.5 text-[10px] font-semibold text-[#164E3F]">
-                            {isVi ? 'Có phòng họp riêng' : 'Call booths'}
-                          </span>
-                        )}
+                      <div className="text-[15px] font-medium text-[#17221E]">
+                        {isVi ? 'Tiện nghi sinh hoạt đầy đủ' : 'Equipped for comfortable living'}
                       </div>
-                    </div>
-                    <div className="text-right text-xs">
-                      <div className="font-bold text-[#C25E28]">{cw.distanceKm} km</div>
-                      <div className="text-[#53635D]">
-                        {cw.dayPassVnd === 0
-                          ? isVi
-                            ? 'Miễn phí cho khách ở'
-                            : 'Free for residents'
-                          : `${formatVndExact(cw.dayPassVnd)} / ${isVi ? 'ngày' : 'day'}`}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {stay.localPlaces.length > 0 && (
-              <div className="mt-6 border-t border-[#E5DFD3] pt-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-[#17221E]">
-                    {isVi
-                      ? 'Địa điểm khám phá quanh chỗ ở'
-                      : 'Places to explore nearby'}
-                  </h3>
-                  <Link
-                    href={`/destinations/${stay.destinationSlug}`}
-                    className="text-xs font-semibold text-[#164E3F] hover:underline"
-                  >
-                    {isVi ? 'Xem bản đồ khu vực' : 'Explore destination'}
-                  </Link>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {stay.localPlaces.map((pl) => (
-                    <div
-                      key={pl.id}
-                      className="rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="rounded bg-[#E7F1EC] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#164E3F]">
-                          {formatPlaceCategoryLabel(pl.category, prefs.locale)}
-                        </span>
-                        <span className="text-xs font-semibold text-[#C25E28]">
-                          {pl.distanceLabel || pl.openingHours}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-sm font-semibold text-[#17221E]">{pl.name}</div>
-                      <p className="mt-1 text-xs text-[#53635D]">
-                        {isVi ? pl.descriptionVi || pl.descriptionEn : pl.descriptionEn || pl.descriptionVi}
+                      <p className="text-sm text-[#53635D]">
+                        {[
+                          stay.kitchenType !== 'none'
+                            ? formatKitchenTypeLabel(stay.kitchenType, prefs.locale)
+                            : null,
+                          stay.laundryType !== 'none'
+                            ? formatLaundryTypeLabel(stay.laundryType, prefs.locale)
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </p>
-                      <div className="mt-2 flex items-center justify-between text-[11px] text-[#53635D]">
-                        <span>
-                          {(isVi
-                            ? pl.neighborhoodNameVi || pl.neighborhoodNameEn
-                            : pl.neighborhoodNameEn || pl.neighborhoodNameVi) || pl.address}
-                        </span>
-                        <span>{pl.priceRange}</span>
-                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
+                  </li>
+                )}
 
+                <li className="flex items-start gap-3.5">
+                  <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-[#17221E] stroke-[1.6]" />
+                  <div>
+                    <div className="text-[15px] font-medium text-[#17221E]">
+                      {stay.isInstantBook
+                        ? isVi
+                          ? 'Đặt phòng xác nhận ngay'
+                          : 'Instant booking confirmation'
+                        : isVi
+                          ? 'Nhận phòng thuận tiện'
+                          : 'Smooth arrival experience'}
+                    </div>
+                    <p className="text-sm text-[#53635D]">
+                      {isVi
+                        ? `Nhận phòng từ ${stay.checkinFrom} · Trả phòng trước ${stay.checkoutBefore}`
+                        : `Check-in from ${stay.checkinFrom} · Check-out before ${stay.checkoutBefore}`}
+                    </p>
+                  </div>
+                </li>
+
+                <li className="flex items-start gap-3.5">
+                  <CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#17221E] stroke-[1.6]" />
+                  <div>
+                    <div className="text-[15px] font-medium text-[#17221E]">
+                      {isVi
+                        ? `Chính sách hủy: ${formatCancellationPolicyLabel(stay.cancellationPolicy, prefs.locale)}`
+                        : `${formatCancellationPolicyLabel(stay.cancellationPolicy, prefs.locale)} cancellation policy`}
+                    </div>
+                    <p className="text-sm text-[#53635D]">
+                      {isVi
+                        ? `Chỉ trả ${serviceFeePct}% phí giữ chỗ hôm nay, thanh toán phần tiền thuê trực tiếp khi nhận phòng.`
+                        : `Pay only the ${serviceFeePct}% reservation fee today; settle rent with your host at check-in.`}
+                    </p>
+                  </div>
+                </li>
+              </ul>
+            </section>
+
+            {/* Section 4: Host Information */}
+            <StayHostSection
+              staySlug={stay.slug}
+              stayTitle={title}
+              hostId={stay.hostId}
+              hostName={stay.hostName}
+              hostNationality={stay.hostNationality}
+              hostBio={hostBio}
+              hostAvatarUrl={stay.hostAvatarUrl}
+              hostVerified={stay.hostVerified}
+              user={user}
+              locale={prefs.locale}
+            />
+
+            {/* Section 5: About This Stay */}
+            <StayDescriptionToggle description={description} locale={prefs.locale} />
+
+            {/* Section 6: Amenities */}
+            <StayAmenitiesSection
+              amenities={stay.amenities}
+              kitchenType={stay.kitchenType}
+              laundryType={stay.laundryType}
+              petFriendly={stay.petFriendly}
+              wheelchairFriendly={stay.wheelchairFriendly}
+              hasWorkspace={stay.hasWorkspace}
+              hasErgonomicChair={stay.hasErgonomicChair}
+              hasExternalMonitor={stay.hasExternalMonitor}
+              wifiDownloadMbps={stay.wifiDownloadMbps}
+              locale={prefs.locale}
+            />
+
+            {/* Section 7: Workspace & Internet (Supplemental, rendered only when data exists) */}
+            <StayWorkspaceSection
+              hasWorkspace={stay.hasWorkspace}
+              hasErgonomicChair={stay.hasErgonomicChair}
+              hasExternalMonitor={stay.hasExternalMonitor}
+              hasCallBooth={stay.hasCallBooth}
+              wifiDownloadMbps={stay.wifiDownloadMbps}
+              wifiUploadMbps={stay.wifiUploadMbps}
+              wifiJitterMs={stay.wifiJitterMs}
+              wifiTestedAt={stay.wifiTestedAt}
+              wifiTesterNote={stay.wifiTesterNote}
+              isWifiVerified={stay.isWifiVerified}
+              isWorkReady={stay.isWorkReady}
+              verifiedAt={stay.verifiedAt}
+              speedtestProofUrl={stay.speedtestProofUrl}
+              workspaceVideoUrl={stay.workspaceVideoUrl}
+              workspaceSummary={workspaceSummary}
+              workspacePhotoUrl={stay.workspacePhotoUrl}
+              locale={prefs.locale}
+            />
+          </div>
+
+          {/* Right Column: Section 9 Booking Widget */}
+          <div className="lg:col-span-5">
+            <StayBookingWidget
+              stay={stay}
+              user={user}
+              conciergeWhatsapp={getConfig().conciergeWhatsapp}
+            />
+          </div>
+        </div>
+
+        {/* Full-width Bottom Open Sections (Sections 8, 10, 11) */}
+        <div className="mt-4 divide-y divide-[#E5DFD3] border-t border-[#E5DFD3]">
+          {/* Section 8: Explore the Neighborhood */}
+          <StayNeighborhoodExplore
+            destinationSlug={stay.destinationSlug}
+            destinationName={destinationName}
+            neighborhoodName={neighborhoodName}
+            localPlaces={stay.localPlaces}
+            nearbyCoworking={stay.nearbyCoworking}
+            locale={prefs.locale}
+          />
+
+          {/* Section 10 & 11: Policies, House Rules, Guest Reviews & Neighborhood Location */}
           <StayGuestReviewsSection
             slug={stay.slug}
             user={user}
@@ -397,17 +347,20 @@ export default async function StayDetailPage({
             checkinFrom={stay.checkinFrom}
             checkoutBefore={stay.checkoutBefore}
             defaultMinNights={stay.defaultMinNights}
+            cancellationPolicy={stay.cancellationPolicy}
+            serviceFeePct={serviceFeePct}
             houseRules={stay.houseRules}
+            rooms={stay.rooms}
             initialReviews={stay.reviews}
             initialAvg={stay.reviewsAvg}
-          />
-        </div>
-
-        <div className="lg:col-span-5">
-          <StayBookingWidget
-            stay={stay}
-            user={user}
-            conciergeWhatsapp={getConfig().conciergeWhatsapp}
+            googleRating={stay.googleRating}
+            googleReviewCount={stay.googleReviewCount}
+            destinationSlug={stay.destinationSlug}
+            destinationName={destinationName}
+            neighborhoodName={neighborhoodName}
+            destinationTagline={destinationTagline}
+            lat={stay.lat}
+            lng={stay.lng}
           />
         </div>
       </div>

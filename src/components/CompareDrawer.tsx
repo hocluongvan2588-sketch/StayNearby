@@ -2,15 +2,18 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { ArrowLeftRight, Check, Minus, Wifi, X } from 'lucide-react';
+import { ArrowLeftRight, Check, Minus, X } from 'lucide-react';
 import {
   formatBusinessModelLabel,
   formatCancellationPolicyLabel,
+  formatKitchenTypeLabel,
+  formatLaundryTypeLabel,
 } from '@/lib/i18n';
 import { usePreferences } from './PreferencesProvider';
 
 export function CompareDrawer() {
-  const { locale, formatMoney, compareList, toggleCompare, clearCompare } = usePreferences();
+  const { locale, formatMoney, compareList, toggleCompare, clearCompare } =
+    usePreferences();
   const [openModal, setOpenModal] = useState(false);
 
   if (compareList.length === 0) return null;
@@ -24,7 +27,7 @@ export function CompareDrawer() {
             <ArrowLeftRight className="h-4 w-4 text-[#E6B87A]" />
             <span className="font-semibold">
               {isVi
-                ? `Đã chọn so sánh (${compareList.length}/3)`
+                ? `So sánh chỗ ở (${compareList.length}/3)`
                 : `Compare stays (${compareList.length}/3)`}
             </span>
             <div className="hidden gap-1.5 sm:flex">
@@ -48,14 +51,14 @@ export function CompareDrawer() {
               onClick={clearCompare}
               className="rounded-lg px-2.5 py-1.5 text-xs text-[#CDE0D9] hover:text-white"
             >
-              {isVi ? 'Bỏ chọn hết' : 'Clear'}
+              {isVi ? 'Bỏ chọn' : 'Clear'}
             </button>
             <button
               type="button"
               onClick={() => setOpenModal(true)}
               className="rounded-lg bg-[#C25E28] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#ad5020]"
             >
-              {isVi ? 'So sánh ngay' : 'Compare now'}
+              {isVi ? 'So sánh' : 'Compare'}
             </button>
           </div>
         </div>
@@ -63,16 +66,16 @@ export function CompareDrawer() {
 
       {openModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between border-b border-[#E5DFD3] pb-3">
               <div>
-                <h3 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+                <h3 className="text-xl font-semibold text-[#17221E]">
                   {isVi ? 'So sánh các chỗ ở đã chọn' : 'Compare selected stays'}
                 </h3>
                 <p className="text-xs text-[#53635D]">
                   {isVi
-                    ? 'Đối chiếu tốc độ Wi-Fi, bàn làm việc và giá thuê 1 tuần, 1 tháng.'
-                    : 'Check Wi-Fi speeds, desk setups, and weekly or monthly rates side by side.'}
+                    ? 'Đối chiếu giá, tiện nghi sinh hoạt, chính sách hủy và kết nối internet.'
+                    : 'Compare rates, home amenities, cancellation terms, and internet setup side by side.'}
                 </p>
               </div>
               <button
@@ -88,7 +91,7 @@ export function CompareDrawer() {
               <table className="w-full min-w-[600px] text-left text-sm">
                 <thead>
                   <tr className="border-b border-[#E5DFD3]">
-                    <th className="py-3 pr-4 text-xs uppercase tracking-wider text-[#53635D]">
+                    <th className="py-3 pr-4 text-xs font-semibold text-[#53635D]">
                       {isVi ? 'Tiêu chí' : 'Feature'}
                     </th>
                     {compareList.map((s) => (
@@ -96,7 +99,7 @@ export function CompareDrawer() {
                         <Link
                           href={`/stays/${s.slug}`}
                           onClick={() => setOpenModal(false)}
-                          className="font-serif-display block text-base font-semibold text-[#164E3F] hover:underline"
+                          className="block text-base font-semibold text-[#164E3F] hover:underline"
                         >
                           {isVi ? s.titleVi : s.titleEn}
                         </Link>
@@ -110,21 +113,20 @@ export function CompareDrawer() {
                 <tbody className="divide-y divide-[#E5DFD3] text-xs sm:text-sm">
                   <tr>
                     <td className="py-3 pr-4 font-medium text-[#53635D]">
-                      {isVi ? 'Tốc độ Wi-Fi' : 'Wi-Fi speed'}
+                      {isVi ? 'Giá 1 tuần (7 đêm)' : '1 week (7 nights)'}
                     </td>
                     {compareList.map((s) => (
-                      <td key={s.id} className="px-3 py-3 font-semibold text-[#164E3F]">
-                        <Wifi className="mr-1 inline h-4 w-4" />
-                        {s.wifiDownloadMbps} / {s.wifiUploadMbps} Mbps ({s.wifiJitterMs}ms)
+                      <td key={s.id} className="px-3 py-3 font-semibold text-[#17221E]">
+                        {formatMoney(s.weekDisplayVnd)}
                       </td>
                     ))}
                   </tr>
                   <tr>
                     <td className="py-3 pr-4 font-medium text-[#53635D]">
-                      {isVi ? 'Giá 1 tháng' : '1 month'}
+                      {isVi ? 'Giá 1 tháng (30 đêm)' : '1 month (30 nights)'}
                     </td>
                     {compareList.map((s) => (
-                      <td key={s.id} className="px-3 py-3 font-bold text-[#17221E]">
+                      <td key={s.id} className="px-3 py-3 font-semibold text-[#17221E]">
                         {formatMoney(s.monthDisplayVnd)}
                         <div className="text-[11px] font-normal text-[#53635D]">
                           {formatMoney(s.monthNightVnd)} / {isVi ? 'đêm' : 'night'}
@@ -134,61 +136,12 @@ export function CompareDrawer() {
                   </tr>
                   <tr>
                     <td className="py-3 pr-4 font-medium text-[#53635D]">
-                      {isVi ? 'Giá 1 tuần (7 đêm)' : '1 week (7 nights)'}
+                      {isVi ? 'Bếp & Giặt đồ' : 'Kitchen & Laundry'}
                     </td>
                     {compareList.map((s) => (
                       <td key={s.id} className="px-3 py-3">
-                        {formatMoney(s.weekDisplayVnd)}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 pr-4 font-medium text-[#53635D]">
-                      {isVi ? 'Cách đặt phòng' : 'Booking method'}
-                    </td>
-                    {compareList.map((s) => (
-                      <td key={s.id} className="px-3 py-3">
-                        {formatBusinessModelLabel(s.businessModel, locale)}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 pr-4 font-medium text-[#53635D]">
-                      {isVi ? 'Màn hình 4K' : '4K monitor'}
-                    </td>
-                    {compareList.map((s) => (
-                      <td key={s.id} className="px-3 py-3">
-                        {s.hasExternalMonitor ? (
-                          <Check className="h-4 w-4 text-[#164E3F]" />
-                        ) : (
-                          <Minus className="h-4 w-4 text-[#53635D]" />
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 pr-4 font-medium text-[#53635D]">
-                      {isVi ? 'Chỗ làm việc gần nhất' : 'Nearest coworking'}
-                    </td>
-                    {compareList.map((s) => (
-                      <td key={s.id} className="px-3 py-3">
-                        {s.nearestCoworking
-                          ? `${s.nearestCoworking.distanceKm} km, ${s.nearestCoworking.name}`
-                          : isVi
-                            ? 'Không có'
-                            : 'None nearby'}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <td className="py-3 pr-4 font-medium text-[#53635D]">
-                      {isVi ? 'Bếp và giặt đồ' : 'Kitchen & laundry'}
-                    </td>
-                    {compareList.map((s) => (
-                      <td key={s.id} className="px-3 py-3">
-                        {isVi
-                          ? `${s.kitchenType === 'full' ? 'Bếp riêng' : 'Bếp chung'}, ${s.laundryType === 'in_unit' ? 'Máy giặt riêng' : 'Giặt chung'}`
-                          : `${s.kitchenType === 'full' ? 'Full kitchen' : 'Shared kitchen'}, ${s.laundryType === 'in_unit' ? 'In-unit washer' : 'Building laundry'}`}
+                        {formatKitchenTypeLabel(s.kitchenType, locale)} ·{' '}
+                        {formatLaundryTypeLabel(s.laundryType, locale)}
                       </td>
                     ))}
                   </tr>
@@ -199,6 +152,44 @@ export function CompareDrawer() {
                     {compareList.map((s) => (
                       <td key={s.id} className="px-3 py-3">
                         {formatCancellationPolicyLabel(s.cancellationPolicy, locale)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-3 pr-4 font-medium text-[#53635D]">
+                      {isVi ? 'Phương thức đặt' : 'Booking flow'}
+                    </td>
+                    {compareList.map((s) => (
+                      <td key={s.id} className="px-3 py-3">
+                        {formatBusinessModelLabel(s.businessModel, locale)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-3 pr-4 font-medium text-[#53635D]">
+                      {isVi ? 'Wi-Fi' : 'Wi-Fi'}
+                    </td>
+                    {compareList.map((s) => (
+                      <td key={s.id} className="px-3 py-3">
+                        {s.wifiDownloadMbps > 0
+                          ? `${s.wifiDownloadMbps} Mbps`
+                          : isVi
+                            ? 'Chưa cập nhật'
+                            : 'N/A'}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="py-3 pr-4 font-medium text-[#53635D]">
+                      {isVi ? 'Bàn làm việc riêng' : 'Dedicated desk'}
+                    </td>
+                    {compareList.map((s) => (
+                      <td key={s.id} className="px-3 py-3">
+                        {s.hasWorkspace ? (
+                          <Check className="h-4 w-4 text-[#164E3F]" />
+                        ) : (
+                          <Minus className="h-4 w-4 text-[#53635D]" />
+                        )}
                       </td>
                     ))}
                   </tr>

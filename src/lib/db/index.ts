@@ -99,6 +99,14 @@ export async function ensureDbReady(): Promise<void> {
       if (Number(destCount.rows[0]?.count ?? 0) === 0) {
         const { runSeed } = await import('./seed-data');
         await runSeed();
+      } else {
+        const placesCount = await rawQuery<{ count: string | number }>(
+          'SELECT COUNT(*) AS count FROM places'
+        );
+        if (Number(placesCount.rows[0]?.count ?? 0) < 25) {
+          const { ensureCuratedDiscoverySeeded } = await import('./seed-bos');
+          await ensureCuratedDiscoverySeeded();
+        }
       }
     }).catch((err) => {
       dbState.readyPromise = undefined;

@@ -78,15 +78,15 @@ export function ListYourStayClient({
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-14 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="grid gap-8 rounded-3xl border border-[#E5DFD3] bg-[#0F392E] p-8 text-[#FAF8F3] lg:grid-cols-12 lg:items-center lacquer-shadow">
+    <div className="mx-auto max-w-7xl space-y-12 px-4 py-12 sm:px-6 lg:px-8">
+      <div className="grid gap-8 rounded-2xl border border-[#E5DFD3] bg-[#0F392E] p-8 text-[#FAF8F3] lg:grid-cols-12 lg:items-center">
         <div className="space-y-4 lg:col-span-7">
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold text-[#E6B87A]">
             {isVi
               ? `Đăng chỗ ở miễn phí (€0) · ${hostCommissionPct}% hoa hồng chủ nhà`
               : `Free to list (€0) · ${hostCommissionPct}% host commission`}
           </span>
-          <h1 className="font-serif-display text-4xl font-semibold leading-tight sm:text-5xl">
+          <h1 className="text-3xl font-semibold leading-tight sm:text-4xl">
             {isVi
               ? 'Đón khách lưu trú dài ngày và giữ trọn tiền thuê nhà.'
               : 'Host weekly & monthly guests with 0% host commission.'}
@@ -127,8 +127,8 @@ export function ListYourStayClient({
       </div>
 
       <div className="grid gap-8 lg:grid-cols-12">
-        <div className="h-fit space-y-5 rounded-3xl border border-[#E5DFD3] bg-white p-7 lg:col-span-5">
-          <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+        <div className="h-fit space-y-5 rounded-2xl border border-[#E5DFD3] bg-white p-7 lg:col-span-5">
+          <h2 className="text-2xl font-semibold text-[#17221E]">
             {isVi ? 'Quy trình cho thuê' : 'How listing works'}
           </h2>
           <ul className="space-y-3 text-sm text-[#53635D]">
@@ -165,7 +165,7 @@ export function ListYourStayClient({
           </div>
         </div>
 
-        <div className="rounded-3xl border border-[#E5DFD3] bg-white p-7 lg:col-span-7 lacquer-shadow">
+        <div className="rounded-2xl border border-[#E5DFD3] bg-white p-7 lg:col-span-7">
           {submittedId ? (
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-lg font-bold text-[#164E3F]">
@@ -198,7 +198,7 @@ export function ListYourStayClient({
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <h2 className="font-serif-display text-2xl font-semibold text-[#17221E]">
+              <h2 className="text-2xl font-semibold text-[#17221E]">
                 {isVi ? 'Đăng ký chỗ ở miễn phí (€0)' : 'Submit your stay for free (€0 fee)'}
               </h2>
 

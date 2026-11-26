@@ -62,16 +62,16 @@ export function LoginClient({
   return (
     <div className={`mx-auto px-4 py-12 sm:px-6 lg:px-8 ${hasDemos ? 'max-w-4xl' : 'max-w-lg'}`}>
       <div
-        className={`grid gap-8 rounded-3xl border border-[#E5DFD3] bg-white p-6 sm:p-10 lacquer-shadow ${
+        className={`grid gap-8 rounded-2xl border border-[#E5DFD3] bg-white p-6 sm:p-10 ${
           hasDemos ? 'lg:grid-cols-12' : ''
         }`}
       >
         <div className={`space-y-5 ${hasDemos ? 'lg:col-span-6' : ''}`}>
           <div>
-            <span className="text-xs font-semibold uppercase tracking-widest text-[#C25E28]">
+            <span className="text-xs font-semibold text-[#C25E28]">
               {isVi ? 'Tài khoản VietNomad' : 'VietNomad Account'}
             </span>
-            <h1 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[#17221E]">
               {isVi ? 'Đăng nhập' : 'Log in'}
             </h1>
             <p className="mt-1 text-sm text-[#53635D]">
@@ -214,12 +214,12 @@ export function RegisterClient() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-12 sm:px-6">
-      <div className="space-y-6 rounded-3xl border border-[#E5DFD3] bg-white p-8 lacquer-shadow">
+      <div className="space-y-6 rounded-2xl border border-[#E5DFD3] bg-white p-8">
         <div>
-          <span className="text-xs font-semibold uppercase tracking-widest text-[#164E3F]">
+          <span className="text-xs font-semibold text-[#164E3F]">
             {isVi ? 'Đăng ký miễn phí' : 'Sign up free'}
           </span>
-          <h1 className="font-serif-display mt-1 text-3xl font-semibold text-[#17221E]">
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[#17221E]">
             {isVi ? 'Tạo tài khoản VietNomad' : 'Create your VietNomad account'}
           </h1>
           <p className="mt-1 text-sm text-[#53635D]">

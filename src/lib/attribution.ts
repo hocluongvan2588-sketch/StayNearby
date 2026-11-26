@@ -120,8 +120,10 @@ export function captureClientAttribution(): ClientAttributionContext {
 }
 
 export async function trackClientEvent(params: {
-  eventName: 'page_view' | 'search' | 'stay_view' | 'checkout_start';
+  eventName: 'page_view' | 'article_view' | 'destination_view' | 'search' | 'stay_view' | 'checkout_start';
   stayId?: string;
+  contentId?: string;
+  destinationSlug?: string;
   landingPath?: string;
   dedupeKey?: string;
   utmContent?: string;
@@ -136,6 +138,8 @@ export async function trackClientEvent(params: {
     visitorId: ctx.visitorId,
     eventName: params.eventName,
     stayId: params.stayId ?? null,
+    contentId: params.contentId ?? null,
+    destinationSlug: params.destinationSlug ?? '',
     utmSource: ctx.utmSource,
     utmMedium: ctx.utmMedium,
     utmCampaign: ctx.utmCampaign,
@@ -143,7 +147,9 @@ export async function trackClientEvent(params: {
     utmTerm: ctx.utmTerm,
     referrer: ctx.referrer,
     landingPath: params.landingPath ?? pathname,
-    dedupeKey: params.dedupeKey ?? `${params.eventName}:${ctx.sessionKey}:${params.stayId ?? pathname}`,
+    dedupeKey:
+      params.dedupeKey ??
+      `${params.eventName}:${ctx.sessionKey}:${params.contentId ?? params.stayId ?? params.destinationSlug ?? pathname}`,
   };
 
   try {
