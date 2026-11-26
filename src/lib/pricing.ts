@@ -71,7 +71,23 @@ export function calculateStayQuote(params: {
   availableRewardCreditVnd?: number;
   useRewardCredit?: boolean;
   nightOverridesVnd?: Array<number | null>;
+  serviceFeeRate?: number;
+  vatDiscountRate?: number;
+  premiumRewardRate?: number;
 }): QuoteBreakdown {
+  const feeRate =
+    typeof params.serviceFeeRate === 'number' && params.serviceFeeRate >= 0
+      ? params.serviceFeeRate
+      : 0.12;
+  const vatRate =
+    typeof params.vatDiscountRate === 'number' && params.vatDiscountRate >= 0
+      ? params.vatDiscountRate
+      : 0.05;
+  const rewardRate =
+    typeof params.premiumRewardRate === 'number' && params.premiumRewardRate >= 0
+      ? params.premiumRewardRate
+      : 0.04;
+
   const {
     baseTier,
     extraNights,
@@ -94,19 +110,19 @@ export function calculateStayQuote(params: {
       )
     : baseWholesaleTotalVnd;
 
-  // Unified BookingFlow (Option A: P_host + 12%):
-  // P_host = wholesaleTotalVnd (paid directly to Host at check-in, 0% host commission)
-  // Fee_online = Math.round(P_host * 0.12) (12% service & booking fee paid online)
+  // Unified BookingFlow (P_host + configurable serviceFeeRate):
+  // P_host = wholesaleTotalVnd (paid directly to Host at check-in, 0% default host commission)
+  // Fee_online = Math.round(P_host * feeRate)
   // Total_stay = P_host + Fee_online
-  const baseBookingFeeVnd = Math.round(wholesaleTotalVnd * 0.12);
+  const baseBookingFeeVnd = Math.round(wholesaleTotalVnd * feeRate);
 
   const eligibleVatFree =
     Boolean(params.isPremiumMember) &&
     Boolean(params.applyVatFree) &&
     Boolean(params.vatTaxId?.trim());
 
-  // Eligible Premium Business Nomads receive 5% VAT discount off the online booking fee
-  const vatDiscountVnd = eligibleVatFree ? Math.round(wholesaleTotalVnd * 0.05) : 0;
+  // Eligible Premium Business Nomads receive VAT discount off the online booking fee
+  const vatDiscountVnd = eligibleVatFree ? Math.round(wholesaleTotalVnd * vatRate) : 0;
   const serviceFeeVnd = Math.max(0, baseBookingFeeVnd - vatDiscountVnd);
 
   // Reward credit applies directly against the online booking fee
@@ -127,9 +143,9 @@ export function calculateStayQuote(params: {
   const weeklySavingsPct =
     weekNight > 0 ? Math.max(0, Math.round(((weekNight - monthNight) / weekNight) * 100)) : 0;
 
-  // Premium members earn 4% reward credit calculated against the all-inclusive booking value
+  // Premium members earn reward credit calculated against the all-inclusive booking value
   const rewardCreditEarnedVnd = params.isPremiumMember
-    ? Math.round(totalStayVnd * 0.04)
+    ? Math.round(totalStayVnd * rewardRate)
     : 0;
 
   return {

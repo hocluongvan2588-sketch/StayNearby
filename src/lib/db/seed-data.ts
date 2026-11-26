@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { runWithDbBootstrap } from '@/lib/config';
 import { hashPassword } from '@/lib/auth/password';
 import { dbQuery } from './index';
+import { seedAdminBosFoundationData } from './seed-bos';
 import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
 
 export const SEED_IDS = {
@@ -1767,5 +1768,12 @@ export async function runSeed(): Promise<void> {
         [m.id, m.cat, m.titleEn, m.titleVi, m.partner, m.sumEn, m.sumVi, m.price, m.perkEn, m.perkVi, m.url]
       );
     }
+
+    await seedAdminBosFoundationData({
+      primaryAdminId: SEED_IDS.users.admin,
+      primaryHostId: SEED_IDS.users.hostBookingFlow,
+      primaryGuestId: SEED_IDS.users.nomadFree,
+      primaryStayId: SEED_IDS.stays.myKheAtelier,
+    });
   });
 }

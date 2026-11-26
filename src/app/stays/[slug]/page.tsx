@@ -333,6 +333,53 @@ export default async function StayDetailPage({
                 ))}
               </div>
             )}
+
+            {stay.localPlaces.length > 0 && (
+              <div className="mt-6 border-t border-[#E5DFD3] pt-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-[#17221E]">
+                    {isVi
+                      ? 'Địa điểm & Tiện ích địa phương quanh chỗ ở'
+                      : 'Local Discovery around this stay'}
+                  </h3>
+                  <Link
+                    href={`/destinations/${stay.destinationSlug}`}
+                    className="text-xs font-semibold text-[#164E3F] hover:underline"
+                  >
+                    {isVi ? 'Xem bản đồ khu vực' : 'Explore destination'}
+                  </Link>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {stay.localPlaces.map((pl) => (
+                    <div
+                      key={pl.id}
+                      className="rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="rounded bg-[#E7F1EC] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#164E3F]">
+                          {pl.category.replace('_', ' ')}
+                        </span>
+                        <span className="text-xs font-semibold text-[#C25E28]">
+                          {pl.distanceLabel || pl.openingHours}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-sm font-semibold text-[#17221E]">{pl.name}</div>
+                      <p className="mt-1 text-xs text-[#53635D]">
+                        {isVi ? pl.descriptionVi || pl.descriptionEn : pl.descriptionEn || pl.descriptionVi}
+                      </p>
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-[#53635D]">
+                        <span>
+                          {(isVi
+                            ? pl.neighborhoodNameVi || pl.neighborhoodNameEn
+                            : pl.neighborhoodNameEn || pl.neighborhoodNameVi) || pl.address}
+                        </span>
+                        <span>{pl.priceRange}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
 
           <StayGuestReviewsSection

@@ -147,6 +147,23 @@ export interface StayGuestReviewItem {
   createdAt: string;
 }
 
+export interface LocalDiscoveryPlace {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  address: string;
+  priceRange: string;
+  openingHours: string;
+  descriptionEn: string;
+  descriptionVi: string;
+  imageUrl: string;
+  neighborhoodNameEn: string | null;
+  neighborhoodNameVi: string | null;
+  verificationStatus: string;
+  distanceLabel?: string;
+}
+
 export interface StayDetail extends StayCardItem {
   hostName: string;
   hostNationality: string;
@@ -172,6 +189,7 @@ export interface StayDetail extends StayCardItem {
   galleryImages: string[];
   amenities: string[];
   nearbyCoworking: CoworkingSpot[];
+  localPlaces: LocalDiscoveryPlace[];
   rooms: StayRoomDetail[];
   destination: DestinationSummary;
 }
@@ -524,7 +542,7 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
 
   const today = getTodayIsoVietnam();
   const horizon = addDaysIso(today, 90);
-  const [locksRes, reviewsRes] = await Promise.all([
+  const [locksRes, reviewsRes, placesRes] = await Promise.all([
     dbQuery<{
       room_id: string;
       stay_date: string | Date;
@@ -560,7 +578,52 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
        ORDER BY sr.created_at DESC`,
       [row.id]
     ),
+    dbQuery<{
+      id: string;
+      slug: string;
+      name: string;
+      category: string;
+      address: string;
+      price_range: string;
+      opening_hours: string;
+      description_en: string;
+      description_vi: string;
+      image_url: string;
+      verification_status: string;
+      neighborhood_name_en: string | null;
+      neighborhood_name_vi: string | null;
+      distance_label: string | null;
+    }>(
+      `SELECT p.id, p.slug, p.name, p.category, p.address, p.price_range, p.opening_hours,
+              p.description_en, p.description_vi, p.image_url, p.verification_status,
+              n.name_en AS neighborhood_name_en, n.name_vi AS neighborhood_name_vi,
+              snp.distance_label
+       FROM places p
+       LEFT JOIN neighborhoods n ON n.id = p.neighborhood_id
+       LEFT JOIN stay_nearby_places snp ON snp.place_id = p.id AND snp.stay_id = $1
+       WHERE p.destination_id = $2 AND p.verification_status = 'verified'
+       ORDER BY (snp.place_id IS NOT NULL) DESC, p.is_featured DESC, p.name ASC
+       LIMIT 12`,
+      [row.id, row.d_id]
+    ).catch(() => ({ rows: [] })),
   ]);
+
+  const localPlaces: LocalDiscoveryPlace[] = placesRes.rows.map((p) => ({
+    id: String(p.id),
+    slug: String(p.slug),
+    name: String(p.name),
+    category: String(p.category),
+    address: String(p.address ?? ''),
+    priceRange: String(p.price_range ?? '$$'),
+    openingHours: String(p.opening_hours ?? ''),
+    descriptionEn: String(p.description_en ?? ''),
+    descriptionVi: String(p.description_vi ?? ''),
+    imageUrl: String(p.image_url ?? ''),
+    neighborhoodNameEn: p.neighborhood_name_en ? String(p.neighborhood_name_en) : null,
+    neighborhoodNameVi: p.neighborhood_name_vi ? String(p.neighborhood_name_vi) : null,
+    verificationStatus: String(p.verification_status ?? 'verified'),
+    distanceLabel: p.distance_label ? String(p.distance_label) : undefined,
+  }));
 
   const rooms: StayRoomDetail[] = roomsRes.rows.map((rm) => {
     const unitsTotal = toNum(rm.units_total, 1);
@@ -684,6 +747,7 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     galleryImages: parseJsonArray<string>(row.gallery_images),
     amenities: parseJsonArray<string>(row.amenities),
     nearbyCoworking: parseJsonArray<CoworkingSpot>(row.nearby_coworking),
+    localPlaces,
     rooms,
     destination: {
       id: String(row.d_id),
@@ -708,6 +772,53 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
       liveStaysCount: 1,
     },
   };
+}
+
+export async function getDestinationLocalPlaces(destinationSlug: string): Promise<LocalDiscoveryPlace[]> {
+  try {
+    const res = await dbQuery<{
+      id: string;
+      slug: string;
+      name: string;
+      category: string;
+      address: string;
+      price_range: string;
+      opening_hours: string;
+      description_en: string;
+      description_vi: string;
+      image_url: string;
+      verification_status: string;
+      neighborhood_name_en: string | null;
+      neighborhood_name_vi: string | null;
+    }>(
+      `SELECT p.id, p.slug, p.name, p.category, p.address, p.price_range, p.opening_hours,
+              p.description_en, p.description_vi, p.image_url, p.verification_status,
+              n.name_en AS neighborhood_name_en, n.name_vi AS neighborhood_name_vi
+       FROM places p
+       JOIN destinations d ON d.id = p.destination_id
+       LEFT JOIN neighborhoods n ON n.id = p.neighborhood_id
+       WHERE d.slug = $1 AND p.verification_status = 'verified'
+       ORDER BY p.is_featured DESC, p.category ASC, p.name ASC`,
+      [destinationSlug]
+    );
+    return res.rows.map((p) => ({
+      id: String(p.id),
+      slug: String(p.slug),
+      name: String(p.name),
+      category: String(p.category),
+      address: String(p.address ?? ''),
+      priceRange: String(p.price_range ?? '$$'),
+      openingHours: String(p.opening_hours ?? ''),
+      descriptionEn: String(p.description_en ?? ''),
+      descriptionVi: String(p.description_vi ?? ''),
+      imageUrl: String(p.image_url ?? ''),
+      neighborhoodNameEn: p.neighborhood_name_en ? String(p.neighborhood_name_en) : null,
+      neighborhoodNameVi: p.neighborhood_name_vi ? String(p.neighborhood_name_vi) : null,
+      verificationStatus: String(p.verification_status ?? 'verified'),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export async function getCommunityAndMarketplaceData() {
