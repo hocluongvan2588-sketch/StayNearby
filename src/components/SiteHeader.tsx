@@ -34,8 +34,25 @@ export function SiteHeader({
   const [openMenu, setOpenMenu] = useState<'explore' | 'locale' | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const headerRef = useRef<HTMLElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isVi = locale === 'vi';
+
+  function openHoverMenu(menu: 'explore' | 'locale') {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setOpenMenu(menu);
+  }
+
+  function scheduleCloseMenu() {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      setOpenMenu(null);
+      closeTimerRef.current = null;
+    }, 120);
+  }
 
   useEffect(() => {
     function handleOutside(e: MouseEvent) {
@@ -54,6 +71,7 @@ export function SiteHeader({
     return () => {
       document.removeEventListener('mousedown', handleOutside);
       document.removeEventListener('keydown', handleKey);
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     };
   }, []);
 
@@ -92,12 +110,16 @@ export function SiteHeader({
 
         {/* Primary Desktop Navigation */}
         <nav className="hidden shrink-0 items-center gap-0.5 lg:flex xl:gap-1">
-          <div className="relative">
+          <div
+            className="relative"
+            onMouseEnter={() => openHoverMenu('explore')}
+            onMouseLeave={scheduleCloseMenu}
+          >
             <button
               type="button"
               onClick={() => setOpenMenu(openMenu === 'explore' ? null : 'explore')}
               aria-expanded={openMenu === 'explore'}
-              className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium transition xl:px-3.5 ${
+              className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#164E3F]/30 xl:px-3.5 ${
                 openMenu === 'explore'
                   ? 'bg-[#EFECE4] text-[#164E3F]'
                   : 'text-[#17221E] hover:bg-[#EFECE4]/70'
@@ -105,55 +127,57 @@ export function SiteHeader({
             >
               {isVi ? 'Khám phá' : 'Explore'}
               <ChevronDown
-                className={`h-3.5 w-3.5 text-[#53635D] transition-transform ${
+                className={`h-3.5 w-3.5 text-[#53635D] transition-transform duration-150 ${
                   openMenu === 'explore' ? 'rotate-180' : ''
                 }`}
               />
             </button>
 
             {openMenu === 'explore' && (
-              <div className="absolute left-0 top-full mt-2.5 grid w-[600px] grid-cols-12 gap-5 rounded-2xl border border-[#E5DFD3] bg-white p-5 shadow-2xl">
-                <div className="col-span-6 space-y-2 border-r border-[#E5DFD3] pr-4">
-                  <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
-                    {isVi ? 'Thành phố nổi bật' : 'Top cities'}
+              <div className="absolute left-0 top-full w-[600px] pt-2.5">
+                <div className="grid grid-cols-12 gap-5 rounded-2xl border border-[#E5DFD3] bg-white p-5 shadow-2xl">
+                  <div className="col-span-6 space-y-2 border-r border-[#E5DFD3] pr-4">
+                    <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
+                      {isVi ? 'Thành phố nổi bật' : 'Top cities'}
+                    </div>
+                    <div className="space-y-1">
+                      {destinations.map((d) => (
+                        <Link
+                          key={d.id}
+                          href={`/destinations/${d.slug}`}
+                          onClick={() => setOpenMenu(null)}
+                          className="flex items-center justify-between rounded-xl px-2.5 py-2 text-sm transition hover:bg-[#FAF8F3]"
+                        >
+                          <span className="flex items-center gap-2 font-medium text-[#17221E]">
+                            <MapPin className="h-3.5 w-3.5 text-[#C25E28]" />
+                            {isVi ? d.nameVi : d.nameEn}
+                          </span>
+                          <span className="text-xs text-[#53635D]">
+                            {d.avgWifiMbps} Mbps
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    {destinations.map((d) => (
-                      <Link
-                        key={d.id}
-                        href={`/destinations/${d.slug}`}
-                        onClick={() => setOpenMenu(null)}
-                        className="flex items-center justify-between rounded-xl px-2.5 py-2 text-sm transition hover:bg-[#FAF8F3]"
-                      >
-                        <span className="flex items-center gap-2 font-medium text-[#17221E]">
-                          <MapPin className="h-3.5 w-3.5 text-[#C25E28]" />
-                          {isVi ? d.nameVi : d.nameEn}
-                        </span>
-                        <span className="text-xs text-[#53635D]">
-                          {d.avgWifiMbps} Mbps
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="col-span-6 space-y-2">
-                  <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
-                    {isVi ? 'Phong cách ở' : 'Lifestyles'}
-                  </div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {lifestyles.map((l) => (
-                      <Link
-                        key={l.id}
-                        href={`/lifestyles/${l.slug}`}
-                        onClick={() => setOpenMenu(null)}
-                        className="rounded-xl px-2.5 py-1.5 text-sm transition hover:bg-[#FAF8F3]"
-                      >
-                        <div className="font-medium text-[#164E3F]">
-                          {isVi ? l.nameVi : l.nameEn}
-                        </div>
-                      </Link>
-                    ))}
+                  <div className="col-span-6 space-y-2">
+                    <div className="px-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
+                      {isVi ? 'Phong cách ở' : 'Lifestyles'}
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {lifestyles.map((l) => (
+                        <Link
+                          key={l.id}
+                          href={`/lifestyles/${l.slug}`}
+                          onClick={() => setOpenMenu(null)}
+                          className="rounded-xl px-2.5 py-1.5 text-sm transition hover:bg-[#FAF8F3]"
+                        >
+                          <div className="font-medium text-[#164E3F]">
+                            {isVi ? l.nameVi : l.nameEn}
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -205,83 +229,93 @@ export function SiteHeader({
           </Link>
 
           {/* Compact Language + Currency Popover */}
-          <div className="relative">
+          <div
+            className="relative"
+            onMouseEnter={() => openHoverMenu('locale')}
+            onMouseLeave={scheduleCloseMenu}
+          >
             <button
               type="button"
               onClick={() => setOpenMenu(openMenu === 'locale' ? null : 'locale')}
               aria-expanded={openMenu === 'locale'}
               aria-label={isVi ? 'Ngôn ngữ và tiền tệ' : 'Language and currency'}
-              className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#E5DFD3] bg-white px-3 py-1.5 text-xs font-semibold text-[#17221E] transition hover:border-[#164E3F]/40"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[#E5DFD3] bg-white px-3 py-1.5 text-xs font-semibold text-[#17221E] transition hover:border-[#164E3F]/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#164E3F]/30"
             >
               <Globe className="h-3.5 w-3.5 text-[#164E3F]" />
               <span>{locale.toUpperCase()}</span>
               <span className="text-[#D4CEC2]">|</span>
               <span>{currency}</span>
-              <ChevronDown className="h-3 w-3 text-[#53635D]" />
+              <ChevronDown
+                className={`h-3 w-3 text-[#53635D] transition-transform duration-150 ${
+                  openMenu === 'locale' ? 'rotate-180' : ''
+                }`}
+              />
             </button>
 
             {openMenu === 'locale' && (
-              <div className="absolute right-0 top-full mt-2.5 w-72 space-y-4 rounded-2xl border border-[#E5DFD3] bg-white p-4 shadow-2xl">
-                <div>
-                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
-                    {isVi ? 'Ngôn ngữ' : 'Language'}
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLocale('en');
-                        setOpenMenu(null);
-                      }}
-                      className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                        locale === 'en'
-                          ? 'border-[#164E3F] bg-[#E7F1EC] text-[#164E3F]'
-                          : 'border-[#E5DFD3] text-[#17221E] hover:bg-[#FAF8F3]'
-                      }`}
-                    >
-                      <span>English</span>
-                      {locale === 'en' && <Check className="h-3.5 w-3.5" />}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLocale('vi');
-                        setOpenMenu(null);
-                      }}
-                      className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                        locale === 'vi'
-                          ? 'border-[#164E3F] bg-[#E7F1EC] text-[#164E3F]'
-                          : 'border-[#E5DFD3] text-[#17221E] hover:bg-[#FAF8F3]'
-                      }`}
-                    >
-                      <span>Tiếng Việt</span>
-                      {locale === 'vi' && <Check className="h-3.5 w-3.5" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
-                    {isVi ? 'Tiền tệ hiển thị' : 'Currency'}
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {SUPPORTED_CURRENCIES.map((c) => (
+              <div className="absolute right-0 top-full w-72 pt-2.5">
+                <div className="space-y-4 rounded-2xl border border-[#E5DFD3] bg-white p-4 shadow-2xl">
+                  <div>
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
+                      {isVi ? 'Ngôn ngữ' : 'Language'}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
-                        key={c.code}
                         type="button"
                         onClick={() => {
-                          setCurrency(c.code as CurrencyCode);
+                          setLocale('en');
                           setOpenMenu(null);
                         }}
-                        className={`rounded-lg border px-2 py-1.5 text-center text-xs font-semibold transition ${
-                          currency === c.code
-                            ? 'border-[#164E3F] bg-[#164E3F] text-white'
+                        className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                          locale === 'en'
+                            ? 'border-[#164E3F] bg-[#E7F1EC] text-[#164E3F]'
                             : 'border-[#E5DFD3] text-[#17221E] hover:bg-[#FAF8F3]'
                         }`}
                       >
-                        {c.code} {c.symbol}
+                        <span>English</span>
+                        {locale === 'en' && <Check className="h-3.5 w-3.5" />}
                       </button>
-                    ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLocale('vi');
+                          setOpenMenu(null);
+                        }}
+                        className={`flex items-center justify-between rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                          locale === 'vi'
+                            ? 'border-[#164E3F] bg-[#E7F1EC] text-[#164E3F]'
+                            : 'border-[#E5DFD3] text-[#17221E] hover:bg-[#FAF8F3]'
+                        }`}
+                      >
+                        <span>Tiếng Việt</span>
+                        {locale === 'vi' && <Check className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
+                      {isVi ? 'Tiền tệ hiển thị' : 'Currency'}
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {SUPPORTED_CURRENCIES.map((c) => (
+                        <button
+                          key={c.code}
+                          type="button"
+                          onClick={() => {
+                            setCurrency(c.code as CurrencyCode);
+                            setOpenMenu(null);
+                          }}
+                          className={`rounded-lg border px-2 py-1.5 text-center text-xs font-semibold transition ${
+                            currency === c.code
+                              ? 'border-[#164E3F] bg-[#164E3F] text-white'
+                              : 'border-[#E5DFD3] text-[#17221E] hover:bg-[#FAF8F3]'
+                          }`}
+                        >
+                          {c.code} {c.symbol}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
