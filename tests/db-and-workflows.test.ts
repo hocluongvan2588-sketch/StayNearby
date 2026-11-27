@@ -65,7 +65,7 @@ describe('VietNomad Stays PRD End-to-End PostgreSQL Workflows', () => {
 
     const daNangStays = await searchStays({ destination: 'da-nang', nights: 30, minWifiMbps: 150 });
     expect(daNangStays.length).toBeGreaterThanOrEqual(2);
-    expect(daNangStays.every((s) => s.wifiDownloadMbps >= 150)).toBe(true);
+    expect(daNangStays.every((s) => (s.wifiDownloadMbps ?? -1) >= 150)).toBe(true);
     expect(daNangStays[0].monthFeeOnlineVnd).toBeGreaterThan(0);
     expect(daNangStays[0].monthPayAtCheckinVnd).toBeGreaterThan(daNangStays[0].monthFeeOnlineVnd);
     expect(daNangStays[0].verificationTier).toBe('VIETNOMAD_CERTIFIED');

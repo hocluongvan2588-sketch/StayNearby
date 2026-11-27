@@ -58,7 +58,7 @@ export function ListingInput({
   label: ReactNode;
   value: string | number;
   onChange: (value: string) => void;
-  type?: 'text' | 'number' | 'url';
+  type?: 'text' | 'number' | 'url' | 'date';
   placeholder?: string;
   min?: number;
   max?: number;

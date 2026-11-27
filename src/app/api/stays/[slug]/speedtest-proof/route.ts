@@ -21,20 +21,22 @@ export async function GET(
     title_en: string;
     neighborhood_en: string;
     registration_code: string;
-    wifi_download_mbps: number;
-    wifi_upload_mbps: number;
-    wifi_jitter_ms: number;
-    wifi_tester_note: string;
+    wifi_download_mbps: number | null;
+    wifi_upload_mbps: number | null;
+    wifi_ping_ms: number | null;
+    wifi_jitter_ms: number | null;
+    wifi_tester_note: string | null;
+    wifi_status: string;
     verification_tier: string;
     is_wifi_verified: boolean;
     is_work_ready: boolean;
-    verified_at: string | Date;
+    verified_at: string | Date | null;
     workspace_summary_en: string;
   }>(
     `SELECT title_en, neighborhood_en, registration_code,
-            wifi_download_mbps, wifi_upload_mbps, wifi_jitter_ms,
-            wifi_tester_note, verification_tier, is_wifi_verified, is_work_ready,
-            verified_at, workspace_summary_en
+            wifi_download_mbps, wifi_upload_mbps, wifi_ping_ms, wifi_jitter_ms,
+            wifi_tester_note, wifi_status, verification_tier, is_wifi_verified,
+            is_work_ready, verified_at, workspace_summary_en
      FROM stays WHERE slug = $1`,
     [slug]
   );
@@ -46,15 +48,21 @@ export async function GET(
 
   const feeConfig = await getPlatformFeeConfig();
   const feePct = Math.round(feeConfig.serviceFeeRate * 100);
-  const down = toNum(s.wifi_download_mbps, 200);
-  const up = toNum(s.wifi_upload_mbps, 150);
-  const jitter = toNum(s.wifi_jitter_ms, 3);
+  // NULL = chưa cập nhật — rendered as "—", never an assumed number (Phase A).
+  const down = s.wifi_download_mbps == null ? '—' : String(toNum(s.wifi_download_mbps, 0));
+  const up = s.wifi_upload_mbps == null ? '—' : String(toNum(s.wifi_upload_mbps, 0));
+  const ping = s.wifi_ping_ms == null ? '—' : String(toNum(s.wifi_ping_ms, 0));
+  const jitter = s.wifi_jitter_ms == null ? '—' : String(toNum(s.wifi_jitter_ms, 0));
   const isVerified = Boolean(s.is_wifi_verified);
   const tierLabel = isVerified
-    ? s.verification_tier === 'VIETNOMAD_CERTIFIED'
-      ? 'VIETNOMAD WI-FI VERIFIED (ON-SITE TESTED)'
-      : 'HOST SPEEDTEST SUBMITTED'
-    : 'HOST-REPORTED INTERNET & AMENITIES';
+    ? 'VIETNOMAD WI-FI VERIFIED'
+    : s.wifi_status === 'platform_measured'
+      ? 'MEASURED ON VIETNOMAD'
+      : s.wifi_status === 'reverify_pending'
+        ? 'AWAITING RE-VERIFICATION'
+        : s.wifi_status === 'not_updated'
+          ? 'NO INTERNET DATA'
+          : 'HOST-REPORTED INTERNET';
   const verifiedIso = new Date(String(s.verified_at ?? Date.now())).toISOString().slice(0, 10);
 
   const svg =
@@ -74,7 +82,7 @@ export async function GET(
   <rect x="64" y="210" width="832" height="120" rx="14" fill="#ffffff" fill-opacity="0.1"/>
   <text x="88" y="246" fill="#e6c486" font-family="system-ui, sans-serif" font-size="13" font-weight="700">DESK SETUP</text>
   <text x="88" y="282" fill="#ffffff" font-family="system-ui, sans-serif" font-size="18">${escapeXml(String(s.workspace_summary_en).slice(0, 86))}</text>
-  <text x="88" y="310" fill="#cbe3db" font-family="system-ui, sans-serif" font-size="14">Wi-Fi: ${down} Mbps down, ${up} Mbps up, ${jitter}ms latency, checked ${verifiedIso}</text>
+  <text x="88" y="310" fill="#cbe3db" font-family="system-ui, sans-serif" font-size="14">Wi-Fi: ${down} Mbps down, ${up} Mbps up, ping ${ping} ms, jitter ${jitter} ms, checked ${verifiedIso}</text>
   <rect x="64" y="360" width="380" height="96" rx="12" fill="#134e3f" stroke="#5bb397" stroke-opacity="0.5"/>
   <text x="88" y="396" fill="#9de2c8" font-family="system-ui, sans-serif" font-size="13" font-weight="700">PAYMENT TERMS</text>
   <text x="88" y="424" fill="#ffffff" font-family="system-ui, sans-serif" font-size="14">Pay ${feePct}% service fee online, pay rent to host at check-in</text>
@@ -106,11 +114,10 @@ export async function GET(
   <text x="492" y="302" fill="#cfe6ed" font-family="system-ui, sans-serif" font-size="18" font-weight="600">Mbps</text>
 
   <rect x="636" y="200" width="260" height="146" rx="14" fill="#102b36" stroke="#60a5fa" stroke-opacity="0.5"/>
-  <text x="660" y="236" fill="#82a7b4" font-family="system-ui, sans-serif" font-size="13" font-weight="700">LATENCY / JITTER</text>
-  <text x="660" y="302" fill="#93c5fd" font-family="system-ui, sans-serif" font-size="48" font-weight="800">${jitter}</text>
-  <text x="742" y="302" fill="#cfe6ed" font-family="system-ui, sans-serif" font-size="18" font-weight="600">ms</text>
+  <text x="660" y="236" fill="#82a7b4" font-family="system-ui, sans-serif" font-size="13" font-weight="700">PING / JITTER (MS)</text>
+  <text x="660" y="302" fill="#93c5fd" font-family="system-ui, sans-serif" font-size="48" font-weight="800">${ping} / ${jitter}</text>
 
-  <text x="64" y="394" fill="#d5e5ea" font-family="system-ui, sans-serif" font-size="15">Note: ${escapeXml(String(s.wifi_tester_note))}</text>
+  <text x="64" y="394" fill="#d5e5ea" font-family="system-ui, sans-serif" font-size="15">Note: ${escapeXml(s.wifi_tester_note ? String(s.wifi_tester_note) : '—')}</text>
   <text x="64" y="424" fill="#82a7b4" font-family="system-ui, sans-serif" font-size="14">Code: ${escapeXml(String(s.registration_code))}. ${isVerified ? 'Independently checked Wi-Fi profile.' : 'Self-declared by the host on VietNomad Stays.'}</text>
 </svg>`;
 

@@ -69,6 +69,12 @@ export function StayGuestReviewsSection({
   const [reviews, setReviews] = useState<StayGuestReviewItem[]>(initialReviews);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  // Wi-Fi quality (optional — skipped when all three stay null). Server only
+  // accepts these from completed stays.
+  const [wifiSpeed, setWifiSpeed] = useState<number | null>(null);
+  const [wifiStability, setWifiStability] = useState<number | null>(null);
+  const [wifiWork, setWifiWork] = useState<number | null>(null);
+  const [wifiComment, setWifiComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [notice, setNotice] = useState('');
   const [errMsg, setErrMsg] = useState('');
@@ -93,10 +99,22 @@ export function StayGuestReviewsSection({
     setErrMsg('');
     setNotice('');
     try {
+      const wifiGiven = wifiSpeed !== null || wifiStability !== null || wifiWork !== null;
       const res = await fetch(`/api/stays/${encodeURIComponent(slug)}/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating, comment: comment.trim() }),
+        body: JSON.stringify({
+          rating,
+          comment: comment.trim(),
+          ...(wifiGiven
+            ? {
+                ...(wifiSpeed !== null ? { speed: wifiSpeed } : {}),
+                ...(wifiStability !== null ? { stability: wifiStability } : {}),
+                ...(wifiWork !== null ? { workFromHome: wifiWork } : {}),
+                ...(wifiComment.trim() ? { wifiComment: wifiComment.trim() } : {}),
+              }
+            : {}),
+        }),
       });
       const json = await res.json();
       if (!json.ok) {
@@ -113,11 +131,19 @@ export function StayGuestReviewsSection({
             hostReply: null,
             hostRepliedAt: null,
             createdAt: json.review.createdAt,
+            wifiSpeedRating: wifiSpeed,
+            wifiStabilityRating: wifiStability,
+            wifiWorkRating: wifiWork,
+            wifiComment: wifiComment.trim() || null,
           },
           ...prev,
         ]);
       }
       setComment('');
+      setWifiSpeed(null);
+      setWifiStability(null);
+      setWifiWork(null);
+      setWifiComment('');
       setNotice(isVi ? 'Cảm ơn bạn đã gửi đánh giá.' : 'Thank you for your review.');
     } finally {
       setSubmitting(false);
@@ -330,6 +356,28 @@ export function StayGuestReviewsSection({
                     {rv.comment}
                   </p>
 
+                  {(rv.wifiSpeedRating ||
+                    rv.wifiStabilityRating ||
+                    rv.wifiWorkRating) && (
+                    <p className="text-xs text-[#53635D]">
+                      <span className="font-semibold text-[#164E3F]">Wi-Fi:</span>{' '}
+                      {[
+                        rv.wifiSpeedRating
+                          ? `${isVi ? 'tốc độ' : 'speed'} ${rv.wifiSpeedRating}★`
+                          : null,
+                        rv.wifiStabilityRating
+                          ? `${isVi ? 'ổn định' : 'stability'} ${rv.wifiStabilityRating}★`
+                          : null,
+                        rv.wifiWorkRating
+                          ? `${isVi ? 'làm việc từ xa' : 'remote work'} ${rv.wifiWorkRating}★`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                      {rv.wifiComment ? ` — ${rv.wifiComment}` : ''}
+                    </p>
+                  )}
+
                   {rv.hostReply && (
                     <div className="border-l-2 border-[#E5DFD3] pl-3.5 text-xs text-[#53635D]">
                       <span className="font-semibold text-[#164E3F]">
@@ -387,6 +435,82 @@ export function StayGuestReviewsSection({
               }
               className="w-full rounded-xl border border-[#E5DFD3] bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#164E3F]"
             />
+            {/* Wi-Fi quality — optional criteria; all empty = skipped. */}
+            <div className="space-y-2.5 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] p-3.5">
+              <div className="text-xs font-semibold text-[#17221E]">
+                {isVi
+                  ? 'Chất lượng Wi-Fi (không bắt buộc)'
+                  : 'Wi-Fi quality (optional)'}
+              </div>
+              <p className="text-[11px] leading-relaxed text-[#53635D]">
+                {isVi
+                  ? 'Chỉ khách đã hoàn thành kỳ lưu trú mới được chấm Wi-Fi. Bỏ qua nếu bạn không dùng Wi-Fi trong kỳ lưu trú. Đánh giá phản ánh trải nghiệm thực tế, không phải kiểm chứng thông số Mbps do chủ nhà khai báo.'
+                  : 'Only guests who completed their stay can rate Wi-Fi. Skip this if you did not use the Wi-Fi. Ratings reflect real experience — they do not verify the host-declared Mbps figures.'}
+              </p>
+              {(
+                [
+                  {
+                    key: 'speed' as const,
+                    label: isVi ? 'Tốc độ Internet' : 'Internet speed',
+                    value: wifiSpeed,
+                    set: setWifiSpeed,
+                  },
+                  {
+                    key: 'stability' as const,
+                    label: isVi ? 'Độ ổn định' : 'Stability',
+                    value: wifiStability,
+                    set: setWifiStability,
+                  },
+                  {
+                    key: 'work' as const,
+                    label: isVi
+                      ? 'Phù hợp làm việc từ xa'
+                      : 'Fit for remote work',
+                    value: wifiWork,
+                    set: setWifiWork,
+                  },
+                ]
+              ).map((c) => (
+                <div key={c.key} className="flex items-center gap-2 text-xs">
+                  <span className="w-40 shrink-0 text-[#53635D]">{c.label}</span>
+                  <span className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        aria-label={`${c.label} ${n}`}
+                        onClick={() => c.set(c.value === n ? null : n)}
+                        className={`rounded-md border px-2 py-0.5 font-semibold transition ${
+                          (c.value ?? 0) >= n
+                            ? 'border-[#164E3F] bg-[#E7F1EC] text-[#164E3F]'
+                            : 'border-[#E5DFD3] bg-white text-[#53635D]'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => c.set(null)}
+                      className="ml-1 text-[11px] text-[#53635D] underline-offset-2 hover:underline"
+                    >
+                      {isVi ? 'bỏ qua' : 'skip'}
+                    </button>
+                  </span>
+                </div>
+              ))}
+              <textarea
+                rows={2}
+                value={wifiComment}
+                onChange={(e) => setWifiComment(e.target.value)}
+                placeholder={
+                  isVi
+                    ? 'Nhận xét về Wi-Fi (không bắt buộc)…'
+                    : 'Comments about the Wi-Fi (optional)…'
+                }
+                className="w-full rounded-xl border border-[#E5DFD3] bg-white px-3.5 py-2.5 text-sm outline-none focus:border-[#164E3F]"
+              />
+            </div>
             <button
               type="submit"
               disabled={submitting || !comment.trim()}

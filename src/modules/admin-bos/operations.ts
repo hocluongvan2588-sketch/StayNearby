@@ -171,8 +171,15 @@ export async function moderateListing(
       is_wifi_verified: boolean;
       is_work_ready: boolean;
       verification_tier: string;
+      wifi_download_mbps: number | null;
+      wifi_upload_mbps: number | null;
+      wifi_ping_ms: number | null;
+      wifi_jitter_ms: number | null;
+      wifi_has_service: boolean | null;
+      wifi_status: string;
     }>(
-      `SELECT host_id, status, is_featured, featured_rank, is_wifi_verified, is_work_ready, verification_tier
+      `SELECT host_id, status, is_featured, featured_rank, is_wifi_verified, is_work_ready, verification_tier,
+              wifi_download_mbps, wifi_upload_mbps, wifi_ping_ms, wifi_jitter_ms, wifi_has_service, wifi_status
        FROM stays WHERE id = $1 FOR UPDATE`,
       [stayId]
     );
@@ -183,6 +190,20 @@ export async function moderateListing(
     assertAdminStatusTransition(String(cur.status), String(nextStatus));
     const nextWifi = input.isWifiVerified ?? Boolean(cur.is_wifi_verified);
     const nextWork = input.isWorkReady ?? Boolean(cur.is_work_ready);
+    const hasWifiValues =
+      cur.wifi_download_mbps !== null ||
+      cur.wifi_upload_mbps !== null ||
+      cur.wifi_ping_ms !== null ||
+      cur.wifi_jitter_ms !== null ||
+      cur.wifi_has_service !== null;
+    const nextWifiStatus =
+      input.isWifiVerified === undefined
+        ? cur.wifi_status
+        : nextWifi
+          ? 'verified'
+          : hasWifiValues
+            ? 'host_declared'
+            : 'not_updated';
     const nextTier =
       input.verificationTier ??
       (nextWifi && nextWork
@@ -201,7 +222,8 @@ export async function moderateListing(
            is_work_ready = $6,
            verification_tier = $7,
            reviewed_by = $8,
-           reviewed_at = NOW()
+           reviewed_at = NOW(),
+           wifi_status = $10
        WHERE id = $9`,
       [
         nextStatus,
@@ -213,6 +235,7 @@ export async function moderateListing(
         nextTier,
         actor.user.id,
         stayId,
+        nextWifiStatus,
       ]
     );
 

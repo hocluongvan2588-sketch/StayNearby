@@ -12,6 +12,7 @@ import {
 } from '@/modules/listing-revisions';
 import { clampHostMinNights, POLICY_MIN_NIGHTS } from '@/lib/business-rules';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
+import { computeWifiNext, normalizeWifiStatus, toNumOrNull } from '@/lib/wifi-status';
 import { AppError } from '@/lib/errors';
 import { syncRoomIcalFeed } from '@/lib/ical';
 import { syncHostLeadFromApplicationTx } from '@/modules/host-lead-sync';
@@ -261,11 +262,23 @@ export async function getHostConsoleData(user: SessionUser) {
           | 'flexible'
           | 'moderate'
           | 'strict',
-        wifiDownloadMbps: toNum(s.wifi_download_mbps),
-        wifiUploadMbps: toNum(s.wifi_upload_mbps),
-        wifiJitterMs: toNum(s.wifi_jitter_ms),
-        wifiTestedAt: new Date(String(s.wifi_tested_at)).toISOString(),
-        verifiedAt: new Date(String(s.verified_at ?? s.wifi_tested_at)).toISOString(),
+        wifiHasService:
+          s.wifi_has_service === null || s.wifi_has_service === undefined
+            ? null
+            : Boolean(s.wifi_has_service),
+        wifiDownloadMbps: toNumOrNull(s.wifi_download_mbps),
+        wifiUploadMbps: toNumOrNull(s.wifi_upload_mbps),
+        wifiPingMs: toNumOrNull(s.wifi_ping_ms),
+        wifiJitterMs: toNumOrNull(s.wifi_jitter_ms),
+        wifiTestedAt: s.wifi_tested_at
+          ? new Date(String(s.wifi_tested_at)).toISOString()
+          : null,
+        wifiStatus: normalizeWifiStatus(s.wifi_status),
+        verifiedAt: s.verified_at
+          ? new Date(String(s.verified_at)).toISOString()
+          : s.wifi_tested_at
+            ? new Date(String(s.wifi_tested_at)).toISOString()
+            : new Date(0).toISOString(),
         verificationTier: String(s.verification_tier ?? 'SELF_DECLARED'),
         isWifiVerified: Boolean(s.is_wifi_verified),
         isWorkReady: Boolean(s.is_work_ready),
@@ -542,9 +555,9 @@ export async function createDraftStay(
         description_en, description_vi, neighborhood_en, neighborhood_vi, exact_address,
         checkin_instructions_en, checkin_instructions_vi, registration_code,
         property_type, business_model, status, is_instant_book,
-        cancellation_policy, wifi_download_mbps, wifi_upload_mbps, wifi_jitter_ms,
+        cancellation_policy,
         verification_tier, is_wifi_verified, is_work_ready, verified_at,
-        wifi_tester_note, workspace_summary_en, workspace_summary_vi, workspace_photo_url,
+        workspace_summary_en, workspace_summary_vi, workspace_photo_url,
         has_workspace, has_ergonomic_chair, has_external_monitor, has_call_booth,
         kitchen_type, laundry_type, map_x, map_y, hero_image, gallery_images,
         amenities, nearby_coworking
@@ -559,9 +572,7 @@ export async function createDraftStay(
         'Smart lock details emailed upon confirmation',
         'Mã nhận phòng gửi tự động sau khi đặt',
         $9,$10,'booking_flow','draft',TRUE,'flexible',
-        100,75,4,
         'SELF_DECLARED', FALSE, FALSE, NOW(),
-        'Host-declared property amenities & Internet profile',
         'Comfortable living space','Không gian sinh hoạt thoải mái',
         '/images/workspaces/ergonomic-indochine-desk.jpg',
         FALSE,FALSE,FALSE,FALSE,
@@ -818,7 +829,17 @@ export interface UpdateHostStayFullInput {
   checkinInstructionsVi?: string;
   propertyType?: 'apartment' | 'coliving' | 'boutique_hotel' | 'villa' | 'eco_lodge';
   destinationId?: string;
-  wifiDownloadMbps?: number;
+  // Wi-Fi (Phase A): explicit values only — NULL clears, undefined keeps.
+  // Never derived (no upload formula, no default speeds).
+  wifiHasService?: boolean | null;
+  wifiDownloadMbps?: number | null;
+  wifiUploadMbps?: number | null;
+  wifiPingMs?: number | null;
+  wifiJitterMs?: number | null;
+  /** Test date as YYYY-MM-DD (host-declared evidence). */
+  wifiTestedAt?: string;
+  /** Optional speed-test result link / image URL. Empty string clears. */
+  speedtestProofUrl?: string | null;
   isEntirePlace?: boolean;
   bedrooms?: number | null;
   bathrooms?: number | null;
@@ -945,15 +966,43 @@ export async function updateHostStayConfiguration(
       nextMapX = toNum(dest.map_x, nextMapX);
       nextMapY = toNum(dest.map_y, nextMapY);
     }
-    // Optional host-declared Wi-Fi speed (download; upload estimated)
-    const nextWifiDown =
-      input.wifiDownloadMbps !== undefined
-        ? Math.min(10000, Math.max(0, Math.round(input.wifiDownloadMbps)))
-        : toNum(current.wifi_download_mbps, 100);
-    const nextWifiUp =
-      input.wifiDownloadMbps !== undefined
-        ? Math.round(nextWifiDown * 0.75)
-        : toNum(current.wifi_upload_mbps, 75);
+    // Wi-Fi (Phase A): explicit values only. NULL = chưa cập nhật; no upload
+    // formula, no default speeds; verified data that changes drops the badge
+    // and moves to reverify_pending (see src/lib/wifi-status.ts).
+    const wifiNext = computeWifiNext(current, {
+      wifiHasService: input.wifiHasService,
+      wifiDownloadMbps: input.wifiDownloadMbps,
+      wifiUploadMbps: input.wifiUploadMbps,
+      wifiPingMs: input.wifiPingMs,
+      wifiJitterMs: input.wifiJitterMs,
+    });
+    const nextWifiDown = wifiNext.downloadMbps;
+    const nextWifiUp = wifiNext.uploadMbps;
+    const nextWifiPing = wifiNext.pingMs;
+    const nextWifiJitter = wifiNext.jitterMs;
+    const nextWifiHasService = wifiNext.hasService;
+    let nextWifiStatus = wifiNext.status;
+    let nextIsWifiVerified = wifiNext.verificationLost
+      ? false
+      : Boolean(current.is_wifi_verified);
+
+    // Host-declared evidence (test date / result link): changing either on a
+    // verified listing sends it back to reverify_pending — host evidence never
+    // keeps the Verified badge.
+    const testedAtProvided = typeof input.wifiTestedAt === 'string' && input.wifiTestedAt.length > 0;
+    const nextTestedAt = testedAtProvided ? new Date(`${input.wifiTestedAt}T00:00:00.000Z`) : null;
+    const proofProvided = input.speedtestProofUrl !== undefined;
+    const nextProof = proofProvided ? input.speedtestProofUrl?.trim() || null : null;
+    const evidenceChanged =
+      (testedAtProvided &&
+        nextTestedAt !== null &&
+        nextTestedAt.toISOString().slice(0, 10) !==
+          String(current.wifi_tested_at ?? '').slice(0, 10)) ||
+      (proofProvided && nextProof !== (current.speedtest_proof_url || null));
+    if (evidenceChanged && nextWifiStatus === 'verified') {
+      nextWifiStatus = 'reverify_pending';
+      nextIsWifiVerified = false;
+    }
 
     await tx.query(
       `UPDATE stays
@@ -1002,7 +1051,19 @@ export async function updateHostStayConfiguration(
            map_x = $43,
            map_y = $44,
            wifi_download_mbps = $45,
-           wifi_upload_mbps = $46
+           wifi_upload_mbps = $46,
+           wifi_ping_ms = $47,
+           wifi_jitter_ms = $48,
+           wifi_has_service = $49,
+           wifi_status = $50,
+           is_wifi_verified = $51,
+           wifi_tested_at = CASE
+             WHEN $53::timestamptz IS NOT NULL THEN $53::timestamptz
+             WHEN $50 = 'not_updated' THEN NULL
+             WHEN $52 THEN NOW()
+             ELSE wifi_tested_at
+           END,
+           speedtest_proof_url = CASE WHEN $55 THEN $54 ELSE speedtest_proof_url END
        WHERE id = $30`,
       [
         input.titleEn?.trim() || String(current.title_en),
@@ -1053,8 +1114,35 @@ export async function updateHostStayConfiguration(
         nextMapY,
         nextWifiDown,
         nextWifiUp,
+        nextWifiPing,
+        nextWifiJitter,
+        nextWifiHasService,
+        nextWifiStatus,
+        nextIsWifiVerified,
+        wifiNext.speedChanged,
+        nextTestedAt,
+        nextProof,
+        proofProvided,
       ]
     );
+
+    // Append-only Wi-Fi history for manual declarations (Phase A). Platform
+    // measurements (Phase B) append with source = 'platform_measured'.
+    if (
+      wifiNext.speedChanged &&
+      (nextWifiDown !== null ||
+        nextWifiUp !== null ||
+        nextWifiPing !== null ||
+        nextWifiJitter !== null)
+    ) {
+      await tx.query(
+        `INSERT INTO wifi_measurements (
+           stay_id, actor_user_id, actor_role, source,
+           download_mbps, upload_mbps, ping_ms, jitter_ms, tested_at
+         ) VALUES ($1, $2, 'host', 'host_manual', $3, $4, $5, $6, NOW())`,
+        [stayId, user.id, nextWifiDown, nextWifiUp, nextWifiPing, nextWifiJitter]
+      );
+    }
 
     if (
       input.wholesale7Vnd !== undefined ||
@@ -1386,52 +1474,127 @@ export async function deleteHostStayRoom(
   });
 }
 
+/**
+ * Manual Wi-Fi declaration (fallback path — the primary path is the editor's
+ * Internet & Wi-Fi group which saves through PATCH). Records an append-only
+ * host_manual measurement and advances wifi_status. NEVER touches the
+ * stay-level verified_at and never grants `verified` by itself.
+ */
 export async function recordWifiSpeedTest(
   user: SessionUser,
   stayId: string,
   input: {
-    downloadMbps: number;
-    uploadMbps: number;
-    jitterMs: number;
+    downloadMbps?: number | null;
+    uploadMbps?: number | null;
+    pingMs?: number | null;
+    jitterMs?: number | null;
+    hasService?: boolean | null;
     note?: string;
     speedtestProofUrl?: string;
     workspaceVideoUrl?: string;
   }
 ) {
   if (!isValidUuid(stayId)) throw new AppError('VALIDATION_ERROR', 'Invalid stay ID.');
-  const res = await dbQuery<{ host_id: string }>(
-    'SELECT host_id FROM stays WHERE id = $1',
-    [stayId]
-  );
-  const row = res.rows[0];
-  if (!row) throw new AppError('NOT_FOUND', 'Stay not found.');
-  if (row.host_id !== user.id && user.role !== 'admin') {
-    throw new AppError('FORBIDDEN', 'Only the property host or verifier admin can update Wi-Fi tests.');
-  }
+  return dbTransaction(async (tx) => {
+    const res = await tx.query<Record<string, unknown>>(
+      'SELECT * FROM stays WHERE id = $1 FOR UPDATE',
+      [stayId]
+    );
+    const row = res.rows[0];
+    if (!row) throw new AppError('NOT_FOUND', 'Stay not found.');
+    if (String(row.host_id) !== user.id && user.role !== 'admin') {
+      throw new AppError(
+        'FORBIDDEN',
+        'Only the property host or verifier admin can update Wi-Fi tests.'
+      );
+    }
 
-  await dbQuery(
-    `UPDATE stays
-     SET wifi_download_mbps = $1,
-         wifi_upload_mbps = $2,
-         wifi_jitter_ms = $3,
-         wifi_tested_at = NOW(),
-         verified_at = NOW(),
-         wifi_tester_note = $4,
-         speedtest_proof_url = COALESCE($5, speedtest_proof_url),
-         workspace_video_url = COALESCE($6, workspace_video_url)
-     WHERE id = $7`,
-    [
-      Math.max(0, Math.round(input.downloadMbps)),
-      Math.max(0, Math.round(input.uploadMbps)),
-      Math.max(0, Math.round(input.jitterMs)),
-      input.note?.trim() || 'Host-reported Internet speed updated',
-      input.speedtestProofUrl?.trim() || null,
-      input.workspaceVideoUrl?.trim() || null,
-      stayId,
-    ]
-  );
+    const wifiNext = computeWifiNext(row, {
+      wifiHasService: input.hasService,
+      wifiDownloadMbps: input.downloadMbps,
+      wifiUploadMbps: input.uploadMbps,
+      wifiPingMs: input.pingMs,
+      wifiJitterMs: input.jitterMs,
+    });
+    const nextIsWifiVerified = wifiNext.verificationLost
+      ? false
+      : Boolean(row.is_wifi_verified);
+    let nextStatus = wifiNext.status;
+    let nextVerified = nextIsWifiVerified;
+    // A new result link/evidence sent from the direct test invalidates a
+    // host-declared Verified badge (host never keeps Verified from their own
+    // evidence).
+    const proofProvided =
+      typeof input.speedtestProofUrl === 'string' && input.speedtestProofUrl.trim().length > 0;
+    if (
+      proofProvided &&
+      input.speedtestProofUrl!.trim() !== String(row.speedtest_proof_url || '') &&
+      nextStatus === 'verified'
+    ) {
+      nextStatus = 'reverify_pending';
+      nextVerified = false;
+    }
 
-  return { ok: true };
+    await tx.query(
+      `UPDATE stays
+       SET wifi_download_mbps = $1,
+           wifi_upload_mbps = $2,
+           wifi_ping_ms = $3,
+           wifi_jitter_ms = $4,
+           wifi_has_service = $5,
+           wifi_status = $6,
+           is_wifi_verified = $7,
+           wifi_tested_at = CASE
+             WHEN $6 = 'not_updated' THEN NULL
+             WHEN $8 THEN NOW()
+             ELSE wifi_tested_at
+           END,
+           wifi_tester_note = COALESCE($9, wifi_tester_note),
+           speedtest_proof_url = COALESCE($10, speedtest_proof_url),
+           workspace_video_url = COALESCE($11, workspace_video_url)
+       WHERE id = $12`,
+      [
+        wifiNext.downloadMbps,
+        wifiNext.uploadMbps,
+        wifiNext.pingMs,
+        wifiNext.jitterMs,
+        wifiNext.hasService,
+        nextStatus,
+        nextVerified,
+        wifiNext.speedChanged,
+        input.note?.trim() || null,
+        input.speedtestProofUrl?.trim() || null,
+        input.workspaceVideoUrl?.trim() || null,
+        stayId,
+      ]
+    );
+
+    if (
+      wifiNext.speedChanged &&
+      (wifiNext.downloadMbps !== null ||
+        wifiNext.uploadMbps !== null ||
+        wifiNext.pingMs !== null ||
+        wifiNext.jitterMs !== null)
+    ) {
+      await tx.query(
+        `INSERT INTO wifi_measurements (
+           stay_id, actor_user_id, actor_role, source,
+           download_mbps, upload_mbps, ping_ms, jitter_ms, tested_at
+         ) VALUES ($1, $2, $3, 'host_manual', $4, $5, $6, $7, NOW())`,
+        [
+          stayId,
+          user.id,
+          user.role === 'admin' ? 'admin' : 'host',
+          wifiNext.downloadMbps,
+          wifiNext.uploadMbps,
+          wifiNext.pingMs,
+          wifiNext.jitterMs,
+        ]
+      );
+    }
+
+    return { ok: true, status: wifiNext.status };
+  });
 }
 
 export async function syncHostRoomIcal(

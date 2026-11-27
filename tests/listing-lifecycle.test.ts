@@ -216,7 +216,8 @@ describe('Listing lifecycle: draft → pending_review → live (one data archite
     const stayRow = row.rows[0]!;
     expect(stayRow.destination_id).toBe(otherDest);
     expect(Number(stayRow.wifi_download_mbps)).toBe(350);
-    expect(Number(stayRow.wifi_upload_mbps)).toBe(263); // 350 * 0.75
+    // Phase A: no upload = download × 0.75 formula — untouched stays NULL
+    expect(stayRow.wifi_upload_mbps).toBeNull();
     expect(stayRow.title_en).toBe('Da Lat Work Loft');
     expect(Number(stayRow.default_min_nights)).toBe(7);
 

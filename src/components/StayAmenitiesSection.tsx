@@ -160,7 +160,7 @@ export function StayAmenitiesSection({
   hasWorkspace: boolean;
   hasErgonomicChair: boolean;
   hasExternalMonitor: boolean;
-  wifiDownloadMbps: number;
+  wifiDownloadMbps: number | null;
   locale: Locale;
 }) {
   const isVi = locale === 'vi';
@@ -193,7 +193,7 @@ export function StayAmenitiesSection({
         iconName: 'laundry',
       });
     }
-    if (wifiDownloadMbps > 0) {
+    if (wifiDownloadMbps !== null && wifiDownloadMbps > 0) {
       pushItem({
         key: 'wifi',
         label: isVi ? `Wi-Fi (${wifiDownloadMbps} Mbps)` : `Wi-Fi (${wifiDownloadMbps} Mbps)`,

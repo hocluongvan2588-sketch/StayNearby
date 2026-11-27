@@ -82,7 +82,8 @@ export interface WizardFormState {
   hasCallBooth: boolean;
   workspaceSummaryEn: string;
   workspaceSummaryVi: string;
-  wifiDownloadMbps: number;
+  /** NULL = chưa cập nhật (no default speeds). */
+  wifiDownloadMbps: number | null;
   neighborhoodEn: string;
   neighborhoodVi: string;
   exactAddress: string;
@@ -125,7 +126,7 @@ export function initialWizardState(stay: HostStaySummary | null): WizardFormStat
       hasCallBooth: false,
       workspaceSummaryEn: '',
       workspaceSummaryVi: '',
-      wifiDownloadMbps: 0,
+      wifiDownloadMbps: null,
       neighborhoodEn: '',
       neighborhoodVi: '',
       exactAddress: '',
