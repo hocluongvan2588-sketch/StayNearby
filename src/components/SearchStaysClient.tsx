@@ -3,6 +3,11 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import {
+  MAX_NIGHTS,
+  STAY_PACKAGE_TIERS,
+  clampStayNights,
+} from '@/lib/business-rules';
 import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
 import { formatCountNoun, formatNightsLabel } from '@/lib/i18n';
 import type { DestinationSummary, LifestyleItem, StayCardItem } from '@/modules/catalog';
@@ -43,8 +48,10 @@ export function SearchStaysClient({
   isAuthenticated: boolean;
 }) {
   const router = useRouter();
-  const { locale } = usePreferences();
+  const { locale, platformConfig } = usePreferences();
   const isVi = locale === 'vi';
+  const minNights = platformConfig.defaultMinNights;
+  const tierOptions = STAY_PACKAGE_TIERS.filter((n) => n >= minNights);
 
   function pushFilters(next: Partial<SearchFilterState>) {
     const merged = { ...filters, ...next };
@@ -149,7 +156,7 @@ export function SearchStaysClient({
               {isVi ? 'Thời gian lưu trú' : 'Length of stay'}
             </label>
             <div className="grid grid-cols-2 gap-1.5">
-              {[7, 14, 21, 30].map((n) => (
+              {tierOptions.map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -167,6 +174,32 @@ export function SearchStaysClient({
                     : `${n / 7} ${isVi ? 'tuần' : n === 7 ? 'week' : 'weeks'}`}
                 </button>
               ))}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                key={filters.nights}
+                type="number"
+                inputMode="numeric"
+                min={minNights}
+                max={MAX_NIGHTS}
+                defaultValue={filters.nights}
+                aria-label={isVi ? 'Số đêm tùy chỉnh' : 'Custom nights'}
+                placeholder={isVi ? `Tối thiểu ${minNights}` : `Min ${minNights}`}
+                onBlur={(e) => {
+                  const v = clampStayNights(
+                    Number(e.target.value) || minNights,
+                    minNights
+                  );
+                  if (v !== filters.nights) pushFilters({ nights: v });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                }}
+                className="h-9 w-24 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-2.5 text-xs font-semibold tabular-nums text-[#17221E] outline-none"
+              />
+              <span className="text-[11px] text-[#53635D]">
+                {isVi ? 'đêm tùy chỉnh' : 'custom nights'}
+              </span>
             </div>
           </div>
 

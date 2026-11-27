@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clampHostMinNights,
+  clampPlatformMinNights,
+  resolveEffectiveMinNights,
+  validateStayNights,
+} from '@/lib/business-rules';
+import {
   calculateCancellationOutcome,
   calculateStayQuote,
   calculateWholesaleForNights,
@@ -15,8 +21,14 @@ describe('NomadStays Pricing, Extra Nights & Fee Models', () => {
     extraNightVnd: 610_000,
   };
 
-  it('requires minimum 7 nights and supports 7/14/21/30 + extra nights at package rate', () => {
-    expect(() => calculateWholesaleForNights(pkg, 6)).toThrow();
+  it('supports 1–180 nights technically with 7/14/21/30 tiers + extra nights at package rate', () => {
+    // Technical bounds only — policy minimums live in @/lib/business-rules.
+    expect(() => calculateWholesaleForNights(pkg, 0)).toThrow();
+    expect(() => calculateWholesaleForNights(pkg, 181)).toThrow();
+    // Sub-week stays pro-rate the 7-night package instead of throwing.
+    expect(calculateWholesaleForNights(pkg, 6).wholesaleTotalVnd).toBe(
+      Math.round((5_400_000 * 6) / 7)
+    );
     expect(calculateWholesaleForNights(pkg, 7)).toEqual({
       baseTier: 7,
       extraNights: 0,
@@ -204,5 +216,38 @@ describe('NomadStays Three-Window Cancellation Policy & PaidOnline Basis', () =>
     expect(sharedPromo.promotionDiscountVnd).toBe(400_000);
     expect(sharedPromo.promoFeeDiscountVnd).toBe(200_000);
     expect(sharedPromo.promoHostDiscountVnd).toBe(200_000);
+  });
+});
+
+describe('Business Rules — effective minimum stay (single source)', () => {
+  it('resolves the strictest of platform × listing × date-lock minimums', () => {
+    expect(resolveEffectiveMinNights({})).toBe(7);
+    expect(resolveEffectiveMinNights({ platformMinNights: 7, stayMinNights: 7 })).toBe(7);
+    expect(resolveEffectiveMinNights({ platformMinNights: 14, stayMinNights: 7 })).toBe(14);
+    expect(resolveEffectiveMinNights({ platformMinNights: 7, stayMinNights: 21 })).toBe(21);
+    expect(
+      resolveEffectiveMinNights({
+        platformMinNights: 7,
+        stayMinNights: 7,
+        lockMinNights: [14, null, 10],
+      })
+    ).toBe(14);
+  });
+
+  it('clamps host (7–90) and platform (≥7) settings to policy bounds', () => {
+    expect(clampHostMinNights(3)).toBe(7);
+    expect(clampHostMinNights(120)).toBe(90);
+    expect(clampHostMinNights(14)).toBe(14);
+    expect(clampPlatformMinNights(3)).toBe(7);
+    expect(clampPlatformMinNights(14)).toBe(14);
+  });
+
+  it('rejects stays below the effective minimum while allowing flexible lengths', () => {
+    const min7 = resolveEffectiveMinNights({ platformMinNights: 7 });
+    expect(() => validateStayNights(6, min7)).toThrow();
+    expect(() => validateStayNights(181, min7)).toThrow();
+    expect(() => validateStayNights(7, min7)).not.toThrow();
+    // Flexible nights: 10 is not a multiple of 7 but is valid above the floor.
+    expect(() => validateStayNights(10, min7)).not.toThrow();
   });
 });

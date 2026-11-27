@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { SessionUser } from '@/lib/auth/session';
 import { getTodayIsoVietnam, isValidIsoDate, isValidUuid } from '@/lib/dates';
+import { clampHostMinNights, POLICY_MIN_NIGHTS } from '@/lib/business-rules';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { syncRoomIcalFeed } from '@/lib/ical';
@@ -272,7 +273,7 @@ export async function getHostConsoleData(user: SessionUser) {
         houseRules: parseHouseRules(s.house_rules),
         checkinFrom: String(s.checkin_from ?? '14:00'),
         checkoutBefore: String(s.checkout_before ?? '12:00'),
-        defaultMinNights: Math.max(7, toNum(s.default_min_nights, 7)),
+        defaultMinNights: clampHostMinNights(toNum(s.default_min_nights, POLICY_MIN_NIGHTS)),
         googleRating: toNum(s.google_rating, 4.8),
         googleReviewCount: toNum(s.google_review_count, 0),
         heroImage: String(s.hero_image),
@@ -768,8 +769,8 @@ export async function updateHostStayConfiguration(
         input.checkinFrom?.trim() || String(current.checkin_from ?? '14:00'),
         input.checkoutBefore?.trim() || String(current.checkout_before ?? '12:00'),
         input.defaultMinNights !== undefined
-          ? Math.max(7, Math.min(90, Math.round(input.defaultMinNights)))
-          : Math.max(7, toNum(current.default_min_nights, 7)),
+          ? clampHostMinNights(input.defaultMinNights)
+          : clampHostMinNights(toNum(current.default_min_nights, POLICY_MIN_NIGHTS)),
         input.isEntirePlace ?? (current.is_entire_place !== undefined && current.is_entire_place !== null ? Boolean(current.is_entire_place) : true),
         input.bedrooms !== undefined ? input.bedrooms : (current.bedrooms ?? null),
         input.bathrooms !== undefined ? input.bathrooms : (current.bathrooms ?? null),

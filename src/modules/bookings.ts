@@ -8,6 +8,11 @@ import {
   isValidUuid,
 } from '@/lib/dates';
 import { dbQuery, dbTransaction, toNum, type DbClient } from '@/lib/db';
+import {
+  assertStayNightsBounds,
+  clampHostMinNights,
+  resolveEffectiveMinNights,
+} from '@/lib/business-rules';
 import { AppError } from '@/lib/errors';
 import { calculateCancellationOutcome, calculateStayQuote } from '@/lib/pricing';
 import { refundGatewayTransactionIfLive } from '@/lib/stripe-refund';
@@ -317,9 +322,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
   if (input.checkIn < todayVn) {
     throw new AppError('VALIDATION_ERROR', 'Check-in date cannot be in the past.');
   }
-  if (!Number.isInteger(input.nights) || input.nights < 7 || input.nights > 180) {
-    throw new AppError('VALIDATION_ERROR', 'Minimum stay on VietNomad is 7 nights.');
-  }
+  assertStayNightsBounds(input.nights);
 
   const checkOut = addDaysIso(input.checkIn, input.nights);
   const nightDates = enumerateStayNights(input.checkIn, checkOut);
@@ -392,6 +395,8 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       );
     }
 
+    const platformConfig = await getPlatformFeeConfig(tx);
+
     const lockOverridesRes = await tx.query<{
       stay_date: string | Date;
       custom_nightly_vnd: string | number | null;
@@ -403,14 +408,14 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       [meta.room_id, input.checkIn, checkOut]
     );
     const lockMap = new Map<string, { customNightlyVnd: number | null; minNights: number | null }>();
-    let requiredMinNights = Math.max(7, toNum(meta.default_min_nights, 7));
+    const lockMinNights: number[] = [];
     for (const row of lockOverridesRes.rows) {
       const dt =
         row.stay_date instanceof Date
           ? row.stay_date.toISOString().slice(0, 10)
           : String(row.stay_date).slice(0, 10);
-      const minN = row.min_nights ? toNum(row.min_nights, 7) : null;
-      if (minN && minN > requiredMinNights) requiredMinNights = minN;
+      const minN = row.min_nights ? clampHostMinNights(row.min_nights) : null;
+      if (minN) lockMinNights.push(minN);
       lockMap.set(dt, {
         customNightlyVnd:
           row.custom_nightly_vnd !== null && row.custom_nightly_vnd !== undefined
@@ -419,6 +424,11 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         minNights: minN,
       });
     }
+    const requiredMinNights = resolveEffectiveMinNights({
+      platformMinNights: platformConfig.defaultMinNights,
+      stayMinNights: meta.default_min_nights,
+      lockMinNights,
+    });
     if (input.nights < requiredMinNights) {
       throw new AppError(
         'VALIDATION_ERROR',
@@ -441,7 +451,6 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       throw new AppError('UNAUTHORIZED', 'Account not found.');
     }
 
-    const platformConfig = await getPlatformFeeConfig(tx);
     let validatedPromo: ValidatedPromotionRecord | null = null;
     if (input.promotionCode?.trim()) {
       validatedPromo = await validatePromotionTx(tx, {

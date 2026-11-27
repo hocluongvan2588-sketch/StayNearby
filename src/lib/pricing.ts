@@ -1,4 +1,5 @@
 import { AppError } from './errors';
+import { MAX_NIGHTS, MIN_NIGHTS_TECHNICAL, STAY_PACKAGE_TIERS } from './business-rules';
 
 export type PackageDuration = 7 | 14 | 21 | 30;
 
@@ -49,11 +50,22 @@ export function calculateWholesaleForNights(
   pkg: PackagePricingInput,
   nights: number
 ): { baseTier: PackageDuration; extraNights: number; wholesaleTotalVnd: number } {
-  if (!Number.isInteger(nights) || nights < 7 || nights > 180) {
+  // Technical bounds only (1–180 nights). Policy minimums (platform/stay/locks)
+  // are enforced by business rules at booking time — see resolveEffectiveMinNights.
+  if (!Number.isInteger(nights) || nights < MIN_NIGHTS_TECHNICAL || nights > MAX_NIGHTS) {
     throw new AppError(
       'VALIDATION_ERROR',
-      'Minimum stay is 7 nights (up to 180 nights).'
+      `Stay must be between ${MIN_NIGHTS_TECHNICAL} and ${MAX_NIGHTS} nights.`
     );
+  }
+
+  // Sub-week stays (below the first package tier): pro-rate the 7-night package.
+  if (nights < STAY_PACKAGE_TIERS[0]) {
+    return {
+      baseTier: STAY_PACKAGE_TIERS[0],
+      extraNights: 0,
+      wholesaleTotalVnd: Math.round((pkg.wholesale7Vnd * nights) / STAY_PACKAGE_TIERS[0]),
+    };
   }
 
   let baseTier: PackageDuration = 7;

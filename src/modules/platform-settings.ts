@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { SessionUser } from '@/lib/auth/session';
+import { clampPlatformMinNights, POLICY_MIN_NIGHTS } from '@/lib/business-rules';
 import { dbQuery, dbTransaction, type DbClient, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { logAdminAudit, type AdminActorContext } from './admin-rbac';
@@ -19,7 +20,7 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformFeeConfig = {
   hostCommissionRate: 0,
   vatDiscountRate: 0.05,
   premiumRewardRate: 0.04,
-  defaultMinNights: 7,
+  defaultMinNights: POLICY_MIN_NIGHTS,
   fxRates: {
     VND: 1,
     USD: 25400,
@@ -69,9 +70,8 @@ export async function getPlatformFeeConfig(tx?: DbClient): Promise<PlatformFeeCo
       ),
       vatDiscountRate: numVal('vat_discount_rate', DEFAULT_PLATFORM_CONFIG.vatDiscountRate),
       premiumRewardRate: numVal('premium_reward_rate', DEFAULT_PLATFORM_CONFIG.premiumRewardRate),
-      defaultMinNights: Math.max(
-        7,
-        Math.round(numVal('default_min_nights', DEFAULT_PLATFORM_CONFIG.defaultMinNights))
+      defaultMinNights: clampPlatformMinNights(
+        numVal('default_min_nights', DEFAULT_PLATFORM_CONFIG.defaultMinNights)
       ),
       fxRates,
     };
@@ -108,7 +108,7 @@ export async function updatePlatformFeeConfig(
       pairs.push(['premium_reward_rate', { value: input.premiumRewardRate }]);
     }
     if (typeof input.defaultMinNights === 'number') {
-      pairs.push(['default_min_nights', { value: Math.max(7, Math.round(input.defaultMinNights)) }]);
+      pairs.push(['default_min_nights', { value: clampPlatformMinNights(input.defaultMinNights) }]);
     }
     if (input.fxRates && typeof input.fxRates === 'object') {
       const mergedFx = { ...before.fxRates, ...input.fxRates };

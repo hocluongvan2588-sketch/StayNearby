@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth/session';
+import { HOST_MAX_NIGHTS, HOST_MIN_NIGHTS } from '@/lib/business-rules';
 import { AppError } from '@/lib/errors';
 import { errJson, okJson } from '@/lib/http';
 import { updateHostCalendarRange } from '@/modules/host-console';
@@ -10,7 +11,7 @@ const schema = z.object({
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   block: z.boolean().optional(),
   customNightlyVnd: z.number().min(0).max(500_000_000).nullable().optional(),
-  minNights: z.number().int().min(7).max(90).nullable().optional(),
+  minNights: z.number().int().min(HOST_MIN_NIGHTS).max(HOST_MAX_NIGHTS).nullable().optional(),
   note: z.string().max(120).optional(),
 });
 

@@ -1,5 +1,9 @@
 import { addDaysIso, enumerateStayNights, getTodayIsoVietnam, isValidIsoDate, isValidUuid } from '@/lib/dates';
 import { dbQuery, type DbClient, toNum } from '@/lib/db';
+import {
+  assertStayNightsBounds,
+  resolveEffectiveMinNights,
+} from '@/lib/business-rules';
 import { AppError } from '@/lib/errors';
 import { calculateStayQuote, type PromotionAdjustmentInput } from '@/lib/pricing';
 import { getPlatformFeeConfig } from '@/modules/platform-settings';
@@ -154,14 +158,15 @@ export async function previewBookingQuoteWithPromotion(params: {
   if (!isValidUuid(params.stayId) || !isValidUuid(params.roomId) || !isValidUuid(params.packageId)) {
     throw new AppError('VALIDATION_ERROR', 'Invalid stay, room, or package ID.');
   }
-  if (!isValidIsoDate(params.checkIn) || !Number.isInteger(params.nights) || params.nights < 7) {
-    throw new AppError('VALIDATION_ERROR', 'Valid check-in date and at least 7 nights required.');
+  if (!isValidIsoDate(params.checkIn) || !Number.isInteger(params.nights)) {
+    throw new AppError('VALIDATION_ERROR', 'Valid check-in date and stay length required.');
   }
+  assertStayNightsBounds(params.nights);
 
   const checkOut = addDaysIso(params.checkIn, params.nights);
   const nightDates = enumerateStayNights(params.checkIn, checkOut);
 
-  const [pkgRes, lockRes, platformConfig] = await Promise.all([
+  const [pkgRes, lockRes, stayRes, platformConfig] = await Promise.all([
     dbQuery<{
       wholesale_7_vnd: string | number;
       wholesale_14_vnd: string | number;
@@ -176,16 +181,32 @@ export async function previewBookingQuoteWithPromotion(params: {
        WHERE p.id = $1 AND p.room_id = $2 AND p.stay_id = $3 AND p.is_listed = TRUE`,
       [params.packageId, params.roomId, params.stayId]
     ),
-    dbQuery<{ stay_date: string | Date; custom_nightly_vnd: string | number | null }>(
-      `SELECT stay_date, custom_nightly_vnd FROM room_night_locks
+    dbQuery<{ stay_date: string | Date; custom_nightly_vnd: string | number | null; min_nights: number | null }>(
+      `SELECT stay_date, custom_nightly_vnd, min_nights FROM room_night_locks
        WHERE room_id = $1 AND stay_date >= $2::date AND stay_date < $3::date`,
       [params.roomId, params.checkIn, checkOut]
+    ),
+    dbQuery<{ default_min_nights: number | null }>(
+      `SELECT default_min_nights FROM stays WHERE id = $1`,
+      [params.stayId]
     ),
     getPlatformFeeConfig(),
   ]);
 
   const pkg = pkgRes.rows[0];
   if (!pkg) throw new AppError('NOT_FOUND', 'Stay package not found.');
+
+  const requiredMinNights = resolveEffectiveMinNights({
+    platformMinNights: platformConfig.defaultMinNights,
+    stayMinNights: stayRes.rows[0]?.default_min_nights ?? null,
+    lockMinNights: lockRes.rows.map((r) => r.min_nights),
+  });
+  if (params.nights < requiredMinNights) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      `Selected dates require a minimum stay of ${requiredMinNights} nights.`
+    );
+  }
 
   const overrideMap = new Map<string, number | null>();
   for (const r of lockRes.rows) {

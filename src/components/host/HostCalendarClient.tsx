@@ -15,6 +15,7 @@ import {
   Tag,
   Unlock,
 } from 'lucide-react';
+import { clampHostMinNights } from '@/lib/business-rules';
 import { formatVndExact } from '@/lib/i18n';
 import { usePreferences } from '@/components/PreferencesProvider';
 import type { HostCalendarData } from '@/modules/host-console';
@@ -178,7 +179,7 @@ export function HostCalendarClient({
         payload.customNightlyVnd = Number(customPrice);
       }
       if (minNights.trim() !== '') {
-        payload.minNights = Math.max(7, Number(minNights));
+        payload.minNights = clampHostMinNights(Number(minNights));
       }
       if (note.trim() !== '') {
         payload.note = note.trim();

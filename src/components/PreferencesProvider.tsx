@@ -8,6 +8,7 @@ import {
   type CurrencyCode,
   type Locale,
 } from '@/lib/i18n';
+import { POLICY_MIN_NIGHTS } from '@/lib/business-rules';
 import type { StayCardItem } from '@/modules/catalog';
 
 export type FxRatesMap = Record<string, number>;
@@ -26,7 +27,7 @@ const DEFAULT_PLATFORM_CONFIG: ClientPlatformConfig = {
   hostCommissionRate: 0,
   vatDiscountRate: 0.05,
   premiumRewardRate: 0.04,
-  defaultMinNights: 7,
+  defaultMinNights: POLICY_MIN_NIGHTS,
   fxRates: Object.fromEntries(
     Object.values(CURRENCY_MAP).map((m) => [m.code, m.vndPerUnit])
   ),

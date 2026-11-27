@@ -1,7 +1,9 @@
 import { getCurrentUser } from '@/lib/auth/session';
+import { clampStayNights } from '@/lib/business-rules';
 import { addDaysIso, getTodayIsoVietnam } from '@/lib/dates';
 import { dbQuery } from '@/lib/db';
 import { getDestinations, getLifestyles, searchStays } from '@/modules/catalog';
+import { getPlatformFeeConfig } from '@/modules/platform-settings';
 import { SearchStaysClient } from '@/components/SearchStaysClient';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +19,11 @@ export default async function StaysPage({
   const destination = pick('destination') || 'all';
   const lifestyle = pick('lifestyle') || 'all';
   const checkIn = pick('checkIn') || addDaysIso(getTodayIsoVietnam(), 7);
-  const nights = Math.max(7, Number(pick('nights') || '30') || 30);
+  const platformConfig = await getPlatformFeeConfig();
+  const nights = clampStayNights(
+    Number(pick('nights') || '30') || 30,
+    platformConfig.defaultMinNights
+  );
   const minWifi = pick('minWifi');
   const wifiVerified = pick('wifiVerified') === '1';
   const workReady = pick('workReady') === '1';
