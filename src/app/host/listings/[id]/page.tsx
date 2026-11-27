@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/session';
+import { getDestinations } from '@/modules/catalog';
 import { getHostConsoleData } from '@/modules/host';
 import { HostListingEditorClient } from '@/components/host/HostListingEditorClient';
 
@@ -15,9 +16,12 @@ export default async function HostListingEditorPage({
     redirect('/login?next=/host/listings');
   }
   const { id } = await params;
-  const data = await getHostConsoleData(user);
+  const [data, destinations] = await Promise.all([
+    getHostConsoleData(user),
+    getDestinations(),
+  ]);
   const stay = data.stays.find((s) => s.id === id);
   if (!stay) notFound();
 
-  return <HostListingEditorClient initialStay={stay} />;
+  return <HostListingEditorClient initialStay={stay} destinations={destinations} />;
 }

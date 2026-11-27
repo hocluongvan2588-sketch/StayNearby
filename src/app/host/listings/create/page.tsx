@@ -1,15 +1,17 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/session';
-import { getDestinations } from '@/modules/catalog';
-import { getHostConsoleData } from '@/modules/host';
-import { HostListingWizardCreateClient } from '@/components/host/HostListingWizardCreateClient';
+import { createDraftStay, getHostConsoleData } from '@/modules/host';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * New listing wizard (Phase 3) — onboarding on real draft stays.
- * `?stay=<id>` resumes an existing draft stay (autosaved step + data).
- * The legacy wizard at /host/listings/new stays untouched until Phase 5.
+ * Create listing entry (post Phase 5) — starts a REAL draft stay immediately
+ * (Listing ID assigned right away) and drops the host straight into the
+ * section-based Listing Editor: the exact same interface used to edit
+ * existing listings (no step-by-step wizard).
+ *
+ * `?stay=<id>` resumes an existing draft by opening its editor.
+ * The legacy step wizard stays available at /host/listings/new.
  */
 export default async function HostCreateListingPage({
   searchParams,
@@ -21,20 +23,18 @@ export default async function HostCreateListingPage({
     redirect('/login?next=/host/listings/create');
   }
   const sp = await searchParams;
-  const [destinations, data] = await Promise.all([
-    getDestinations(),
-    getHostConsoleData(user),
-  ]);
-  const stay = sp.stay ? (data.stays.find((s) => s.id === sp.stay) ?? null) : null;
-  if (sp.stay && !stay) {
-    redirect('/host/listings');
+  if (sp.stay) {
+    const data = await getHostConsoleData(user);
+    const stay = data.stays.find((s) => s.id === sp.stay);
+    redirect(stay ? `/host/listings/${stay.id}` : '/host/listings');
   }
 
-  return (
-    <HostListingWizardCreateClient
-      destinations={destinations}
-      initialStay={stay}
-      hostName={user.fullName}
-    />
-  );
+  let stayId: string;
+  try {
+    const stay = await createDraftStay(user);
+    stayId = stay.id;
+  } catch {
+    redirect('/host/listings');
+  }
+  redirect(`/host/listings/${stayId}`);
 }

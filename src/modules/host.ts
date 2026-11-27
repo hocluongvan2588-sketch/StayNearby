@@ -245,6 +245,7 @@ export async function getHostConsoleData(user: SessionUser) {
         exactAddress: String(s.exact_address),
         checkinInstructionsEn: String(s.checkin_instructions_en),
         checkinInstructionsVi: String(s.checkin_instructions_vi),
+        destinationId: String(s.destination_id),
         destinationNameEn: String(s.destination_name_en),
         destinationNameVi: String(s.destination_name_vi),
         propertyType: String(s.property_type) as

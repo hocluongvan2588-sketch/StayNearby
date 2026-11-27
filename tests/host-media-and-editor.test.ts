@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { SessionUser } from '@/lib/auth/session';
 import { closeDb, dbQuery, ensureDbReady } from '@/lib/db';
+import { SEED_IDS } from '@/lib/db/seed-data';
 import {
   deleteStayUploadedMedia,
   normalizeSafeUploadSegments,
@@ -213,5 +214,32 @@ describe('Host Media Storage & Full Stay/Room Editor', () => {
     });
     const delOut = await deleteHostStayRoom(host, stay.id, tempRoom.roomId);
     expect(delOut.ok).toBe(true);
+  });
+
+  it('moves listing destination via destinationId (editor Location section)', async () => {
+    const host = await fetchUser('host@vietnomad.demo');
+    const hostData = await getHostConsoleData(host);
+    const stay = hostData.stays[0]!;
+    expect(stay.destinationId).toBeTruthy();
+
+    await updateHostStayConfiguration(host, stay.id, {
+      destinationId: SEED_IDS.destinations.hanoi,
+    });
+
+    const row = await dbQuery<{ destination_id: string; map_x: number; map_y: number }>(
+      'SELECT destination_id, map_x, map_y FROM stays WHERE id = $1',
+      [stay.id]
+    );
+    expect(row.rows[0]!.destination_id).toBe(SEED_IDS.destinations.hanoi);
+    const dest = await dbQuery<{ map_x: number; map_y: number }>(
+      'SELECT map_x, map_y FROM destinations WHERE id = $1',
+      [SEED_IDS.destinations.hanoi]
+    );
+    expect(Number(row.rows[0]!.map_x)).toBe(Number(dest.rows[0]!.map_x));
+    expect(Number(row.rows[0]!.map_y)).toBe(Number(dest.rows[0]!.map_y));
+
+    const after = await getHostConsoleData(host);
+    const moved = after.stays.find((s) => s.id === stay.id)!;
+    expect(moved.destinationId).toBe(SEED_IDS.destinations.hanoi);
   });
 });
