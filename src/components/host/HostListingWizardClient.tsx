@@ -6,15 +6,42 @@ import { useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
+  Building2,
   CheckCircle2,
+  Home,
+  Hotel,
+  Leaf,
   Loader2,
   Save,
   Send,
+  Users,
 } from 'lucide-react';
 import { usePreferences } from '@/components/PreferencesProvider';
 import type { DestinationSummary } from '@/modules/catalog';
 
 const TOTAL_STEPS = 6;
+
+const PROPERTY_TYPE_OPTIONS = [
+  { value: 'apartment', label: 'Serviced Apartment', icon: Building2 },
+  { value: 'coliving', label: 'Coliving House', icon: Users },
+  { value: 'boutique_hotel', label: 'Boutique Hotel', icon: Hotel },
+  { value: 'villa', label: 'Villa', icon: Home },
+  { value: 'eco_lodge', label: 'Eco Lodge', icon: Leaf },
+] as const;
+
+const KITCHEN_OPTIONS = [
+  { value: 'full', en: 'Full private kitchen', vi: 'Bếp nấu riêng đầy đủ' },
+  { value: 'kitchenette', en: 'Kitchenette', vi: 'Bếp nhỏ (Kitchenette)' },
+  { value: 'shared', en: 'Shared kitchen', vi: 'Bếp dùng chung' },
+  { value: 'none', en: 'No kitchen', vi: 'Không có bếp' },
+] as const;
+
+const LAUNDRY_OPTIONS = [
+  { value: 'in_unit', en: 'In-unit washer', vi: 'Máy giặt trong phòng' },
+  { value: 'building', en: 'Shared building laundry', vi: 'Giặt chung trong tòa nhà' },
+  { value: 'service', en: 'Laundry service nearby', vi: 'Dịch vụ giặt ủi' },
+  { value: 'none', en: 'None', vi: 'Không có' },
+] as const;
 
 export interface WizardFormState {
   businessName: string;
@@ -176,84 +203,137 @@ export function HostListingWizardClient({
   const pct = Math.round((step / TOTAL_STEPS) * 100);
   const destLabel = destinations.find((d) => d.slug === form.destinationSlug);
 
+  const stepTitle =
+    step === 1
+      ? isVi
+        ? '1. Loại hình & Điểm đến'
+        : '1. Property Type & Destination'
+      : step === 2
+        ? isVi
+          ? '2. Tên chỗ ở & Thương hiệu chủ nhà'
+          : '2. Residence & Host Name'
+        : step === 3
+          ? isVi
+            ? '3. Tiện nghi sinh hoạt cơ bản'
+            : '3. Kitchen & Laundry Facilities'
+          : step === 4
+            ? isVi
+              ? '4. Wi-Fi & Góc làm việc (Hoàn toàn tùy chọn)'
+              : '4. Optional Wi-Fi & Workspace'
+            : step === 5
+              ? isVi
+                ? `5. Giá tham khảo (${hostCommissionPct}% hoa hồng chủ nhà)`
+                : `5. Target Rate (${hostCommissionPct}% Host Commission)`
+              : isVi
+                ? '6. Kiểm tra & Gửi duyệt hồ sơ chỗ ở'
+                : '6. Review & Submit Listing';
+
+  const inputClass =
+    'w-full rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3.5 py-2.5 text-sm text-[#17221E] outline-none transition placeholder:text-[#8A9691] focus:border-[#164E3F] focus:bg-white';
+  const labelClass = 'mb-1.5 block text-xs font-semibold text-[#53635D]';
+
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between text-xs">
+    <div className="mx-auto max-w-3xl space-y-6 px-4 pb-16 pt-8 sm:px-6">
+      {/* Progress header */}
+      <div className="space-y-3.5">
+        <div className="flex items-center justify-between gap-3">
           <Link
             href="/host/listings"
-            className="inline-flex items-center gap-1.5 font-medium text-[#53635D] hover:text-[#17221E]"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#E5DFD3] bg-white px-3.5 py-1.5 text-xs font-semibold text-[#53635D] transition hover:bg-[#FAF8F3] hover:text-[#17221E]"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             {isVi ? 'Quay lại Chỗ ở' : 'Back to Listings'}
           </Link>
-          <span className="font-semibold text-[#164E3F]">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
             {isVi ? `Bước ${step} / ${TOTAL_STEPS}` : `Step ${step} of ${TOTAL_STEPS}`}
           </span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#E5DFD3]">
-          <div
-            className="h-full bg-[#164E3F] transition-all duration-300"
-            style={{ width: `${pct}%` }}
-          />
+        <div
+          className="flex gap-1.5"
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={isVi ? 'Tiến trình đăng chỗ ở' : 'Listing progress'}
+        >
+          {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+            <div
+              key={i}
+              className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                i < step ? 'bg-[#164E3F]' : 'bg-[#E5DFD3]'
+              }`}
+            />
+          ))}
         </div>
       </div>
 
       {notice && (
-        <div className="flex items-center gap-2 rounded-xl border border-[#164E3F]/30 bg-[#E7F1EC] px-4 py-2.5 text-xs font-medium text-[#164E3F]">
+        <div className="flex items-center gap-2 rounded-xl border border-[#164E3F]/30 bg-[#E7F1EC] px-4 py-3 text-sm font-medium text-[#164E3F]">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span>{notice}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="rounded-xl border border-[#C25E28]/40 bg-[#FAEDE5] px-4 py-2.5 text-xs font-medium text-[#C25E28]">
+        <div className="rounded-xl border border-[#C25E28]/40 bg-[#FAEDE5] px-4 py-3 text-sm font-medium text-[#C25E28]">
           {errorMsg}
         </div>
       )}
 
-      <div className="space-y-5 rounded-xl border border-[#E5DFD3] bg-white p-6 text-xs">
+      <div className="space-y-5 rounded-2xl border border-[#E5DFD3] bg-white p-6 text-sm lacquer-shadow sm:p-8">
+        {/* Editorial step heading */}
+        <div className="space-y-1.5 border-b border-[#E5DFD3] pb-5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#164E3F]">
+            {isVi ? `Bước ${step} trên ${TOTAL_STEPS}` : `Step ${step} of ${TOTAL_STEPS}`}
+          </p>
+          <h1 className="font-serif-display text-2xl font-semibold leading-tight tracking-tight text-[#17221E] sm:text-3xl">
+            {stepTitle}
+          </h1>
+        </div>
+
         {step === 1 && (
           <div className="space-y-4">
-            <h1 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? '1. Loại hình & Điểm đến' : '1. Property Type & Destination'}
-            </h1>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">
-                  {isVi ? 'Điểm đến tại Việt Nam' : 'Destination'}
-                </label>
-                <select
-                  value={form.destinationSlug}
-                  onChange={(e) => setForm({ ...form, destinationSlug: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5"
-                >
-                  {destinations.map((d) => (
-                    <option key={d.slug} value={d.slug}>
-                      {isVi ? d.nameVi : d.nameEn}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">
-                  {isVi ? 'Loại hình chỗ ở' : 'Property type'}
-                </label>
-                <select
-                  value={form.propertyType}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      propertyType: e.target.value as WizardFormState['propertyType'],
-                    })
-                  }
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5"
-                >
-                  <option value="apartment">Serviced Apartment</option>
-                  <option value="coliving">Coliving House</option>
-                  <option value="boutique_hotel">Boutique Hotel</option>
-                  <option value="villa">Villa</option>
-                  <option value="eco_lodge">Eco Lodge</option>
-                </select>
+            <div>
+              <label className={labelClass}>
+                {isVi ? 'Điểm đến tại Việt Nam' : 'Destination'}
+              </label>
+              <select
+                value={form.destinationSlug}
+                onChange={(e) => setForm({ ...form, destinationSlug: e.target.value })}
+                className={`${inputClass} font-medium`}
+              >
+                {destinations.map((d) => (
+                  <option key={d.slug} value={d.slug}>
+                    {isVi ? d.nameVi : d.nameEn}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>
+                {isVi ? 'Loại hình chỗ ở' : 'Property type'}
+              </label>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {PROPERTY_TYPE_OPTIONS.map(({ value, label, icon: Icon }) => {
+                  const active = form.propertyType === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => setForm({ ...form, propertyType: value })}
+                      className={`flex items-center gap-2.5 rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                        active
+                          ? 'border-[#164E3F]/40 bg-[#E7F1EC] text-[#164E3F]'
+                          : 'border-[#E5DFD3] bg-white text-[#17221E] hover:bg-[#FAF8F3]'
+                      }`}
+                    >
+                      <Icon
+                        className={`h-4 w-4 shrink-0 ${active ? 'text-[#164E3F]' : 'text-[#53635D]'}`}
+                      />
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -261,41 +341,36 @@ export function HostListingWizardClient({
 
         {step === 2 && (
           <div className="space-y-4">
-            <h1 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? '2. Tên chỗ ở & Thương hiệu chủ nhà' : '2. Residence & Host Name'}
-            </h1>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">
-                  {isVi ? 'Tên chỗ ở' : 'Property / Stay name'}
-                </label>
+                <label className={labelClass}>{isVi ? 'Tên chỗ ở' : 'Property / Stay name'}</label>
                 <input
                   value={form.stayName}
                   onChange={(e) => setForm({ ...form, stayName: e.target.value })}
                   placeholder={isVi ? 'Ví dụ: Han River Sunlit Studio' : 'e.g., Han River Sunlit Studio'}
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5 outline-none focus:border-[#164E3F]"
+                  className={inputClass}
                 />
               </div>
               <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">
+                <label className={labelClass}>
                   {isVi ? 'Tên đơn vị / Chủ nhà' : 'Host / Business name'}
                 </label>
                 <input
                   value={form.businessName}
                   onChange={(e) => setForm({ ...form, businessName: e.target.value })}
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5 outline-none focus:border-[#164E3F]"
+                  className={inputClass}
                 />
               </div>
             </div>
             <div>
-              <label className="mb-1 block font-semibold text-[#17221E]">
+              <label className={labelClass}>
                 {isVi ? 'Ghi chú giới thiệu chỗ ở (tùy chọn)' : 'Short listing summary (optional)'}
               </label>
               <textarea
                 rows={3}
                 value={form.descriptionNote}
                 onChange={(e) => setForm({ ...form, descriptionNote: e.target.value })}
-                className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 outline-none focus:border-[#164E3F]"
+                className={`${inputClass} resize-y`}
               />
             </div>
           </div>
@@ -303,49 +378,60 @@ export function HostListingWizardClient({
 
         {step === 3 && (
           <div className="space-y-4">
-            <h1 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? '3. Tiện nghi sinh hoạt cơ bản' : '3. Kitchen & Laundry Facilities'}
-            </h1>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">
-                  {isVi ? 'Khu vực bếp' : 'Kitchen setup'}
-                </label>
-                <select
-                  value={form.kitchenType}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      kitchenType: e.target.value as WizardFormState['kitchenType'],
-                    })
-                  }
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5"
-                >
-                  <option value="full">{isVi ? 'Bếp nấu riêng đầy đủ' : 'Full private kitchen'}</option>
-                  <option value="kitchenette">{isVi ? 'Bếp nhỏ (Kitchenette)' : 'Kitchenette'}</option>
-                  <option value="shared">{isVi ? 'Bếp dùng chung' : 'Shared kitchen'}</option>
-                  <option value="none">{isVi ? 'Không có bếp' : 'No kitchen'}</option>
-                </select>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{isVi ? 'Khu vực bếp' : 'Kitchen setup'}</label>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {KITCHEN_OPTIONS.map(({ value, en, vi }) => {
+                  const active = form.kitchenType === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          kitchenType: value as WizardFormState['kitchenType'],
+                        })
+                      }
+                      className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                        active
+                          ? 'border-[#164E3F]/40 bg-[#E7F1EC] text-[#164E3F]'
+                          : 'border-[#E5DFD3] bg-white text-[#17221E] hover:bg-[#FAF8F3]'
+                      }`}
+                    >
+                      {isVi ? vi : en}
+                    </button>
+                  );
+                })}
               </div>
-              <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">
-                  {isVi ? 'Giặt sấy' : 'Laundry access'}
-                </label>
-                <select
-                  value={form.laundryType}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      laundryType: e.target.value as WizardFormState['laundryType'],
-                    })
-                  }
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5"
-                >
-                  <option value="in_unit">{isVi ? 'Máy giặt trong phòng' : 'In-unit washer'}</option>
-                  <option value="building">{isVi ? 'Giặt chung trong tòa nhà' : 'Shared building laundry'}</option>
-                  <option value="service">{isVi ? 'Dịch vụ giặt ủi' : 'Laundry service nearby'}</option>
-                  <option value="none">{isVi ? 'Không có' : 'None'}</option>
-                </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{isVi ? 'Giặt sấy' : 'Laundry access'}</label>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                {LAUNDRY_OPTIONS.map(({ value, en, vi }) => {
+                  const active = form.laundryType === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          laundryType: value as WizardFormState['laundryType'],
+                        })
+                      }
+                      className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
+                        active
+                          ? 'border-[#164E3F]/40 bg-[#E7F1EC] text-[#164E3F]'
+                          : 'border-[#E5DFD3] bg-white text-[#17221E] hover:bg-[#FAF8F3]'
+                      }`}
+                    >
+                      {isVi ? vi : en}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -353,16 +439,13 @@ export function HostListingWizardClient({
 
         {step === 4 && (
           <div className="space-y-4">
-            <h1 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? '4. Wi-Fi & Góc làm việc (Hoàn toàn tùy chọn)' : '4. Optional Wi-Fi & Workspace'}
-            </h1>
-            <p className="rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] p-3 text-[#53635D]">
+            <p className="rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] p-3.5 text-sm leading-relaxed text-[#53635D]">
               {isVi
                 ? 'Không bắt buộc phải có bàn làm việc hay Wi-Fi tốc độ cao để đăng chỗ ở. Chỉ đánh dấu nếu thực tế phòng bạn có sẵn.'
                 : 'Wi-Fi speed and workspace gear are completely optional. Select only what your space actually offers.'}
             </p>
             <div>
-              <label className="mb-1 block font-semibold text-[#17221E]">
+              <label className={labelClass}>
                 {isVi ? 'Tốc độ tải xuống ước tính (Mbps, tùy chọn)' : 'Estimated download speed (Mbps, optional)'}
               </label>
               <input
@@ -371,93 +454,89 @@ export function HostListingWizardClient({
                 value={form.measuredDownloadMbps}
                 onChange={(e) => setForm({ ...form, measuredDownloadMbps: e.target.value })}
                 placeholder={isVi ? 'Để trống nếu không công bố' : 'Leave empty if not applicable'}
-                className="w-full max-w-xs rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5"
+                className={`${inputClass} max-w-[14rem]`}
               />
             </div>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <label className="flex items-center gap-2 rounded-lg border border-[#E5DFD3] px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={form.hasWorkspace}
-                  onChange={(e) => setForm({ ...form, hasWorkspace: e.target.checked })}
-                />
-                {isVi ? 'Có bàn làm việc' : 'Dedicated desk'}
-              </label>
-              <label className="flex items-center gap-2 rounded-lg border border-[#E5DFD3] px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={form.hasErgonomicChair}
-                  onChange={(e) => setForm({ ...form, hasErgonomicChair: e.target.checked })}
-                />
-                {isVi ? 'Ghế ngồi thoải mái' : 'Ergonomic chair'}
-              </label>
-              <label className="flex items-center gap-2 rounded-lg border border-[#E5DFD3] px-3 py-2.5">
-                <input
-                  type="checkbox"
-                  checked={form.hasExternalMonitor}
-                  onChange={(e) => setForm({ ...form, hasExternalMonitor: e.target.checked })}
-                />
-                {isVi ? 'Có màn hình rời' : 'External monitor'}
-              </label>
+            <div className="grid gap-2.5 sm:grid-cols-3">
+              {(
+                [
+                  { key: 'hasWorkspace', label: isVi ? 'Có bàn làm việc' : 'Dedicated desk' },
+                  { key: 'hasErgonomicChair', label: isVi ? 'Ghế ngồi thoải mái' : 'Ergonomic chair' },
+                  { key: 'hasExternalMonitor', label: isVi ? 'Có màn hình rời' : 'External monitor' },
+                ] as const
+              ).map(({ key, label }) => {
+                const active = form[key];
+                return (
+                  <label
+                    key={key}
+                    className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                      active
+                        ? 'border-[#164E3F]/40 bg-[#E7F1EC] text-[#164E3F]'
+                        : 'border-[#E5DFD3] bg-white text-[#17221E] hover:bg-[#FAF8F3]'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
+                      className="h-4 w-4 shrink-0 accent-[#164E3F]"
+                    />
+                    {label}
+                  </label>
+                );
+              })}
             </div>
           </div>
         )}
 
         {step === 5 && (
-          <div className="space-y-4">
-            <h1 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? `5. Giá tham khảo (${hostCommissionPct}% hoa hồng chủ nhà)` : `5. Target Rate (${hostCommissionPct}% Host Commission)`}
-            </h1>
-            <div>
-              <label className="mb-1 block font-semibold text-[#17221E]">
-                {isVi ? 'Giá tham khảo mỗi đêm (VND)' : 'Target nightly rate (VND)'}
-              </label>
-              <input
-                type="number"
-                step={50000}
-                value={form.nightlyEstimateVnd}
-                onChange={(e) => setForm({ ...form, nightlyEstimateVnd: e.target.value })}
-                className="w-full max-w-xs rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2.5"
-              />
-              <p className="mt-1.5 text-[#53635D]">
-                {isVi
-                  ? 'Sau khi nộp, bạn có thể tinh chỉnh giá chi tiết 7/14/21/30 đêm, giá từng ngày trên Lịch và tải ảnh độ phân giải cao trong trình chỉnh sửa 10 phần.'
-                  : 'Once submitted, you can upload photos, customize 7/14/21/30-night package rates, and configure daily calendar pricing inside the 10-section Editor.'}
-              </p>
-            </div>
+          <div className="space-y-1.5">
+            <label className={labelClass}>
+              {isVi ? 'Giá tham khảo mỗi đêm (VND)' : 'Target nightly rate (VND)'}
+            </label>
+            <input
+              type="number"
+              step={50000}
+              value={form.nightlyEstimateVnd}
+              onChange={(e) => setForm({ ...form, nightlyEstimateVnd: e.target.value })}
+              className={`${inputClass} max-w-[14rem] font-semibold`}
+            />
+            <p className="text-sm leading-relaxed text-[#53635D]">
+              {isVi
+                ? 'Sau khi nộp, bạn có thể tinh chỉnh giá chi tiết 7/14/21/30 đêm, giá từng ngày trên Lịch và tải ảnh độ phân giải cao trong trình chỉnh sửa 10 phần.'
+                : 'Once submitted, you can upload photos, customize 7/14/21/30-night package rates, and configure daily calendar pricing inside the 10-section Editor.'}
+            </p>
           </div>
         )}
 
         {step === 6 && (
-          <div className="space-y-4">
-            <h1 className="font-serif-display text-2xl font-semibold text-[#17221E]">
-              {isVi ? '6. Kiểm tra & Gửi duyệt hồ sơ chỗ ở' : '6. Review & Submit Listing'}
-            </h1>
-            <div className="space-y-2 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] p-4">
-              <div className="text-sm font-semibold text-[#17221E]">
-                {form.stayName || 'Untitled Residence'}
-              </div>
-              <div className="text-[#53635D]">
-                {form.businessName} ·{' '}
-                {destLabel ? (isVi ? destLabel.nameVi : destLabel.nameEn) : form.destinationSlug} ·{' '}
-                {form.propertyType}
-              </div>
-              <div className="text-[#164E3F] font-semibold">
+          <div className="space-y-3 rounded-2xl border border-[#E5DFD3] bg-[#FAF8F3] p-5">
+            <div className="font-serif-display text-xl font-semibold tracking-tight text-[#17221E]">
+              {form.stayName || 'Untitled Residence'}
+            </div>
+            <div className="text-sm text-[#53635D]">
+              {form.businessName} ·{' '}
+              {destLabel ? (isVi ? destLabel.nameVi : destLabel.nameEn) : form.destinationSlug} ·{' '}
+              {form.propertyType}
+            </div>
+            <div className="flex items-start gap-2 rounded-xl border border-[#164E3F]/20 bg-[#E7F1EC] px-3.5 py-2.5 text-sm font-semibold text-[#164E3F]">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
                 {isVi
                   ? `${hostCommissionPct}% hoa hồng chủ nhà. Thu trực tiếp 100% tiền thuê khi khách nhận phòng.`
                   : `${hostCommissionPct}% host commission. Collect 100% of your room rate at check-in.`}
-              </div>
+              </span>
             </div>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5DFD3] pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5DFD3] pt-5">
           <div className="flex items-center gap-2">
             {step > 1 && (
               <button
                 type="button"
                 onClick={() => setStep((s) => Math.max(1, s - 1))}
-                className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-white px-3.5 py-2 font-semibold text-[#17221E] hover:bg-[#FAF8F3]"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E5DFD3] bg-white px-4 py-2.5 text-sm font-semibold text-[#17221E] transition hover:bg-[#FAF8F3]"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 {isVi ? 'Quay lại' : 'Back'}
@@ -467,7 +546,7 @@ export function HostListingWizardClient({
               type="button"
               disabled={saving}
               onClick={() => saveDraft(step, false)}
-              className="inline-flex items-center gap-1 rounded-lg border border-[#E5DFD3] bg-white px-3.5 py-2 font-medium text-[#53635D] hover:bg-[#FAF8F3]"
+              className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium text-[#53635D] transition hover:bg-[#FAF8F3] hover:text-[#17221E] disabled:opacity-60"
             >
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               {isVi ? 'Lưu nháp' : 'Save draft'}
@@ -479,7 +558,7 @@ export function HostListingWizardClient({
               type="button"
               disabled={saving}
               onClick={goNext}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#164E3F] px-4 py-2 font-semibold text-white hover:bg-[#0F392E]"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#164E3F] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0F392E] disabled:opacity-60"
             >
               {isVi ? 'Tiếp tục' : 'Next'}
               <ArrowRight className="h-3.5 w-3.5" />
@@ -489,7 +568,7 @@ export function HostListingWizardClient({
               type="button"
               disabled={publishing}
               onClick={handlePublish}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#164E3F] px-5 py-2.5 font-semibold text-white hover:bg-[#0F392E] disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#164E3F] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0F392E] disabled:opacity-60"
             >
               {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               {isVi ? 'Gửi duyệt đăng chỗ ở' : 'Submit listing'}
