@@ -17,6 +17,7 @@ import {
   formatCancellationPolicyLabel,
   formatCountNoun,
   formatNightsLabel,
+  formatStayLocationLabel,
   type Locale,
 } from '@/lib/i18n';
 import type { StayGuestReviewItem, StayRoomDetail } from '@/modules/catalog';
@@ -172,117 +173,6 @@ export function StayGuestReviewsSection({
 
   return (
     <div className="divide-y divide-[#E5DFD3]">
-      {/* Section 10: Policies & House Rules (Open Section Layout, no Cards) */}
-      <section className="py-10">
-        <h2 className="text-[22px] font-semibold tracking-tight text-[#17221E] sm:text-[24px]">
-          {isVi ? 'Những điều cần biết' : 'Things to know'}
-        </h2>
-
-        <div className="mt-6 grid gap-8 md:grid-cols-3">
-          {/* Column 1: House Rules */}
-          <div className="space-y-3 text-sm">
-            <h3 className="text-base font-semibold text-[#17221E]">
-              {isVi ? 'Nội quy chỗ ở' : 'House rules'}
-            </h3>
-            <ul className="space-y-2.5 text-[#53635D]">
-              <li className="flex items-center gap-2">
-                <Clock className="h-4 w-4 shrink-0 text-[#17221E]" />
-                <span>
-                  {isVi ? `Nhận phòng từ ${checkinFrom}` : `Check-in after ${checkinFrom}`}
-                </span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Clock className="h-4 w-4 shrink-0 text-[#17221E]" />
-                <span>
-                  {isVi ? `Trả phòng trước ${checkoutBefore}` : `Check-out before ${checkoutBefore}`}
-                </span>
-              </li>
-              <li className="flex items-center gap-2">
-                <Shield className="h-4 w-4 shrink-0 text-[#17221E]" />
-                <span>
-                  {isVi
-                    ? `Tối thiểu ${formatNightsLabel(defaultMinNights, locale)}`
-                    : `Minimum stay: ${formatNightsLabel(defaultMinNights, locale)}`}
-                </span>
-              </li>
-              <li>
-                {houseRules.smokingAllowed
-                  ? isVi
-                    ? 'Cho phép hút thuốc'
-                    : 'Smoking allowed'
-                  : isVi
-                    ? 'Không hút thuốc trong phòng'
-                    : 'No smoking indoors'}
-              </li>
-              <li>
-                {houseRules.partiesAllowed
-                  ? isVi
-                    ? 'Cho phép tụ họp nhỏ'
-                    : 'Small gatherings allowed'
-                  : isVi
-                    ? 'Không tổ chức tiệc tùng'
-                    : 'No parties or events'}
-              </li>
-              {houseRules.quietHours && (
-                <li>
-                  {isVi
-                    ? `Giờ yên tĩnh: ${houseRules.quietHours}`
-                    : `Quiet hours: ${houseRules.quietHours}`}
-                </li>
-              )}
-              {(houseRules.petsNote || houseRules.extraGuestNote) && (
-                <li className="pt-1 text-xs">
-                  {[houseRules.petsNote, houseRules.extraGuestNote].filter(Boolean).join(' · ')}
-                </li>
-              )}
-            </ul>
-          </div>
-
-          {/* Column 2: Payment & Cancellation Policy */}
-          <div className="space-y-3 text-sm">
-            <h3 className="text-base font-semibold text-[#17221E]">
-              {isVi ? 'Chính sách hủy & Thanh toán' : 'Cancellation & payment'}
-            </h3>
-            <div className="space-y-2.5 leading-relaxed text-[#53635D]">
-              <p className="font-medium text-[#17221E]">
-                {formatCancellationPolicyLabel(cancellationPolicy, locale)}
-              </p>
-              <p>{policyDescription}</p>
-              <p>
-                {isVi
-                  ? `Thanh toán ${serviceFeePct}% phí dịch vụ online để giữ phòng. Phần tiền thuê trả trực tiếp cho chủ nhà khi nhận phòng.`
-                  : `Pay the ${serviceFeePct}% service fee online to lock your dates. Settle stay rent directly with your host at check-in.`}
-              </p>
-            </div>
-          </div>
-
-          {/* Column 3: Available Rooms / Configuration */}
-          <div className="space-y-3 text-sm">
-            <h3 className="text-base font-semibold text-[#17221E]">
-              {isVi ? 'Cấu hình phòng' : 'Room options'}
-            </h3>
-            <ul className="space-y-2.5 text-[#53635D]">
-              {rooms.map((rm) => {
-                const roomName = isVi ? rm.nameVi : rm.nameEn;
-                const specs = [
-                  formatCountNoun(rm.maxGuests, 'guest', 'guests', 'khách', locale),
-                  formatCountNoun(rm.bedsCount, 'bed', 'beds', 'giường', locale),
-                  rm.areaSqm ? `${rm.areaSqm} m²` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ');
-                return (
-                  <li key={rm.id}>
-                    <div className="font-medium text-[#17221E]">{roomName}</div>
-                    <div className="text-xs">{specs}</div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </div>
-      </section>
-
       {/* Section 11A: Guest Reviews (Open Section Layout) */}
       <section className="py-10">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -532,9 +422,7 @@ export function StayGuestReviewsSection({
             </h2>
             <div className="flex items-center gap-1.5 text-sm font-medium text-[#17221E]">
               <MapPin className="h-4 w-4 text-[#C25E28]" />
-              <span>
-                {[neighborhoodName, destinationName].filter(Boolean).join(', ')}
-              </span>
+              <span>{formatStayLocationLabel([neighborhoodName, destinationName])}</span>
             </div>
             {destinationTagline && (
               <p className="text-[15px] leading-relaxed text-[#53635D]">
@@ -567,6 +455,117 @@ export function StayGuestReviewsSection({
           </div>
         </div>
       </section>
+      {/* Section 10: Policies & House Rules (Open Section Layout, no Cards) */}
+      <section className="py-10">
+        <h2 className="text-[22px] font-semibold tracking-tight text-[#17221E] sm:text-[24px]">
+          {isVi ? 'Những điều cần biết' : 'Things to know'}
+        </h2>
+
+        <div className="mt-6 grid gap-8 md:grid-cols-3">
+          {/* Column 1: House Rules */}
+          <div className="space-y-3 text-sm">
+            <h3 className="text-base font-semibold text-[#17221E]">
+              {isVi ? 'Nội quy chỗ ở' : 'House rules'}
+            </h3>
+            <ul className="space-y-2.5 text-[#53635D]">
+              <li className="flex items-center gap-2">
+                <Clock className="h-4 w-4 shrink-0 text-[#17221E]" />
+                <span>
+                  {isVi ? `Nhận phòng từ ${checkinFrom}` : `Check-in after ${checkinFrom}`}
+                </span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Clock className="h-4 w-4 shrink-0 text-[#17221E]" />
+                <span>
+                  {isVi ? `Trả phòng trước ${checkoutBefore}` : `Check-out before ${checkoutBefore}`}
+                </span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Shield className="h-4 w-4 shrink-0 text-[#17221E]" />
+                <span>
+                  {isVi
+                    ? `Tối thiểu ${formatNightsLabel(defaultMinNights, locale)}`
+                    : `Minimum stay: ${formatNightsLabel(defaultMinNights, locale)}`}
+                </span>
+              </li>
+              <li>
+                {houseRules.smokingAllowed
+                  ? isVi
+                    ? 'Cho phép hút thuốc'
+                    : 'Smoking allowed'
+                  : isVi
+                    ? 'Không hút thuốc trong phòng'
+                    : 'No smoking indoors'}
+              </li>
+              <li>
+                {houseRules.partiesAllowed
+                  ? isVi
+                    ? 'Cho phép tụ họp nhỏ'
+                    : 'Small gatherings allowed'
+                  : isVi
+                    ? 'Không tổ chức tiệc tùng'
+                    : 'No parties or events'}
+              </li>
+              {houseRules.quietHours && (
+                <li>
+                  {isVi
+                    ? `Giờ yên tĩnh: ${houseRules.quietHours}`
+                    : `Quiet hours: ${houseRules.quietHours}`}
+                </li>
+              )}
+              {(houseRules.petsNote || houseRules.extraGuestNote) && (
+                <li className="pt-1 text-xs">
+                  {[houseRules.petsNote, houseRules.extraGuestNote].filter(Boolean).join(' · ')}
+                </li>
+              )}
+            </ul>
+          </div>
+
+          {/* Column 2: Payment & Cancellation Policy */}
+          <div className="space-y-3 text-sm">
+            <h3 className="text-base font-semibold text-[#17221E]">
+              {isVi ? 'Chính sách hủy & Thanh toán' : 'Cancellation & payment'}
+            </h3>
+            <div className="space-y-2.5 leading-relaxed text-[#53635D]">
+              <p className="font-medium text-[#17221E]">
+                {formatCancellationPolicyLabel(cancellationPolicy, locale)}
+              </p>
+              <p>{policyDescription}</p>
+              <p>
+                {isVi
+                  ? `Thanh toán ${serviceFeePct}% phí dịch vụ online để giữ phòng. Phần tiền thuê trả trực tiếp cho chủ nhà khi nhận phòng.`
+                  : `Pay the ${serviceFeePct}% service fee online to lock your dates. Settle stay rent directly with your host at check-in.`}
+              </p>
+            </div>
+          </div>
+
+          {/* Column 3: Available Rooms / Configuration */}
+          <div className="space-y-3 text-sm">
+            <h3 className="text-base font-semibold text-[#17221E]">
+              {isVi ? 'Cấu hình phòng' : 'Room options'}
+            </h3>
+            <ul className="space-y-2.5 text-[#53635D]">
+              {rooms.map((rm) => {
+                const roomName = isVi ? rm.nameVi : rm.nameEn;
+                const specs = [
+                  formatCountNoun(rm.maxGuests, 'guest', 'guests', 'khách', locale),
+                  formatCountNoun(rm.bedsCount, 'bed', 'beds', 'giường', locale),
+                  rm.areaSqm ? `${rm.areaSqm} m²` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+                return (
+                  <li key={rm.id}>
+                    <div className="font-medium text-[#17221E]">{roomName}</div>
+                    <div className="text-xs">{specs}</div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      </section>
+
     </div>
   );
 }

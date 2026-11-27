@@ -19,7 +19,29 @@ Before creating, updating, or translating any UI copy, microcopy, labels, button
 4. **Never hardcode dynamic pricing or policy constants:** Always pull `serviceFeeRate`, `hostCommissionRate`, `vatDiscountRate`, `premiumRewardRate`, `fxRates`, and `defaultMinNights` from `platform_settings` / `usePreferences()`.
 5. **Never alter business logic, pricing formulas, legal policies, published URL slugs, or user-generated DB records** when updating UI copy.
 
-## 2. Engineering & Architecture Guardrails
+## 2. Guest Platform UI Principles (StayCard & Listing Detail)
+
+Before building or changing guest-facing layout (StayCard, listing detail,
+booking widget, Local Discovery), read `docs/UI_PRINCIPLES.md`. Highlights:
+
+1. **Badge Wi-Fi is the one intentional badge exception** — top-left on the
+   card image, speed only, real values only; never repeat the speed below the
+   image and never attach unverified claims.
+2. **Ratings have sources** — internal VietNomad reviews first, Google only as
+   a labelled fallback, never a default score.
+3. **Host-declared ≠ guest-rated ≠ VietNomad-verified** Wi-Fi — three distinct
+   display tiers, explained in `docs/UI_PRINCIPLES.md`.
+4. **Prices come from the pricing engine** — "7/14/21/30 đêm" labels, totals
+   include fees, payment split only on detail/checkout, never on cards.
+5. **No invented data** — missing Wi-Fi, ratings, hours, distances, and
+   amenities stay missing; localize via `src/lib/i18n.ts` formatters
+   (`formatStayLocationLabel`, `formatDistanceLabel`, `formatCountryLabel`,
+   `formatHostDisplayName`, `formatShortDateLabel`).
+6. **Local Discovery is interactive** — whole-card click opens the place
+   detail overlay (modal/bottom sheet) with keyboard support and preserved
+   scroll/booking state.
+
+## 3. Engineering & Architecture Guardrails
 
 - Keep database schema, payment/booking flows, RBAC guards (`requireAdminPermission`), and published routes/slugs stable unless explicitly asked to modify them.
 - Keep `src/lib/i18n.ts` and shared dictionaries synchronized for reusable UI copy across `en` and `vi`.

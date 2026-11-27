@@ -11,8 +11,8 @@ import {
   Star,
   Wifi,
 } from 'lucide-react';
-import type { Locale } from '@/lib/i18n';
-import { wifiStatusLabel, type WifiStatus } from '@/lib/wifi-status';
+import { formatShortDateLabel, type Locale } from '@/lib/i18n';
+import type { WifiStatus } from '@/lib/wifi-status';
 
 export function StayWorkspaceSection({
   hasWorkspace,
@@ -88,15 +88,13 @@ export function StayWorkspaceSection({
 
   const highlights: Array<{ icon: React.ReactNode; label: string }> = [];
   if (wifiDownloadMbps !== null && wifiDownloadMbps > 0) {
+    // Source of the figure is explained once inside "connection details" —
+    // never repeated on the default line.
     highlights.push({
       icon: <Wifi className="h-5 w-5 shrink-0 text-[#164E3F] stroke-[1.75]" />,
-      label: isWifiVerified
-        ? isVi
-          ? `Wi-Fi ${wifiDownloadMbps} Mbps (đã kiểm định thực tế)`
-          : `${wifiDownloadMbps} Mbps Wi-Fi (Independently verified)`
-        : isVi
-          ? `Wi-Fi ${wifiDownloadMbps} Mbps (do chủ nhà cung cấp)`
-          : `${wifiDownloadMbps} Mbps Wi-Fi (Host reported)`,
+      label: isVi
+        ? `Wi-Fi ${wifiDownloadMbps} Mbps`
+        : `Wi-Fi ${wifiDownloadMbps} Mbps`,
     });
   }
   if (hasWorkspace) {
@@ -211,11 +209,11 @@ export function StayWorkspaceSection({
                 <span>
                   {showTechnical
                     ? isVi
-                      ? 'Ẩn chi tiết kỹ thuật'
-                      : 'Hide technical details'
+                      ? 'Ẩn chi tiết kết nối'
+                      : 'Hide connection details'
                     : isVi
-                      ? 'Xem chi tiết kiểm tra tốc độ & kết nối'
-                      : 'View technical speed & setup details'}
+                      ? 'Xem chi tiết kết nối'
+                      : 'View connection details'}
                 </span>
                 {showTechnical ? (
                   <ChevronUp className="h-4 w-4" />
@@ -227,36 +225,72 @@ export function StayWorkspaceSection({
               {showTechnical && (
                 <div className="mt-4 space-y-2.5 border-l-2 border-[#E5DFD3] pl-4 text-sm text-[#53635D]">
                   {hasWifiSpeed && (
-                    <p>
-                      <span className="font-medium text-[#17221E]">
-                        {isVi ? 'Thông số mạng:' : 'Network metrics:'}
-                      </span>{' '}
-                      {wifiDownloadMbps !== null
-                        ? `${wifiDownloadMbps} Mbps ${isVi ? 'tải xuống' : 'download'}`
-                        : ''}
-                      {wifiUploadMbps !== null
-                        ? `${wifiDownloadMbps !== null ? ' · ' : ''}${wifiUploadMbps} Mbps ${isVi ? 'tải lên' : 'upload'}`
-                        : ''}
-                      {wifiPingMs !== null ? ` · ${wifiPingMs} ms ping` : ''}
-                      {wifiJitterMs !== null ? ` · ${wifiJitterMs} ms jitter` : ''}
-                    </p>
+                    <dl className="space-y-1">
+                      {wifiDownloadMbps !== null && (
+                        <div className="flex gap-2">
+                          <dt className="w-28 shrink-0 font-medium text-[#17221E]">
+                            {isVi ? 'Tải xuống:' : 'Download:'}
+                          </dt>
+                          <dd>{wifiDownloadMbps} Mbps</dd>
+                        </div>
+                      )}
+                      {wifiUploadMbps !== null && (
+                        <div className="flex gap-2">
+                          <dt className="w-28 shrink-0 font-medium text-[#17221E]">
+                            {isVi ? 'Tải lên:' : 'Upload:'}
+                          </dt>
+                          <dd>{wifiUploadMbps} Mbps</dd>
+                        </div>
+                      )}
+                      {wifiPingMs !== null && (
+                        <div className="flex gap-2">
+                          <dt className="w-28 shrink-0 font-medium text-[#17221E]">
+                            {isVi ? 'Ping:' : 'Ping:'}
+                          </dt>
+                          <dd>{wifiPingMs} ms</dd>
+                        </div>
+                      )}
+                      {wifiJitterMs !== null && (
+                        <div className="flex gap-2">
+                          <dt className="w-28 shrink-0 font-medium text-[#17221E]">
+                            {isVi ? 'Jitter:' : 'Jitter:'}
+                          </dt>
+                          <dd>{wifiJitterMs} ms</dd>
+                        </div>
+                      )}
+                    </dl>
                   )}
 
                   {wifiTesterNote && <p>{wifiTesterNote}</p>}
 
-                  <p className="text-xs">
-                    {isWifiVerified
-                      ? isVi
-                        ? `Đã VietNomad xác minh ngày ${verifiedAt.slice(0, 10)}.`
-                        : `Verified by VietNomad on ${verifiedAt.slice(0, 10)}.`
-                      : `${wifiStatusLabel(wifiStatus, isVi)}${
-                          wifiTestedAt
-                            ? isVi
-                              ? ` · cập nhật ngày ${wifiTestedAt.slice(0, 10)}`
-                              : ` · updated ${wifiTestedAt.slice(0, 10)}`
-                            : ''
-                        }`}
-                  </p>
+                  {/* Source + date live only here, never on the default line.
+                      Dates come from the data — never "today". */}
+                  {(isWifiVerified || wifiStatus !== 'not_updated') && (
+                    <p className="text-xs">
+                      {isWifiVerified
+                        ? isVi
+                          ? 'VietNomad xác minh'
+                          : 'Verified by VietNomad'
+                        : isVi
+                          ? 'Chủ nhà cung cấp'
+                          : 'Reported by host'}
+                      {(() => {
+                        const sourceDate = isWifiVerified ? verifiedAt : wifiTestedAt;
+                        if (!sourceDate) return null;
+                        return ` · ${
+                          isVi ? 'Cập nhật ngày' : 'Updated'
+                        } ${formatShortDateLabel(sourceDate, locale)}`;
+                      })()}
+                    </p>
+                  )}
+
+                  {(hasWifiSpeed || wifiTesterNote) && (
+                    <p className="text-xs text-[#53635D]">
+                      {isVi
+                        ? 'Tốc độ Internet thực tế có thể thay đổi tùy thời điểm và điều kiện sử dụng.'
+                        : 'Actual Internet speeds may vary by time and usage conditions.'}
+                    </p>
+                  )}
 
                   {(speedtestProofUrl || workspaceVideoUrl) && (
                     <div className="flex flex-wrap gap-4 pt-1">

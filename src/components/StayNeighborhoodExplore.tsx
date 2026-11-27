@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react';
 import { normalizePlaceExploreGroup, type Locale } from '@/lib/i18n';
 import type { CoworkingSpot, LocalDiscoveryPlace } from '@/modules/catalog';
 import { LocalPlaceCard } from './LocalPlaceCard';
+import { LocalPlaceDetailModal } from './LocalPlaceDetailModal';
 
 const CATEGORY_TABS: Array<{
   key: string;
@@ -43,6 +44,7 @@ export function StayNeighborhoodExplore({
   const isVi = locale === 'vi';
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [showAll, setShowAll] = useState(false);
+  const [activePlace, setActivePlace] = useState<LocalDiscoveryPlace | null>(null);
 
   const combinedPlaces = useMemo<LocalDiscoveryPlace[]>(() => {
     const base = [...localPlaces];
@@ -71,7 +73,7 @@ export function StayNeighborhoodExplore({
         openingHours: '',
         descriptionEn: cw.noteEn,
         descriptionVi: cw.noteVi,
-        imageUrl: '/images/workspaces/vietnam-coworking-lounge.jpg',
+        imageUrl: '',
         neighborhoodNameEn: neighborhoodName || null,
         neighborhoodNameVi: neighborhoodName || null,
         verificationStatus: 'verified',
@@ -155,7 +157,12 @@ export function StayNeighborhoodExplore({
 
       <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {visiblePlaces.map((pl) => (
-          <LocalPlaceCard key={pl.id} place={pl} locale={locale} />
+          <LocalPlaceCard
+            key={pl.id}
+            place={pl}
+            locale={locale}
+            onOpen={() => setActivePlace(pl)}
+          />
         ))}
       </div>
 
@@ -175,6 +182,14 @@ export function StayNeighborhoodExplore({
                 : `Show all ${filtered.length} places`}
           </button>
         </div>
+      )}
+
+      {activePlace && (
+        <LocalPlaceDetailModal
+          place={activePlace}
+          locale={locale}
+          onClose={() => setActivePlace(null)}
+        />
       )}
     </section>
   );

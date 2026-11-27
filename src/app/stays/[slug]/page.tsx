@@ -1,22 +1,15 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import {
-  CalendarCheck,
-  ChevronRight,
-  KeyRound,
-  MapPin,
-  Star,
-  Utensils,
-} from 'lucide-react';
+import { ChevronRight, KeyRound, MapPin, Star, Utensils } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getConfig } from '@/lib/config';
 import { dbQuery } from '@/lib/db';
 import {
-  formatCancellationPolicyLabel,
   formatCountNoun,
   formatKitchenTypeLabel,
   formatLaundryTypeLabel,
   formatPropertyTypeLabel,
+  formatStayLocationLabel,
 } from '@/lib/i18n';
 import { getServerPreferences } from '@/lib/preferences';
 import { getStayDetailBySlug } from '@/modules/catalog';
@@ -27,6 +20,7 @@ import { StayDescriptionToggle } from '@/components/StayDescriptionToggle';
 import { StayGuestReviewsSection } from '@/components/StayGuestReviewsSection';
 import { StayHeaderActions } from '@/components/StayHeaderActions';
 import { StayHostSection } from '@/components/StayHostSection';
+import StayMobileBookingBar from '@/components/StayMobileBookingBar';
 import { StayNeighborhoodExplore } from '@/components/StayNeighborhoodExplore';
 import { StayPhotoGallery } from '@/components/StayPhotoGallery';
 import { StayWorkspaceSection } from '@/components/StayWorkspaceSection';
@@ -96,13 +90,17 @@ export default async function StayDetailPage({
   }
 
   const propertyLabel = formatPropertyTypeLabel(stay.propertyType, prefs.locale);
+  const areaLabel = formatStayLocationLabel([neighborhoodName, destinationName]);
+  // Property type (what the building is) stays separate from the space the
+  // guest actually rents: a private room inside a co-living is never billed
+  // as "entire coliving".
   const overviewTitle = stay.isEntirePlace
     ? isVi
-      ? `Toàn bộ ${propertyLabel.toLowerCase()} tại ${neighborhoodName || destinationName}`
-      : `Entire ${propertyLabel.toLowerCase()} in ${neighborhoodName || destinationName}`
+      ? `Toàn bộ ${propertyLabel.toLowerCase()} tại ${areaLabel}`
+      : `Entire ${propertyLabel.toLowerCase()} in ${areaLabel}`
     : isVi
-      ? `${propertyLabel} tại ${neighborhoodName || destinationName}`
-      : `${propertyLabel} in ${neighborhoodName || destinationName}`;
+      ? `Phòng riêng trong ${propertyLabel.toLowerCase()} tại ${areaLabel}`
+      : `Private room in ${propertyLabel.toLowerCase()} in ${areaLabel}`;
 
   const roomPhotos = stay.rooms
     .filter((rm) => Boolean(rm.roomImage))
@@ -113,7 +111,7 @@ export default async function StayDetailPage({
 
   return (
     <div className="bg-white">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 pb-28 sm:px-6 lg:px-8 lg:pb-8">
         {/* Clean Minimal Breadcrumb */}
         <nav
           aria-label="Breadcrumb"
@@ -161,7 +159,7 @@ export default async function StayDetailPage({
                 className="inline-flex items-center gap-1 font-medium text-[#17221E] underline-offset-4 hover:underline"
               >
                 <MapPin className="h-4 w-4 text-[#C25E28]" />
-                <span>{[neighborhoodName, destinationName].filter(Boolean).join(' · ')}</span>
+                <span>{areaLabel}</span>
               </Link>
             </div>
           </div>
@@ -246,21 +244,6 @@ export default async function StayDetailPage({
                   </div>
                 </li>
 
-                <li className="flex items-start gap-3.5">
-                  <CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#17221E] stroke-[1.6]" />
-                  <div>
-                    <div className="text-[15px] font-medium text-[#17221E]">
-                      {isVi
-                        ? `Chính sách hủy: ${formatCancellationPolicyLabel(stay.cancellationPolicy, prefs.locale)}`
-                        : `${formatCancellationPolicyLabel(stay.cancellationPolicy, prefs.locale)} cancellation policy`}
-                    </div>
-                    <p className="text-sm text-[#53635D]">
-                      {isVi
-                        ? `Chỉ trả ${serviceFeePct}% phí giữ chỗ hôm nay, thanh toán phần tiền thuê trực tiếp khi nhận phòng.`
-                        : `Pay only the ${serviceFeePct}% reservation fee today; settle rent with your host at check-in.`}
-                    </p>
-                  </div>
-                </li>
               </ul>
             </section>
 
@@ -291,6 +274,7 @@ export default async function StayDetailPage({
               hasWorkspace={stay.hasWorkspace}
               hasErgonomicChair={stay.hasErgonomicChair}
               hasExternalMonitor={stay.hasExternalMonitor}
+              wifiHasService={stay.wifiHasService}
               wifiDownloadMbps={stay.wifiDownloadMbps}
               locale={prefs.locale}
             />
@@ -325,7 +309,7 @@ export default async function StayDetailPage({
           </div>
 
           {/* Right Column: Section 9 Booking Widget */}
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-5" id="booking-widget">
             <StayBookingWidget
               stay={stay}
               user={user}
@@ -333,6 +317,14 @@ export default async function StayDetailPage({
             />
           </div>
         </div>
+
+        {/* Mobile: compact sticky booking bar (scrolls to the full widget) */}
+        <StayMobileBookingBar
+          locale={prefs.locale}
+          stayTitle={title}
+          weekTotalVnd={stay.weekDisplayVnd ?? 0}
+          isInstantBook={stay.isInstantBook}
+        />
 
         {/* Full-width Bottom Open Sections (Sections 8, 10, 11) */}
         <div className="mt-4 divide-y divide-[#E5DFD3] border-t border-[#E5DFD3]">

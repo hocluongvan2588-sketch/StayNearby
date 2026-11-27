@@ -307,3 +307,131 @@ export function formatIcalSyncStatusLabel(status: string, locale: Locale): strin
   };
   return map[status]?.[locale] ?? status;
 }
+
+// ── Shared display formatters (Guest Platform UI) ────────────────────────────
+
+/**
+ * Deduplicated location label for StayCard / Listing Detail headers.
+ * Flattens comma-separated parts and drops repeated segments, e.g.
+ * ["Bán đảo Sơn Trà, Đà Nẵng", "Đà Nẵng"] -> "Bán đảo Sơn Trà, Đà Nẵng".
+ */
+export function formatStayLocationLabel(
+  parts: Array<string | null | undefined>
+): string {
+  const segments: string[] = [];
+  const seen = new Set<string>();
+  for (const part of parts) {
+    if (!part) continue;
+    for (const seg of part.split(',')) {
+      const s = seg.trim();
+      if (!s) continue;
+      const key = s.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      segments.push(s);
+    }
+  }
+  return segments.join(', ');
+}
+
+const COUNTRY_LABELS: Record<string, { en: string; vi: string }> = {
+  vietnam: { en: 'Vietnam', vi: 'Việt Nam' },
+  thailand: { en: 'Thailand', vi: 'Thái Lan' },
+  malaysia: { en: 'Malaysia', vi: 'Malaysia' },
+  singapore: { en: 'Singapore', vi: 'Singapore' },
+  indonesia: { en: 'Indonesia', vi: 'Indonesia' },
+  philippines: { en: 'Philippines', vi: 'Philippines' },
+  cambodia: { en: 'Cambodia', vi: 'Campuchia' },
+  laos: { en: 'Laos', vi: 'Lào' },
+  australia: { en: 'Australia', vi: 'Úc' },
+  france: { en: 'France', vi: 'Pháp' },
+  germany: { en: 'Germany', vi: 'Đức' },
+  'united kingdom': { en: 'United Kingdom', vi: 'Anh' },
+  'united states': { en: 'United States', vi: 'Hoa Kỳ' },
+  usa: { en: 'United States', vi: 'Hoa Kỳ' },
+  japan: { en: 'Japan', vi: 'Nhật Bản' },
+  'south korea': { en: 'South Korea', vi: 'Hàn Quốc' },
+  canada: { en: 'Canada', vi: 'Canada' },
+  netherlands: { en: 'Netherlands', vi: 'Hà Lan' },
+  spain: { en: 'Spain', vi: 'Tây Ban Nha' },
+  italy: { en: 'Italy', vi: 'Ý' },
+  india: { en: 'India', vi: 'Ấn Độ' },
+  taiwan: { en: 'Taiwan', vi: 'Đài Loan' },
+  'hong kong': { en: 'Hong Kong', vi: 'Hồng Kông' },
+  china: { en: 'China', vi: 'Trung Quốc' },
+  russia: { en: 'Russia', vi: 'Nga' },
+  'new zealand': { en: 'New Zealand', vi: 'New Zealand' },
+};
+
+/** Localize a host nationality / country name to the active locale. */
+export function formatCountryLabel(
+  country: string | null | undefined,
+  locale: Locale
+): string {
+  const raw = (country ?? '').trim();
+  if (!raw) return '';
+  const hit = COUNTRY_LABELS[raw.toLowerCase()];
+  return hit ? (locale === 'vi' ? hit.vi : hit.en) : raw;
+}
+
+/**
+ * Localize distance labels coming from data (e.g. "4 min walk", "1.2 km")
+ * without inventing values. Unknown formats pass through unchanged.
+ */
+export function formatDistanceLabel(
+  label: string | null | undefined,
+  locale: Locale
+): string {
+  const raw = (label ?? '').trim();
+  if (!raw) return '';
+  if (/^0(?:[.,]0+)?\s*km$/i.test(raw)) {
+    return locale === 'vi' ? 'Ngay tại chỗ ở' : 'On-site';
+  }
+  const walk = raw.match(/^(\d+(?:[.,]\d+)?)\s*min\s*walk$/i);
+  if (walk) {
+    const n = walk[1].replace('.', ',');
+    return locale === 'vi' ? `${n} phút đi bộ` : `${n} min walk`;
+  }
+  const drive = raw.match(/^(\d+(?:[.,]\d+)?)\s*min\s*drive$/i);
+  if (drive) {
+    const n = drive[1].replace('.', ',');
+    return locale === 'vi' ? `${n} phút lái xe` : `${n} min drive`;
+  }
+  const km = raw.match(/^(\d+(?:[.,]\d+)?)\s*km$/i);
+  if (km) {
+    const n = locale === 'vi' ? km[1].replace('.', ',') : km[1].replace(',', '.');
+    return `${n} km`;
+  }
+  return raw;
+}
+
+/**
+ * Public display name for a host: strips a trailing internal handle like
+ * "Admin (hocluongvan2588)" while keeping intentional parentheticals.
+ */
+export function formatHostDisplayName(name: string | null | undefined): string {
+  const trimmed = (name ?? '').trim();
+  const m = trimmed.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+  if (m && m[1].trim()) {
+    const inner = m[2].trim();
+    if (/^[a-z0-9][a-z0-9._-]*$/i.test(inner) && /\d/.test(inner)) {
+      return m[1].trim();
+    }
+  }
+  return trimmed;
+}
+
+/** Compact date for source/date lines: "25/11/2026". */
+export function formatShortDateLabel(
+  value: string | Date | null | undefined,
+  locale: Locale
+): string {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(d);
+}

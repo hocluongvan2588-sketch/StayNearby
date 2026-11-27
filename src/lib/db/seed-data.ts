@@ -751,9 +751,9 @@ export async function runSeed(): Promise<void> {
         subtitleEn: 'Boutique coliving with 680 Mbps fiber, call booths & weekly founder dinners',
         subtitleVi: 'Coliving cao cấp 680 Mbps, bốt họp riêng & kết nối startup tại Thảo Điền',
         descEn:
-          'Private sunlit lofts paired with a vibrant shared chef kitchen and a 40-seat coworking floor in Thao Dien. Reserve with a 12% online booking fee and pay the host at check-in (0% host commission).',
+          'Private sunlit lofts paired with a vibrant shared chef kitchen and a 40-seat coworking floor in Thao Dien',
         descVi:
-          'Phòng loft riêng tư tràn ngập ánh sáng kết hợp bếp chung rộng và không gian làm việc 40 chỗ tại Thảo Điền. Giữ phòng online với 12% phí và thanh toán tiền phòng cho chủ nhà khi nhận phòng (0% hoa hồng chủ nhà).',
+          'Phòng loft riêng tư tràn ngập ánh sáng kết hợp bếp chung rộng và không gian làm việc 40 chỗ tại Thảo Điền',
         neighborhoodEn: 'Thao Dien, Thu Duc, Ho Chi Minh City',
         neighborhoodVi: 'Thảo Điền, TP. Thủ Đức, TP. Hồ Chí Minh',
         exactAddress: '24 Xuan Thuy, Thao Dien, Thu Duc, Ho Chi Minh City',
@@ -914,9 +914,9 @@ export async function runSeed(): Promise<void> {
         subtitleEn: '30-day visa-free island workcation villa with plunge pool & dual fiber',
         subtitleVi: 'Biệt thự hồ bơi riêng cho workation miễn visa 30 ngày tại Phú Quốc',
         descEn:
-          'Arrive internationally under Phu Quoc’s 30-day visa exemption and unwind in a sunlit private pool villa near Ong Lang Beach. Lock your dates online with 12% and settle rent directly with the villa team at check-in.',
+          'Arrive internationally under Phu Quoc’s 30-day visa exemption and unwind in a sunlit private pool villa near Ong Lang Beach',
         descVi:
-          'Bay thẳng quốc tế để hưởng miễn visa 30 ngày tại Phú Quốc và nghỉ dưỡng dài ngày tại biệt thự hồ bơi riêng gần bãi Ông Lang. Giữ lịch với 12% phí online và thanh toán tiền phòng cho chủ nhà khi nhận phòng.',
+          'Bay thẳng quốc tế để hưởng miễn visa 30 ngày tại Phú Quốc và nghỉ dưỡng dài ngày tại biệt thự hồ bơi riêng gần bãi Ông Lang',
         neighborhoodEn: 'Ong Lang Coast, Phu Quoc',
         neighborhoodVi: 'Bãi Ông Lang, Phú Quốc',
         exactAddress: '77 Ong Lang Coast Road, Cua Duong, Phu Quoc, Kien Giang',
