@@ -260,7 +260,7 @@ export function HostCalendarClient({
             : 'Create your first listing to manage daily availability, pricing overrides, and iCal sync.'}
         </p>
         <Link
-          href="/host/listings/new"
+          href="/host/listings/create"
           className="mt-4 inline-flex items-center rounded-lg bg-[#164E3F] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0F392E]"
         >
           {isVi ? 'Tạo cơ sở mới' : 'Create listing'}

@@ -1,9 +1,8 @@
 import crypto from 'node:crypto';
 import type { SessionUser } from '@/lib/auth/session';
-import { addDaysIso, getTodayIsoVietnam, isValidUuid } from '@/lib/dates';
+import { isValidUuid } from '@/lib/dates';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
-import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
 import { assertAdminStatusTransition } from '@/modules/listing-lifecycle';
 import { captureStayRevision, dbExecutor } from '@/modules/listing-revisions';
 
@@ -195,134 +194,28 @@ export async function reviewHostApplication(
       return { status: 'rejected' as const, createdStaySlug: null };
     }
 
-    const destRes = await tx.query<{ id: string; name_en: string; name_vi: string; map_x: number; map_y: number }>(
-      'SELECT id, name_en, name_vi, map_x, map_y FROM destinations WHERE slug = $1',
-      [app.destination_slug]
+    // Phase 5 separation: approving a host application is a LEAD-CRM decision
+    // only. No stay is created here — listings are created by hosts (wizard)
+    // and moderated independently (draft -> pending_review -> live).
+    await tx.query(
+      `UPDATE host_applications SET status = 'approved', review_note = $1 WHERE id = $2`,
+      [reviewNote.trim() || 'Approved — host creates their listing under the new flow', applicationId]
     );
-    const dest = destRes.rows[0];
-    if (!dest) throw new AppError('NOT_FOUND', 'Destination slug invalid.');
-
-    const stayId = crypto.randomUUID();
-    const roomId = crypto.randomUUID();
-    const pkgId = crypto.randomUUID();
-    const slugBase = app.stay_name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-    const slug = `${slugBase}-${stayId.slice(0, 6)}`;
-    const regCode = `VN-NEW-${stayId.slice(0, 6).toUpperCase()}`;
-
-    const resolvedKitchen =
-      app.kitchen_type && ['full', 'kitchenette', 'shared', 'none'].includes(app.kitchen_type)
-        ? app.kitchen_type
-        : app.has_kitchen
-          ? 'full'
-          : 'none';
-    const resolvedLaundry =
-      app.laundry_type && ['in_unit', 'building', 'service', 'none'].includes(app.laundry_type)
-        ? app.laundry_type
-        : app.has_laundry
-          ? 'in_unit'
-          : 'none';
-    const hasWorkspace = Boolean(app.has_workspace);
-    const hasChair = Boolean(app.has_ergonomic_chair);
-    const hasMonitor = Boolean(app.has_external_monitor);
-    const wifiSpeed = Math.max(0, toNum(app.measured_download_mbps, 0));
-
-    const amenitiesList: string[] = [];
-    if (wifiSpeed > 0) amenitiesList.push(`Wi-Fi (~${wifiSpeed} Mbps host-reported)`);
-    if (hasWorkspace) amenitiesList.push('Dedicated Desk');
-    if (hasChair) amenitiesList.push('Ergonomic Chair');
-    if (hasMonitor) amenitiesList.push('External Monitor');
-    if (resolvedKitchen !== 'none') amenitiesList.push('Kitchen');
-    if (resolvedLaundry !== 'none') amenitiesList.push('Laundry');
 
     await tx.query(
-      `INSERT INTO stays (
-        id, slug, host_id, destination_id, title_en, title_vi, subtitle_en, subtitle_vi,
-        description_en, description_vi, neighborhood_en, neighborhood_vi, exact_address,
-        checkin_instructions_en, checkin_instructions_vi, registration_code,
-        property_type, business_model, status, is_instant_book,
-        cancellation_policy, wifi_download_mbps, wifi_upload_mbps, wifi_jitter_ms,
-        verification_tier, is_wifi_verified, is_work_ready, verified_at,
-        wifi_tester_note, workspace_summary_en, workspace_summary_vi, workspace_photo_url,
-        has_workspace, has_ergonomic_chair, has_external_monitor, has_call_booth, kitchen_type, laundry_type,
-        map_x, map_y, hero_image, gallery_images, amenities, nearby_coworking
-      ) VALUES (
-        $1,$2,$3,$4,$5,$6,'Comfortable Vietnam residence for 7 to 30+ night stays','Không gian lưu trú thoải mái từ 7 đến 30+ đêm tại Việt Nam',
-        'Newly listed property ready for comfortable weekly and monthly stays across Vietnam.',
-        'Chỗ ở mới sẵn sàng cho lưu trú theo tuần và theo tháng thoải mái tại Việt Nam.',
-        $7,$8,'Address unlocked upon confirmation','Smart lock details emailed upon confirmation',
-        'Mã nhận phòng gửi tự động sau khi đặt',$9,
-        $10,'booking_flow','live',TRUE,'flexible',$11,$12,4,
-        'SELF_DECLARED', FALSE, FALSE, NOW(),
-        'Host-declared property amenities & Internet profile',
-        $13,$14,'/images/workspaces/ergonomic-indochine-desk.jpg',
-        $15,$16,$17,FALSE,$18,$19,$20,$21,'/images/stays/hanoi-tayho-jade.jpg',
-        '["/images/stays/hanoi-tayho-jade.jpg","/images/workspaces/ergonomic-indochine-desk.jpg"]'::jsonb,
-        $22::jsonb,
-        '[]'::jsonb
-      )`,
+      `INSERT INTO crm_activities (id, entity_type, entity_id, activity_type, summary, body, actor_user_id)
+       SELECT $1, 'host_lead', hl.id, 'note', $2, $3, $4
+       FROM host_leads hl
+       WHERE hl.application_id = $5 OR hl.linked_user_id = $6
+       LIMIT 1`,
       [
-        stayId,
-        slug,
+        crypto.randomUUID(),
+        `Host application approved: ${app.stay_name}`,
+        reviewNote.trim() || 'Approved — host creates their listing under the new flow',
+        _admin.id,
+        applicationId,
         app.applicant_user_id,
-        dest.id,
-        app.stay_name,
-        app.stay_name,
-        dest.name_en,
-        dest.name_vi,
-        regCode,
-        app.property_type,
-        wifiSpeed,
-        Math.round(wifiSpeed * 0.75),
-        hasWorkspace ? 'Dedicated desk available' : 'Comfortable living space',
-        hasWorkspace ? 'Có bàn làm việc riêng' : 'Không gian sinh hoạt thoải mái',
-        hasWorkspace,
-        hasChair,
-        hasMonitor,
-        resolvedKitchen,
-        resolvedLaundry,
-        dest.map_x,
-        dest.map_y,
-        JSON.stringify(amenitiesList),
       ]
-    );
-
-    await tx.query(
-      `INSERT INTO stay_rooms (
-        id, stay_id, name_en, name_vi, description_en, description_vi,
-        max_guests, beds_count, units_total, room_image, room_features
-      ) VALUES (
-        $1,$2,'Private Studio','Studio Riêng Tư',
-        'Comfortable private apartment for weekly and monthly stays.',
-        'Căn hộ riêng thoải mái cho lưu trú theo tuần và theo tháng.',
-        2,1,2,'/images/stays/hanoi-tayho-jade.jpg',$3::jsonb
-      )`,
-      [roomId, stayId, JSON.stringify(amenitiesList)]
-    );
-
-    const today = getTodayIsoVietnam();
-    await tx.query(
-      `INSERT INTO stay_packages (
-        id, stay_id, room_id, name_en, name_vi, description_en, description_vi,
-        valid_from, valid_to, is_listed, wholesale_7_vnd, wholesale_14_vnd,
-        wholesale_21_vnd, wholesale_30_vnd, compare_30_vnd, extra_night_vnd,
-        is_deal_featured, deal_month_label
-      ) VALUES (
-        $1,$2,$3,'Standard Long-Stay Package','Gói Lưu Trú Dài Ngày',
-        'All-inclusive 7/14/21/30 night rate.',
-        'Trọn gói tiện ích cho 7/14/21/30 đêm.',
-        $4,$5,TRUE,5800000,10800000,15200000,19500000,24500000,630000,FALSE,'January'
-      )`,
-      [pkgId, stayId, roomId, today, addDaysIso(today, 365)]
-    );
-
-    await tx.query(
-      `UPDATE host_applications
-       SET status = 'approved', review_note = $1, created_stay_id = $2
-       WHERE id = $3`,
-      [reviewNote.trim() || 'Approved & published live', stayId, applicationId]
     );
 
     await tx.query(
@@ -333,12 +226,8 @@ export async function reviewHostApplication(
       [app.applicant_user_id]
     );
 
-    await advanceHostLeadMilestoneTx(tx, {
-      userId: app.applicant_user_id,
-      targetStage: 'published',
-      summary: `Host application approved & stay published live (${slug})`,
-      actorUserId: _admin.id,
-    });
+    // Lead stage stays as-is: 'published' is advanced by listing moderation
+    // when the host's own listing goes live (not at application approval).
 
     await tx.query(
       `INSERT INTO admin_audit_logs (
@@ -349,12 +238,12 @@ export async function reviewHostApplication(
         _admin.id,
         _admin.email,
         applicationId,
-        JSON.stringify({ status: 'approved', createdStayId: stayId, slug }),
+        JSON.stringify({ status: 'approved', createdStayId: null }),
         reviewNote.trim(),
       ]
     );
 
-    return { status: 'approved' as const, createdStaySlug: slug };
+    return { status: 'approved' as const, createdStaySlug: null };
   });
 }
 

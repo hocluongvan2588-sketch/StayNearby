@@ -159,17 +159,18 @@ export function HostListingsClient({
           </div>
 
           <Link
-            href="/host/listings/new"
+            href="/host/listings/create"
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#164E3F] px-3.5 py-2 text-xs font-semibold text-white hover:bg-[#0F392E]"
           >
             <Plus className="h-4 w-4" />
             {isVi ? 'Thêm chỗ ở mới' : 'Create listing'}
           </Link>
           <Link
-            href="/host/listings/create"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#164E3F] px-3.5 py-2 text-xs font-semibold text-[#164E3F] hover:bg-[#E7F1EC]"
+            href="/host/listings/new"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5DFD3] px-3.5 py-2 text-xs font-semibold text-[#53635D] hover:bg-[#FAF8F3]"
+            title={isVi ? 'Trình hướng dẫn cũ (giữ lại để test)' : 'Legacy wizard (kept for testing)'}
           >
-            {isVi ? 'Trình hướng dẫn mới' : 'New setup wizard'}
+            {isVi ? 'Wizard cũ' : 'Legacy wizard'}
           </Link>
         </div>
       </div>
@@ -239,7 +240,7 @@ export function HostListingsClient({
               : 'Launch your first listing with our step-by-step wizard and keep 100% of your room rate.'}
           </p>
           <Link
-            href="/host/listings/new"
+            href="/host/listings/create"
             className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-[#164E3F] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0F392E]"
           >
             <Plus className="h-4 w-4" />

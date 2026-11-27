@@ -209,32 +209,37 @@ describe('VietNomad Stays PRD End-to-End PostgreSQL Workflows', () => {
       laundryType: 'none',
     });
 
+    const staysBefore = await dbQuery('SELECT id FROM stays WHERE host_id = $1', [hostUser.id]);
     const reviewed = await reviewHostApplication(
       adminUser,
       app.applicationId,
       'approved',
       'Free listing approved for launch'
     );
+    // Phase 5: application approval = lead CRM only — no stay is created.
     expect(reviewed.status).toBe('approved');
-    expect(reviewed.createdStaySlug).toBeTruthy();
+    expect(reviewed.createdStaySlug).toBeNull();
 
-    const createdStay = await getStayDetailBySlug(reviewed.createdStaySlug!);
-    expect(createdStay).not.toBeNull();
-    expect(createdStay!.businessModel).toBe('booking_flow');
-    expect(createdStay!.wifiDownloadMbps).toBe(120);
-    expect(createdStay!.verificationTier).toBe('SELF_DECLARED');
-    expect(createdStay!.isWifiVerified).toBe(false);
-    expect(createdStay!.isWorkReady).toBe(false);
-    expect(createdStay!.hasWorkspace).toBe(false);
-    expect(createdStay!.kitchenType).toBe('none');
-    expect(createdStay!.laundryType).toBe('none');
+    const staysAfter = await dbQuery('SELECT id FROM stays WHERE host_id = $1', [hostUser.id]);
+    expect(staysAfter.rows.length).toBe(staysBefore.rows.length);
 
-    // Admin optionally grants Wi-Fi Verified badge later
-    await updateAdminStayVerification(adminUser, createdStay!.id, {
+    const appRow = await dbQuery<{ status: string; created_stay_id: string | null }>(
+      'SELECT status, created_stay_id FROM host_applications WHERE id = $1',
+      [app.applicationId]
+    );
+    expect(appRow.rows[0]!.status).toBe('approved');
+    expect(appRow.rows[0]!.created_stay_id).toBeNull();
+
+    // Admin optionally grants Wi-Fi Verified badge later (existing live listing —
+    // verification stays an admin badge action independent of applications)
+    const target = await getStayDetailBySlug('phu-quoc-emerald-bay-work-villa');
+    expect(target).not.toBeNull();
+    expect(target!.isWifiVerified).toBe(false);
+    await updateAdminStayVerification(adminUser, target!.id, {
       isWifiVerified: true,
       isWorkReady: false,
     });
-    const updatedStay = await getStayDetailBySlug(reviewed.createdStaySlug!);
+    const updatedStay = await getStayDetailBySlug('phu-quoc-emerald-bay-work-villa');
     expect(updatedStay!.isWifiVerified).toBe(true);
     expect(updatedStay!.isWorkReady).toBe(false);
     expect(updatedStay!.verificationTier).toBe('HOST_VERIFIED');
