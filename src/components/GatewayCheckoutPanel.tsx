@@ -10,6 +10,7 @@ import {
   QrCode,
   RefreshCw,
 } from 'lucide-react';
+import { localizeGuestError } from '@/lib/error-copy';
 import { formatVndExact } from '@/lib/i18n';
 import type { GatewayTransactionDTO, PaymentProvider, PaymentPurpose } from '@/lib/payment-types';
 import { usePreferences } from './PreferencesProvider';
@@ -80,10 +81,7 @@ export function GatewayCheckoutPanel({
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(
-          json.error?.message ??
-            (isVi ? 'Không thể khởi tạo phiên thanh toán.' : 'Could not start checkout session.')
-        );
+        setError(localizeGuestError(json.error?.message, locale));
         return;
       }
       const created = json.transaction as GatewayTransactionDTO;
@@ -108,10 +106,7 @@ export function GatewayCheckoutPanel({
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(
-          json.error?.message ??
-            (isVi ? 'Không thể xác nhận thanh toán.' : 'Payment confirmation failed.')
-        );
+        setError(localizeGuestError(json.error?.message, locale));
         return;
       }
       onPaid({

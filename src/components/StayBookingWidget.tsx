@@ -18,7 +18,14 @@ import {
 } from 'lucide-react';
 import { captureClientAttribution, trackClientEvent } from '@/lib/attribution';
 import type { SessionUser } from '@/lib/auth/session';
+import {
+  POLICY_MIN_NIGHTS,
+  STAY_PACKAGE_TIERS,
+  resolveEffectiveMinNights,
+  type StayPackageTier,
+} from '@/lib/business-rules';
 import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
+import { localizeGuestError } from '@/lib/error-copy';
 import { formatCancellationPolicyLabel, formatCountNoun } from '@/lib/i18n';
 import { calculateStayQuote, type PromotionAdjustmentInput } from '@/lib/pricing';
 import type { StayDetail } from '@/modules/catalog';
@@ -67,7 +74,7 @@ export function StayBookingWidget({
 
   const [roomId, setRoomId] = useState(defaultRoom?.id ?? '');
   const [checkIn, setCheckIn] = useState(addDaysIso(getTodayIsoVietnam(), 7));
-  const [baseTier, setBaseTier] = useState<7 | 14 | 21 | 30>(30);
+  const [baseTier, setBaseTier] = useState<StayPackageTier>(30);
   const [extraNights, setExtraNights] = useState(0);
   const [guestsCount, setGuestsCount] = useState(1);
   const [applyVatFree, setApplyVatFree] = useState(
@@ -113,7 +120,20 @@ export function StayBookingWidget({
 
   const selectedRoom = stay.rooms.find((r) => r.id === roomId) ?? defaultRoom;
   const selectedPkg = selectedRoom?.packages[0] ?? defaultPkg;
-  const totalNights = baseTier + extraNights;
+
+  // Effective minimum = strictest of platform setting × listing default.
+  // Date-level room locks are re-checked server-side at booking time.
+  const minNights = useMemo(
+    () =>
+      resolveEffectiveMinNights({
+        platformMinNights: platformConfig.defaultMinNights,
+        stayMinNights: stay.defaultMinNights,
+      }),
+    [platformConfig.defaultMinNights, stay.defaultMinNights]
+  );
+  const extraNightsFloor = Math.max(0, minNights - baseTier);
+  const effectiveExtraNights = Math.max(extraNights, extraNightsFloor);
+  const totalNights = baseTier + effectiveExtraNights;
   const checkOut = addDaysIso(checkIn, totalNights);
 
   const nightOverridesVnd = useMemo(() => {
@@ -136,7 +156,7 @@ export function StayBookingWidget({
   const effectivePromoError =
     appliedPromo && totalNights < appliedPromo.minNights
       ? isVi
-        ? `Mã ${appliedPromo.code} yêu cầu tối thiểu ${appliedPromo.minNights} đêm.`
+        ? `Mã ${appliedPromo.code} áp dụng cho đơn từ ${appliedPromo.minNights} đêm trở lên.`
         : `Code ${appliedPromo.code} requires at least ${appliedPromo.minNights} nights.`
       : promoError;
 
@@ -190,12 +210,7 @@ export function StayBookingWidget({
       const json = await res.json();
       if (!json.ok || !json.promotion) {
         setAppliedPromo(null);
-        setPromoError(
-          json.error?.message ??
-            (isVi
-              ? 'Mã giảm giá không hợp lệ hoặc đã hết hạn.'
-              : 'Promo code is invalid or expired.')
-        );
+        setPromoError(localizeGuestError(json.error?.message, locale));
         return;
       }
       setAppliedPromo({
@@ -267,10 +282,7 @@ export function StayBookingWidget({
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(
-          json.error?.message ??
-            (isVi ? 'Không thể tạo đặt phòng.' : 'Could not create booking.')
-        );
+        setError(localizeGuestError(json.error?.message, locale));
         return;
       }
 
@@ -282,7 +294,7 @@ export function StayBookingWidget({
         payAtCheckinVnd: json.booking.quote.payAtCheckinVnd,
       });
     } catch {
-      setError(isVi ? 'Lỗi kết nối. Vui lòng thử lại.' : 'Network error. Please retry.');
+      setError(localizeGuestError(null, locale));
     } finally {
       setSubmitting(false);
     }
@@ -357,19 +369,24 @@ export function StayBookingWidget({
 
       {/* Duration selector */}
       <div>
-        <div className="mb-1.5 flex items-center justify-between text-xs">
+        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-2 text-xs">
           <span className="font-semibold text-[#53635D]">
             {isVi ? 'Thời gian lưu trú' : 'Stay duration'}
           </span>
+          {minNights > POLICY_MIN_NIGHTS && (
+            <span className="font-semibold text-[#164E3F]">
+              {isVi ? `Tối thiểu ${minNights} đêm` : `Minimum ${minNights} nights`}
+            </span>
+          )}
           <span className="text-[#53635D]">
             {checkIn} → {checkOut}
           </span>
         </div>
         <div className="grid grid-cols-4 gap-1.5">
-          {([7, 14, 21, 30] as const).map((tier) => {
+          {STAY_PACKAGE_TIERS.map((tier) => {
             const tierQ = calculateStayQuote({
               pkg: selectedPkg,
-              nights: tier,
+              nights: Math.max(tier, minNights),
               serviceFeeRate: platformConfig.serviceFeeRate,
               vatDiscountRate: platformConfig.vatDiscountRate,
               premiumRewardRate: platformConfig.premiumRewardRate,
@@ -421,14 +438,14 @@ export function StayBookingWidget({
             <div className="mt-0.5 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => setExtraNights((n) => Math.max(0, n - 1))}
+                onClick={() => setExtraNights((n) => Math.max(extraNightsFloor, n - 1))}
                 className="rounded p-1 text-[#53635D] hover:bg-[#FAF8F3] hover:text-[#17221E]"
                 aria-label="Decrease extra nights"
               >
                 <Minus className="h-3.5 w-3.5" />
               </button>
               <span className="text-xs font-semibold tabular-nums text-[#17221E]">
-                +{extraNights} ({totalNights} {isVi ? 'đêm' : 'N'})
+                +{effectiveExtraNights} ({totalNights} {isVi ? 'đêm' : 'N'})
               </span>
               <button
                 type="button"
@@ -541,7 +558,7 @@ export function StayBookingWidget({
           <span>
             {isVi
               ? `Tiền thuê chỗ ở (${totalNights} đêm)`
-              : `Accommodation rent (${totalNights} nights)`}
+              : `Stay rent (${totalNights} nights)`}
           </span>
           <span className="text-[#17221E]">{formatMoney(quote.wholesaleTotalVnd)}</span>
         </div>

@@ -691,13 +691,23 @@ export function SystemSettingsView({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             kind: 'setting',
+            key: 'default_min_nights',
+            value: config.defaultMinNights,
+            reason: 'Updated platform minimum stay from BOS System Settings',
+          }),
+        }),
+        fetch('/api/admin/system', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'setting',
             key: 'fx_rates',
             value: config.fxRates,
             reason: 'Updated platform FX rates from BOS System Settings',
           }),
         }),
       ]);
-      setToast('System fee rates and FX history updated in PostgreSQL.');
+      setToast('System fee rates, minimum stay & FX history updated in PostgreSQL.');
     } finally {
       setSaving(false);
     }
@@ -766,6 +776,22 @@ export function SystemSettingsView({
                 value={config.hostCommissionRate}
                 onChange={(e) =>
                   setConfig({ ...config, hostCommissionRate: Number(e.target.value) })
+                }
+                className="h-8 w-full rounded border border-[#E5DFD3] px-2.5 tabular-nums"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[#53635D]">
+                Platform Minimum Stay (nights, 7–180)
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="7"
+                max="180"
+                value={config.defaultMinNights}
+                onChange={(e) =>
+                  setConfig({ ...config, defaultMinNights: Number(e.target.value) })
                 }
                 className="h-8 w-full rounded border border-[#E5DFD3] px-2.5 tabular-nums"
               />

@@ -1,4 +1,9 @@
 import { dbQuery, toNum } from '@/lib/db';
+import {
+  MIN_NIGHTS_TECHNICAL,
+  POLICY_MIN_NIGHTS,
+  clampHostMinNights,
+} from '@/lib/business-rules';
 import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
 import type { Locale } from '@/lib/i18n';
 import { calculateStayQuote } from '@/lib/pricing';
@@ -501,7 +506,7 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
 
   // If checkIn + nights provided, filter out stays whose rooms have zero units left on any requested night
   const unavailableRoomIds = new Set<string>();
-  if (filters.checkIn && filters.nights && filters.nights >= 7) {
+  if (filters.checkIn && filters.nights && filters.nights >= MIN_NIGHTS_TECHNICAL) {
     const checkOut = addDaysIso(filters.checkIn, filters.nights);
     const stayDates = enumerateStayNights(filters.checkIn, checkOut);
     if (stayDates.length > 0) {
@@ -856,7 +861,7 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     registrationCode: String(row.registration_code ?? ''),
     checkinFrom: String(row.checkin_from ?? '14:00'),
     checkoutBefore: String(row.checkout_before ?? '12:00'),
-    defaultMinNights: Math.max(1, toNum(row.default_min_nights, 1)),
+    defaultMinNights: clampHostMinNights(toNum(row.default_min_nights, POLICY_MIN_NIGHTS)),
     houseRules: parseHouseRules(row.house_rules),
     reviews,
     reviewsAvg,

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { requireUser } from '@/lib/auth/session';
+import { MAX_NIGHTS, MIN_NIGHTS_TECHNICAL } from '@/lib/business-rules';
 import { AppError } from '@/lib/errors';
 import { errJson, okJson } from '@/lib/http';
 import { createStayBooking } from '@/modules/bookings';
@@ -9,7 +10,7 @@ const schema = z.object({
   roomId: z.string().uuid(),
   packageId: z.string().uuid(),
   checkIn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  nights: z.number().int().min(7).max(180),
+  nights: z.number().int().min(MIN_NIGHTS_TECHNICAL).max(MAX_NIGHTS),
   guestsCount: z.number().int().min(1).max(10).default(1),
   applyVatFree: z.boolean().optional(),
   useRewardCredit: z.boolean().optional(),
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) {
-      throw new AppError('VALIDATION_ERROR', 'Invalid booking details (7 nights minimum).');
+      throw new AppError('VALIDATION_ERROR', 'Invalid booking details.');
     }
     const result = await createStayBooking(user, parsed.data);
     return okJson({ booking: result }, 201);

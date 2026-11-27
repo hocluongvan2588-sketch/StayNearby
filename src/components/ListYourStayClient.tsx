@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { CheckCircle2, Loader2, ShieldCheck, Sparkles, Zap } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
+import { localizeGuestError } from '@/lib/error-copy';
 import type { DestinationSummary } from '@/modules/catalog';
 import { usePreferences } from './PreferencesProvider';
 
@@ -68,7 +69,7 @@ export function ListYourStayClient({
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(json.error?.message ?? (isVi ? 'Không thể gửi duyệt hồ sơ.' : 'Submission failed.'));
+        setError(localizeGuestError(json.error?.message, locale));
       } else {
         setSubmittedId(json.applicationId);
       }

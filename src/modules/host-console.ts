@@ -7,6 +7,7 @@ import {
   isValidIsoDate,
   isValidUuid,
 } from '@/lib/dates';
+import { clampHostMinNights, POLICY_MIN_NIGHTS } from '@/lib/business-rules';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { submitHostApplication } from '@/modules/host';
@@ -462,7 +463,7 @@ export async function getHostCalendarData(
       nameEn: String(r.name_en),
       nameVi: String(r.name_vi),
       unitsTotal: Math.max(1, toNum(r.units_total, 1)),
-      defaultMinNights: Math.max(7, toNum(r.default_min_nights, 7)),
+      defaultMinNights: clampHostMinNights(toNum(r.default_min_nights, POLICY_MIN_NIGHTS)),
       icalUrl: r.ical_url ? String(r.ical_url) : '',
       icalLastSyncedAt: r.ical_last_synced_at
         ? toIsoTimestamp(r.ical_last_synced_at)
@@ -522,7 +523,7 @@ export async function getHostCalendarData(
       slug: String(s.slug),
       titleEn: String(s.title_en),
       titleVi: String(s.title_vi),
-      defaultMinNights: Math.max(7, toNum(s.default_min_nights, 7)),
+      defaultMinNights: clampHostMinNights(toNum(s.default_min_nights, POLICY_MIN_NIGHTS)),
       isInstantBook: Boolean(s.is_instant_book),
       status: String(s.status),
     })),
@@ -624,7 +625,7 @@ export async function updateHostCalendarRange(
           ? lock.min_nights
           : input.minNights === null
             ? null
-            : Math.max(7, Math.min(90, Math.round(input.minNights)));
+            : clampHostMinNights(input.minNights);
 
       const nextNote =
         input.note === undefined ? String(lock.note ?? '') : input.note.trim().slice(0, 120);

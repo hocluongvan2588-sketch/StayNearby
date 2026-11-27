@@ -23,6 +23,7 @@ import {
   Wifi,
 } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
+import { localizeGuestError } from '@/lib/error-copy';
 import {
   formatBookingStatusLabel,
   formatCancellationPolicyLabel,
@@ -254,9 +255,7 @@ export function MemberDashboardClient({
       });
       const json = await res.json();
       if (!json.ok) {
-        setTicketError(
-          json.error?.message ?? (isVi ? 'Không thể tạo phiếu hỗ trợ.' : 'Could not create ticket.')
-        );
+        setTicketError(localizeGuestError(json.error?.message, locale));
         return;
       }
       setTicketSubject('');
@@ -286,7 +285,7 @@ export function MemberDashboardClient({
         setReplyDrafts((prev) => ({ ...prev, [ticketId]: '' }));
         await refreshTickets(ticketId);
       } else {
-        setNotice(json?.error?.message ?? (isVi ? 'Không thể gửi tin nhắn.' : 'Failed to send reply.'));
+        setNotice(localizeGuestError(json?.error?.message, locale));
       }
     } finally {
       setReplyBusyId(null);
@@ -306,7 +305,7 @@ export function MemberDashboardClient({
       const res = await fetch(`/api/bookings/${bookingId}/cancel`, { method: 'POST' });
       const json = await res.json();
       if (!json.ok) {
-        setNotice(json.error?.message ?? (isVi ? 'Không thể hủy đặt phòng.' : 'Could not cancel booking.'));
+        setNotice(localizeGuestError(json.error?.message, locale));
       } else {
         const out = json.outcome;
         setNotice(
@@ -448,7 +447,7 @@ export function MemberDashboardClient({
 
         {data.bookings.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-[#E5DFD3] bg-white p-8 text-center text-sm text-[#53635D]">
-            {isVi ? 'Bạn chưa có đặt phòng nào.' : 'You have no bookings yet. Pick a city to start your next stay.'}
+            {isVi ? 'Bạn chưa có đặt phòng nào.' : 'No bookings yet.'}
           </div>
         ) : (
           <div className="grid gap-5">
@@ -1199,9 +1198,17 @@ export function MemberDashboardClient({
             {isVi ? 'Chỗ ở đã lưu' : 'Saved stays'}
           </h3>
           {data.savedStays.length === 0 ? (
-            <p className="text-sm text-[#53635D]">
-              {isVi ? 'Bấm biểu tượng lưu trên thẻ chỗ ở để xem lại sau.' : 'Save any stay to compare or book later.'}
-            </p>
+            <div className="text-center">
+              <p className="text-sm text-[#53635D]">
+                {isVi ? 'Chưa có chỗ ở nào được lưu.' : 'No saved stays yet.'}
+              </p>
+              <Link
+                href="/stays"
+                className="mt-4 inline-flex rounded-md border border-[#E5DFD3] px-4 py-2 text-sm font-semibold text-[#17221E] hover:bg-[#FBF9F4]"
+              >
+                {isVi ? 'Khám phá chỗ ở' : 'Browse stays'}
+              </Link>
+            </div>
           ) : (
             <div className="space-y-3">
               {data.savedStays.map((s) => (

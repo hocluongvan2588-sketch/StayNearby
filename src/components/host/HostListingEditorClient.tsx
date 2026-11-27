@@ -27,6 +27,7 @@ import {
   formatPropertyTypeLabel,
   formatVndExact,
 } from '@/lib/i18n';
+import { clampHostMinNights, POLICY_MIN_NIGHTS } from '@/lib/business-rules';
 import { usePreferences } from '@/components/PreferencesProvider';
 import type { HostStayRoomItem, HostStaySummary } from '@/modules/host';
 
@@ -113,7 +114,7 @@ export function HostListingEditorClient({
   // 7. Availability
   const [status, setStatus] = useState(stay.status);
   const [defaultMinNights, setDefaultMinNights] = useState(
-    String(Math.max(7, stay.defaultMinNights || 7))
+    String(clampHostMinNights(stay.defaultMinNights || POLICY_MIN_NIGHTS))
   );
 
   // 8. House Rules
@@ -175,7 +176,7 @@ export function HostListingEditorClient({
           checkinInstructionsVi,
           checkinFrom,
           checkoutBefore,
-          defaultMinNights: Math.max(7, Math.min(90, Number(defaultMinNights) || 7)),
+          defaultMinNights: clampHostMinNights(Number(defaultMinNights) || POLICY_MIN_NIGHTS),
           houseRules: {
             quietHours,
             smokingAllowed,

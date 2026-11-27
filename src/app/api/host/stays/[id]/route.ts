@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { requireRole } from '@/lib/auth/session';
+import { HOST_MAX_NIGHTS, HOST_MIN_NIGHTS } from '@/lib/business-rules';
 import { AppError } from '@/lib/errors';
 import { errJson, okJson } from '@/lib/http';
 import { updateHostStayConfiguration } from '@/modules/host';
@@ -59,7 +60,7 @@ const schema = z.object({
   status: z.enum(['live', 'paused']).optional(),
   checkinFrom: z.string().max(20).optional(),
   checkoutBefore: z.string().max(20).optional(),
-  defaultMinNights: z.number().int().min(7).max(90).optional(),
+  defaultMinNights: z.number().int().min(HOST_MIN_NIGHTS).max(HOST_MAX_NIGHTS).optional(),
   houseRules: z
     .object({
       quietHours: z.string().max(80).optional(),
