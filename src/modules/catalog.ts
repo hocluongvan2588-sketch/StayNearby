@@ -55,6 +55,13 @@ export interface StayCardItem {
   petFriendly: boolean;
   googleRating: number;
   googleReviewCount: number;
+  // Internal VietNomad guest reviews (preferred over Google on cards).
+  guestReviewsAvg: number | null;
+  guestReviewsCount: number;
+  // Price of the stay the guest actually selected (search with dates);
+  // null when no dates chosen -> show7-night and30-night prices instead.
+  selectedStayNights: number | null;
+  selectedStayTotalVnd: number | null;
   heroImage: string;
   mapX: number;
   mapY: number;
@@ -285,7 +292,8 @@ function toNullableNumber(raw: unknown): number | null {
 function mapStayRowToCard(
   row: Record<string, unknown>,
   lifestyleSlugs: string[],
-  feeConfig?: PlatformFeeConfig
+  feeConfig?: PlatformFeeConfig,
+  selectedNights?: number
 ): StayCardItem {
   const pkgInput = {
     wholesale7Vnd: toNum(row.wholesale_7_vnd),
@@ -320,6 +328,18 @@ function mapStayRowToCard(
   const compareDisplay =
     pkgInput.compare30Vnd && pkgInput.compare30Vnd > pkgInput.wholesale30Vnd
       ? Math.round(pkgInput.compare30Vnd * (1 + serviceFeeRate))
+      : null;
+
+  // Price of the stay the guest selected in search (same pricing engine).
+  const selectedQuote =
+    selectedNights && selectedNights > 0
+      ? calculateStayQuote({
+          pkg: pkgInput,
+          nights: selectedNights,
+          serviceFeeRate,
+          vatDiscountRate,
+          premiumRewardRate,
+        })
       : null;
 
   const dealSavingsPct =
@@ -385,6 +405,13 @@ function mapStayRowToCard(
     petFriendly: Boolean(row.pet_friendly),
     googleRating: Number(row.google_rating ?? 4.8),
     googleReviewCount: toNum(row.google_review_count),
+    guestReviewsAvg:
+      row.guest_reviews_avg === null || row.guest_reviews_avg === undefined
+        ? null
+        : Number(toNum(row.guest_reviews_avg).toFixed(1)),
+    guestReviewsCount: toNum(row.guest_reviews_count),
+    selectedStayNights: selectedQuote && selectedNights ? selectedNights : null,
+    selectedStayTotalVnd: selectedQuote ? selectedQuote.guestTotalVnd : null,
     heroImage: String(row.hero_image),
     mapX: Number(row.map_x ?? 50),
     mapY: Number(row.map_y ?? 50),
@@ -504,7 +531,8 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
               r.bedrooms AS room_bedrooms, r.bathrooms AS room_bathrooms, r.area_sqm AS room_area_sqm,
               p.wholesale_7_vnd, p.wholesale_14_vnd, p.wholesale_21_vnd, p.wholesale_30_vnd,
               p.compare_30_vnd, p.extra_night_vnd, p.is_deal_featured, p.deal_month_label,
-              p.valid_from, p.valid_to
+              p.valid_from, p.valid_to,
+              rv.avg_rating AS guest_reviews_avg, rv.review_count AS guest_reviews_count
        FROM stays s
        JOIN destinations d ON d.id = s.destination_id
        JOIN LATERAL (
@@ -513,6 +541,10 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
        JOIN LATERAL (
          SELECT * FROM stay_packages sp WHERE sp.stay_id = s.id AND sp.is_listed = TRUE ORDER BY sp.wholesale_30_vnd ASC LIMIT 1
        ) p ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT avg(sr2.rating)::numeric AS avg_rating, count(*)::int AS review_count
+         FROM stay_reviews sr2 WHERE sr2.stay_id = s.id
+       ) rv ON TRUE
        WHERE s.status = 'live'`
     ),
     getPlatformFeeConfig(),
@@ -558,7 +590,9 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
 
   let items = res.rows
     .filter((r) => !unavailableRoomIds.has(String(r.default_room_id)))
-    .map((r) => mapStayRowToCard(r, lsMap.get(String(r.id)) ?? [], feeConfig));
+    .map((r) =>
+      mapStayRowToCard(r, lsMap.get(String(r.id)) ?? [], feeConfig, filters.nights)
+    );
 
   if (filters.destination && filters.destination !== 'all') {
     items = items.filter((s) => s.destinationSlug === filters.destination);

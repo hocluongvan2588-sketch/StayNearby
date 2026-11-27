@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CheckCircle2, Loader2, MessageSquare, Send, ShieldCheck, X } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
 import { localizeGuestError } from '@/lib/error-copy';
-import type { Locale } from '@/lib/i18n';
+import { formatCountryLabel, formatHostDisplayName, type Locale } from '@/lib/i18n';
 
 interface HostMessageItem {
   id: string;
@@ -39,6 +39,9 @@ export function StayHostSection({
   locale: Locale;
 }) {
   const isVi = locale === 'vi';
+  // Public display name only — never internal handles like "Admin (username)".
+  const displayName = formatHostDisplayName(hostName) || (isVi ? 'Chủ nhà' : 'Host');
+  const countryLabel = formatCountryLabel(hostNationality, locale);
   const [modalOpen, setModalOpen] = useState(false);
   const [loadingThread, setLoadingThread] = useState(false);
   const [messages, setMessages] = useState<HostMessageItem[]>([]);
@@ -47,7 +50,7 @@ export function StayHostSection({
   const [sentNotice, setSentNotice] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const initials = hostName
+  const initials = displayName
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -115,7 +118,7 @@ export function StayHostSection({
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={hostAvatarUrl}
-              alt={hostName}
+              alt={displayName}
               className="h-14 w-14 shrink-0 rounded-full border border-[#E5DFD3] object-cover"
             />
           ) : (
@@ -127,7 +130,7 @@ export function StayHostSection({
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-[20px] font-semibold leading-snug text-[#17221E]">
-                {isVi ? `Chủ nhà: ${hostName}` : `Hosted by ${hostName}`}
+                {isVi ? `Chủ nhà: ${displayName}` : `Hosted by ${displayName}`}
               </h2>
               {hostVerified && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-xs font-medium text-[#164E3F]">
@@ -139,7 +142,7 @@ export function StayHostSection({
 
             {hostNationality && (
               <p className="text-sm text-[#53635D]">
-                {isVi ? `Đến từ ${hostNationality}` : `Based in ${hostNationality}`}
+                {countryLabel && (isVi ? `Đến từ ${countryLabel}` : `Based in ${countryLabel}`)}
               </p>
             )}
 
@@ -177,7 +180,7 @@ export function StayHostSection({
             <div className="flex items-start justify-between gap-4 border-b border-[#E5DFD3] pb-4">
               <div>
                 <h3 className="text-lg font-semibold text-[#17221E]">
-                  {isVi ? `Nhắn tin cho ${hostName}` : `Message ${hostName}`}
+                  {isVi ? `Nhắn tin cho ${displayName}` : `Message ${displayName}`}
                 </h3>
                 <p className="mt-0.5 text-xs text-[#53635D]">{stayTitle}</p>
               </div>

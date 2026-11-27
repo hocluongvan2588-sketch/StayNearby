@@ -1,22 +1,16 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import {
-  CalendarCheck,
-  ChevronRight,
-  KeyRound,
-  MapPin,
-  Star,
-  Utensils,
-} from 'lucide-react';
+import { ChevronRight, KeyRound, MapPin, Star, Utensils } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getConfig } from '@/lib/config';
 import { dbQuery } from '@/lib/db';
 import {
-  formatCancellationPolicyLabel,
   formatCountNoun,
   formatKitchenTypeLabel,
   formatLaundryTypeLabel,
   formatPropertyTypeLabel,
+  formatStayLocationLabel,
+  formatVndExact,
 } from '@/lib/i18n';
 import { getServerPreferences } from '@/lib/preferences';
 import { getStayDetailBySlug } from '@/modules/catalog';
@@ -96,13 +90,17 @@ export default async function StayDetailPage({
   }
 
   const propertyLabel = formatPropertyTypeLabel(stay.propertyType, prefs.locale);
+  const areaLabel = formatStayLocationLabel([neighborhoodName, destinationName]);
+  // Property type (what the building is) stays separate from the space the
+  // guest actually rents: a private room inside a co-living is never billed
+  // as "entire coliving".
   const overviewTitle = stay.isEntirePlace
     ? isVi
-      ? `Toàn bộ ${propertyLabel.toLowerCase()} tại ${neighborhoodName || destinationName}`
-      : `Entire ${propertyLabel.toLowerCase()} in ${neighborhoodName || destinationName}`
+      ? `Toàn bộ ${propertyLabel.toLowerCase()} tại ${areaLabel}`
+      : `Entire ${propertyLabel.toLowerCase()} in ${areaLabel}`
     : isVi
-      ? `${propertyLabel} tại ${neighborhoodName || destinationName}`
-      : `${propertyLabel} in ${neighborhoodName || destinationName}`;
+      ? `Phòng riêng trong ${propertyLabel.toLowerCase()} tại ${areaLabel}`
+      : `Private room in ${propertyLabel.toLowerCase()} in ${areaLabel}`;
 
   const roomPhotos = stay.rooms
     .filter((rm) => Boolean(rm.roomImage))
@@ -113,7 +111,7 @@ export default async function StayDetailPage({
 
   return (
     <div className="bg-white">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 pb-28 sm:px-6 lg:px-8 lg:pb-8">
         {/* Clean Minimal Breadcrumb */}
         <nav
           aria-label="Breadcrumb"
@@ -161,7 +159,7 @@ export default async function StayDetailPage({
                 className="inline-flex items-center gap-1 font-medium text-[#17221E] underline-offset-4 hover:underline"
               >
                 <MapPin className="h-4 w-4 text-[#C25E28]" />
-                <span>{[neighborhoodName, destinationName].filter(Boolean).join(' · ')}</span>
+                <span>{areaLabel}</span>
               </Link>
             </div>
           </div>
@@ -246,21 +244,6 @@ export default async function StayDetailPage({
                   </div>
                 </li>
 
-                <li className="flex items-start gap-3.5">
-                  <CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#17221E] stroke-[1.6]" />
-                  <div>
-                    <div className="text-[15px] font-medium text-[#17221E]">
-                      {isVi
-                        ? `Chính sách hủy: ${formatCancellationPolicyLabel(stay.cancellationPolicy, prefs.locale)}`
-                        : `${formatCancellationPolicyLabel(stay.cancellationPolicy, prefs.locale)} cancellation policy`}
-                    </div>
-                    <p className="text-sm text-[#53635D]">
-                      {isVi
-                        ? `Chỉ trả ${serviceFeePct}% phí giữ chỗ hôm nay, thanh toán phần tiền thuê trực tiếp khi nhận phòng.`
-                        : `Pay only the ${serviceFeePct}% reservation fee today; settle rent with your host at check-in.`}
-                    </p>
-                  </div>
-                </li>
               </ul>
             </section>
 
@@ -291,6 +274,7 @@ export default async function StayDetailPage({
               hasWorkspace={stay.hasWorkspace}
               hasErgonomicChair={stay.hasErgonomicChair}
               hasExternalMonitor={stay.hasExternalMonitor}
+              wifiHasService={stay.wifiHasService}
               wifiDownloadMbps={stay.wifiDownloadMbps}
               locale={prefs.locale}
             />
@@ -325,12 +309,49 @@ export default async function StayDetailPage({
           </div>
 
           {/* Right Column: Section 9 Booking Widget */}
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-5" id="booking-widget">
             <StayBookingWidget
               stay={stay}
               user={user}
               conciergeWhatsapp={getConfig().conciergeWhatsapp}
             />
+          </div>
+        </div>
+
+        {/* Mobile: compact sticky booking bar (scrolls to the full widget) */}
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E5DFD3] bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-[15px] font-semibold text-[#17221E]">
+                {formatVndExact(stay.weekDisplayVnd)}{' '}
+                <span className="text-[12px] font-normal text-[#53635D]">
+                  {isVi ? '/ 7 đêm' : '/ 7 nights'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  document
+                    .getElementById('booking-widget')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="text-[11px] font-medium text-[#164E3F] underline-offset-2 hover:underline"
+              >
+                {isVi ? 'Xem chi phí kỳ lưu trú' : 'View stay cost'}
+              </button>
+            </div>
+            <a
+              href="#booking-widget"
+              className="inline-flex min-h-[44px] shrink-0 items-center rounded-xl bg-[#164E3F] px-5 text-sm font-semibold text-white hover:bg-[#0F392E]"
+            >
+              {stay.isInstantBook
+                ? isVi
+                  ? 'Đặt chỗ'
+                  : 'Reserve'
+                : isVi
+                  ? 'Gửi yêu cầu đặt chỗ'
+                  : 'Request to book'}
+            </a>
           </div>
         </div>
 

@@ -15,7 +15,7 @@ import {
   Store,
   Utensils,
 } from 'lucide-react';
-import { formatPlaceCategoryLabel, type Locale } from '@/lib/i18n';
+import { formatDistanceLabel, formatPlaceCategoryLabel, type Locale } from '@/lib/i18n';
 import type { LocalDiscoveryPlace } from '@/modules/catalog';
 
 function CategoryFallbackIcon({ category }: { category: string }) {
@@ -59,9 +59,12 @@ export function buildPlaceMapsUrl(place: LocalDiscoveryPlace): string {
 export function LocalPlaceCard({
   place,
   locale,
+  onOpen,
 }: {
   place: LocalDiscoveryPlace;
   locale: Locale;
+  /** Opens the detail overlay; the whole card becomes interactive. */
+  onOpen?: () => void;
 }) {
   const isVi = locale === 'vi';
   const desc = isVi
@@ -71,9 +74,30 @@ export function LocalPlaceCard({
     ? place.neighborhoodNameVi || place.neighborhoodNameEn
     : place.neighborhoodNameEn || place.neighborhoodNameVi;
   const mapsUrl = buildPlaceMapsUrl(place);
+  const distance = formatDistanceLabel(place.distanceLabel, locale);
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-2xl border border-[#E5DFD3] bg-white transition duration-300 hover:border-[#164E3F]/40 lacquer-shadow">
+    <article
+      className={`group flex flex-col overflow-hidden rounded-2xl border border-[#E5DFD3] bg-white transition duration-300 hover:border-[#164E3F]/40 ${
+        onOpen
+          ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#164E3F]'
+          : ''
+      }`}
+      onClick={onOpen}
+      onKeyDown={
+        onOpen
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpen();
+              }
+            }
+          : undefined
+      }
+      role={onOpen ? 'button' : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? (locale === 'vi' ? `Xem chi tiết ${place.name}` : `View details for ${place.name}`) : undefined}
+    >
       <div className="relative aspect-[16/10] overflow-hidden bg-[#F2EDE3]">
         {place.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -91,7 +115,7 @@ export function LocalPlaceCard({
         {place.distanceLabel && (
           <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#17221E] shadow-sm">
             <MapPin className="h-3 w-3 text-[#C25E28]" />
-            {place.distanceLabel}
+            {distance}
           </span>
         )}
       </div>
@@ -145,6 +169,7 @@ export function LocalPlaceCard({
             href={mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="inline-flex shrink-0 items-center gap-1 font-semibold text-[#164E3F] hover:underline"
           >
             {isVi ? 'Xem bản đồ' : 'View map'}

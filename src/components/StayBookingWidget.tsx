@@ -86,6 +86,45 @@ export function StayBookingWidget({
   const [guestNote, setGuestNote] = useState('');
   const [showExtras, setShowExtras] = useState(false);
 
+  // Persist the guest's in-progress selection across the login round-trip so
+  // nothing is lost when auth starts from the booking CTA.
+  const draftKey = `booking_draft:${stay.slug}`;
+  useEffect(() => {
+    // Deferred so the restore never blocks hydration; runs right after mount.
+    const timer = window.setTimeout(() => {
+      try {
+        const raw = window.sessionStorage.getItem(draftKey);
+        if (!raw) return;
+        window.sessionStorage.removeItem(draftKey);
+        const draft = JSON.parse(raw) as {
+          roomId?: string;
+          checkIn?: string;
+          baseTier?: number;
+          extraNights?: number;
+          guestsCount?: number;
+        };
+        if (draft.roomId && stay.rooms.some((r) => r.id === draft.roomId)) {
+          setRoomId(draft.roomId);
+        }
+        if (draft.checkIn && draft.checkIn >= getTodayIsoVietnam()) {
+          setCheckIn(draft.checkIn);
+        }
+        if ([7, 14, 21, 30].includes(draft.baseTier ?? 0)) {
+          setBaseTier(draft.baseTier as StayPackageTier);
+        }
+        if (typeof draft.extraNights === 'number' && draft.extraNights >= 0) {
+          setExtraNights(draft.extraNights);
+        }
+        if (typeof draft.guestsCount === 'number' && draft.guestsCount >= 1) {
+          setGuestsCount(draft.guestsCount);
+        }
+      } catch {
+        // Ignore malformed drafts
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [draftKey, stay.rooms]);
+
   // Promo code state
   const [promoInput, setPromoInput] = useState('');
   const [promoLoading, setPromoLoading] = useState(false);
@@ -241,6 +280,16 @@ export function StayBookingWidget({
 
   async function handleStartReservation() {
     if (!user) {
+      // Auth starts the booking flow — save the selection first, restore it
+      // after login. No booking or inventory lock happens at login.
+      try {
+        window.sessionStorage.setItem(
+          draftKey,
+          JSON.stringify({ roomId, checkIn, baseTier, extraNights, guestsCount })
+        );
+      } catch {
+        // Storage unavailable — best effort
+      }
       window.location.assign(`/login?next=/stays/${stay.slug}`);
       return;
     }
@@ -330,12 +379,7 @@ export function StayBookingWidget({
             </span>
           </div>
           <p className="mt-1 text-xs text-[#53635D]">
-            {formatMoney(quote.perNightDisplayVnd)} / {isVi ? 'đêm' : 'night'} ·{' '}
-            <span className="font-medium text-[#164E3F]">
-              {isVi
-                ? `Chỉ trả ${formatMoney(quote.feeOnlineVnd)} hôm nay (${serviceFeePct}%)`
-                : `Pay ${formatMoney(quote.feeOnlineVnd)} today (${serviceFeePct}%)`}
-            </span>
+            {formatMoney(quote.perNightDisplayVnd)} / {isVi ? 'đêm' : 'night'}
           </p>
         </div>
 
@@ -403,8 +447,8 @@ export function StayBookingWidget({
                     : 'border-[#E5DFD3] bg-[#FAF8F3] text-[#17221E] hover:border-[#164E3F]/50'
                 }`}
               >
-                <div className="text-xs font-semibold">
-                  {tier === 30 ? (isVi ? '1 tháng' : '1 mo') : `${tier} ${isVi ? 'đêm' : 'N'}`}
+                <div className="text-[11px] font-semibold leading-tight">
+                  {isVi ? `${tier} đêm` : `${tier} nights`}
                 </div>
                 <div className={`mt-0.5 text-[11px] ${active ? 'text-[#DCECE5]' : 'text-[#53635D]'}`}>
                   {formatMoney(tierQ.totalStayVnd)}
@@ -541,13 +585,13 @@ export function StayBookingWidget({
             className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#164E3F] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[#0F392E] disabled:opacity-60"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            {!user
+            {stay.isInstantBook
               ? isVi
-                ? `Đăng nhập để giữ phòng (${formatMoney(quote.feeOnlineVnd)} hôm nay)`
-                : `Log in to reserve (${formatMoney(quote.feeOnlineVnd)} today)`
+                ? 'Đặt chỗ'
+                : 'Reserve'
               : isVi
-                ? `Đặt giữ chỗ · Trả ${formatMoney(quote.feeOnlineVnd)} hôm nay`
-                : `Reserve · Pay ${formatMoney(quote.feeOnlineVnd)} today`}
+                ? 'Gửi yêu cầu đặt chỗ'
+                : 'Request to book'}
           </button>
         )
       )}
@@ -595,6 +639,11 @@ export function StayBookingWidget({
           </div>
         )}
 
+        <div className="flex items-center justify-between border-t border-[#E5DFD3] pt-3 text-base font-semibold text-[#17221E]">
+          <span>{isVi ? 'Tổng chi phí kỳ lưu trú' : 'Total stay cost'}</span>
+          <span>{formatMoney(quote.totalStayVnd)}</span>
+        </div>
+
         <div className="space-y-1.5 border-t border-[#E5DFD3] pt-3">
           <div className="flex items-center justify-between font-semibold text-[#164E3F]">
             <span>{isVi ? 'Thanh toán online hôm nay' : 'Due online today'}</span>
@@ -604,11 +653,6 @@ export function StayBookingWidget({
             <span>{isVi ? 'Trả trực tiếp chủ nhà khi nhận phòng' : 'Pay host at check-in'}</span>
             <span className="font-medium">{formatMoney(quote.payAtCheckinVnd)}</span>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-[#E5DFD3] pt-3 text-base font-semibold text-[#17221E]">
-          <span>{isVi ? 'Tổng chi phí kỳ ở' : 'Total stay cost'}</span>
-          <span>{formatMoney(quote.totalStayVnd)}</span>
         </div>
 
         {quote.rewardCreditEarnedVnd > 0 && (

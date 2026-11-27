@@ -1,0 +1,109 @@
+# VietNomad Guest Platform — UI Principles (StayCard & Listing Detail)
+
+Long-lived rules agreed in the2026-11 UI/UX refinement. New UI work must follow
+these; if a change conflicts with them, report before implementing.
+
+## Brand & visual
+
+- Keep the existing identity: colors (`#164E3F` brand green, `#17221E` ink,
+  `#53635D` secondary text, `#E5DFD3` hairlines), typography, and spacing.
+- Hospitality feel: image-led, generous whitespace, hairline separators.
+- Do NOT wrap every group in cards/badges/borders/shadows; guest UI must never
+  look like an admin dashboard.
+- Reuse the existing icon set (lucide) — no emoji, no decorative icons, no
+  "AI-style" flourish components.
+
+## StayCard (home, search, category, favorites, recommendations)
+
+- Image: ratio/size/rounded corners unchanged;3-column desktop grid on home;
+  no outer card, border, or shadow; existing gallery behavior kept.
+- On-image component positions (check every breakpoint for overlap):
+  - top-left — **Wi-Fi speed badge** (Wifi icon + download Mbps, brand green,
+    solid, no gradient/glow). Only for real declared/measured speeds >0.
+    Never "0 Mbps", never defaults, never "host reported" copy, never a
+    verification icon unless independently verified.
+  - top-right — favorite button.
+  - bottom-left — deal badge, only with a real discount vs a valid reference.
+  - bottom-center — gallery navigation (when the card has a gallery).
+- Content order below the image: **title first** (prominent) with rating on the
+  same row when space allows → address (secondary color) → type · capacity ·
+  key living amenities → price.
+- Never repeat the Wi-Fi speed below the image (the badge owns it).
+- Price: total stay cost from the pricing engine (fees included). With dates
+  selected show that stay's total; otherwise7-night and30-night totals.
+  Labels are always "N đêm / N nights" — never "1 tháng" for a30-night tier.
+  No payment-split lines on cards (split belongs to detail + checkout).
+- Address: use `formatStayLocationLabel()` (dedupes repeated city segments).
+  Never expose the exact street address on cards or before the address-privacy
+  rule allows it.
+- Ratings: internal VietNomad guest reviews first; Google only as fallback and
+  always labelled "Google". Never render a default score for a listing with no
+  reviews.
+
+## Listing Detail
+
+- Section order: header (title/location/rating) → gallery → overview → host →
+  about → amenities → workspace & Internet → explore nearby → guest reviews →
+  neighborhood → things to know → similar stays (only if a component exists).
+- Booking widget stays right on desktop; mobile gets a one-column layout and a
+  compact fixed bottom bar that scrolls to the full widget.
+- Overview separates **property type** from **space rented**: a private room
+  inside a co-living is "Phòng riêng trong …", never "Toàn bộ nhà ở chung".
+- Host block shows the public display name (`formatHostDisplayName()` strips
+  internal handles like `Admin (username)`) and a localized country
+  (`formatCountryLabel()`). Never admin usernames, emails, or system accounts.
+- Descriptions are host copy only — no auto-inserted fee/commission/promo
+  text; payment terms live in the widget and policies.
+- Amenities: deduplicated (`formatAmenities` normalization), two columns on
+  desktop, plain "Wi-Fi" only — speed figures belong to Workspace & Internet.
+
+## Wi-Fi display tiers (never conflate them)
+
+1. **Host-declared** — speed badge on card + plain "Wi-Fi X Mbps" line in the
+   detail section. Source ("Chủ nhà cung cấp") and test date appear only inside
+   "Xem chi tiết kết nối", together with the variability disclaimer.
+2. **Guest-rated** — Internet quality average + rating count when enough
+   eligible reviews exist; always captioned as experience, not Mbps
+   verification.
+3. **VietNomad verified** — "Wi-Fi Verified" badge only from the platform
+   verification process (`is_wifi_verified`), never from host data.
+
+Jitter ≠ Ping; missing parameters stay missing (never defaulted, never
+"today's date" as a test date). Guide content lives in CMS
+(`/guides/wifi-speed-test-guide`), linked from the host editor — not inlined.
+
+## Booking widget & checkout
+
+- Order: total stay cost → per-night average → stay-length packages (7/14/21/30
+  "đêm") → dates → guests → CTA → cost breakdown → payment split → cancellation
+  + support. Total is stated before the online-today / pay-at-check-in split.
+- CTA copy follows the real flow: Instant Book → "Đặt chỗ"; Request to Book →
+  "Gửi yêu cầu đặt chỗ". Never "Đăng nhập để giữ phòng". Auth starts from the
+  CTA, saves the in-progress selection to sessionStorage, restores it after
+  login, and never creates a booking or inventory lock at login time.
+- Service fee comes from `platform_settings` via the pricing engine, computed
+  on the rent — never hardcode percentages in UI.
+
+## Local Discovery
+
+- The whole place card is clickable (image, name, body) and opens a detail
+  overlay: bottom sheet on mobile, modal on desktop; Escape + close button +
+  focus management; body scroll locked while open (scroll position preserved);
+  no login wall; booking selections untouched.
+- Inner CTAs (maps link) stop propagation.
+- Distance/time labels are localized via `formatDistanceLabel()` — "4 phút đi
+  bộ" in VI, "4 min walk" in EN; walk times only when the data provides them;
+  "0 km" renders as "Ngay tại chỗ ở". No shared stock images across different
+  places; no invented hours, prices, ratings, or perks. Perks render only when
+  an active partnership exists.
+- Taxonomy: reuse `normalizePlaceExploreGroup()`; do not add duplicate tabs.
+
+## Data honesty (all components)
+
+- Never display values that were not provided: Wi-Fi, ratings, amenities,
+  prices, distances, hours.
+- No default/fake numbers (schema-level defaults like `google_rating = 4.8`
+  are a known data issue — do not compound it in UI; label sources instead).
+- Localize dates, money, decimals, and units through `src/lib/i18n.ts`
+  helpers; no per-component hardcoded bilingual strings when the dictionary
+  exists.

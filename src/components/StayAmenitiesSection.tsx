@@ -149,6 +149,7 @@ export function StayAmenitiesSection({
   hasWorkspace,
   hasErgonomicChair,
   hasExternalMonitor,
+  wifiHasService,
   wifiDownloadMbps,
   locale,
 }: {
@@ -160,6 +161,7 @@ export function StayAmenitiesSection({
   hasWorkspace: boolean;
   hasErgonomicChair: boolean;
   hasExternalMonitor: boolean;
+  wifiHasService: boolean | null;
   wifiDownloadMbps: number | null;
   locale: Locale;
 }) {
@@ -171,7 +173,8 @@ export function StayAmenitiesSection({
     const seen = new Set<string>();
 
     const pushItem = (item: AmenityDisplayItem) => {
-      const normalized = item.label.toLowerCase().trim();
+      // Normalize so "Wi-Fi", "WiFi" and " wi fi " count as one amenity.
+      const normalized = item.label.toLowerCase().replace(/[^a-z0-9]+/g, '');
       if (!normalized || seen.has(normalized)) return;
       seen.add(normalized);
       list.push(item);
@@ -193,10 +196,16 @@ export function StayAmenitiesSection({
         iconName: 'laundry',
       });
     }
-    if (wifiDownloadMbps !== null && wifiDownloadMbps > 0) {
+    // Amenities section lists plain "Wi-Fi" — the speed figure lives only in
+    // the Workspace & Internet section.
+    const wifiKnown =
+      wifiHasService === true ||
+      (wifiHasService !== false && wifiDownloadMbps !== null && wifiDownloadMbps > 0);
+    const hasWifiItem = wifiKnown;
+    if (wifiKnown) {
       pushItem({
         key: 'wifi',
-        label: isVi ? `Wi-Fi (${wifiDownloadMbps} Mbps)` : `Wi-Fi (${wifiDownloadMbps} Mbps)`,
+        label: 'Wi-Fi',
         group: 'connectivity',
         iconName: 'wifi',
       });
@@ -245,13 +254,18 @@ export function StayAmenitiesSection({
     amenities.forEach((raw, idx) => {
       const clean = raw.trim();
       if (!clean) return;
-      // Avoid duplicating structured kitchen/laundry/desk keywords if very close
+      // Avoid duplicating structured kitchen/laundry/desk/wifi entries
       const lower = clean.toLowerCase();
       if (
         (lower === 'kitchen' && kitchenType !== 'none') ||
         (lower === 'dedicated workspace' && hasWorkspace) ||
         (lower === 'external monitor' && hasExternalMonitor) ||
-        (lower === 'ergonomic chair' && hasErgonomicChair)
+        (lower === 'ergonomic chair' && hasErgonomicChair) ||
+        (hasWifiItem &&
+          (lower === 'wi-fi' ||
+            lower === 'wifi' ||
+            lower === 'internet' ||
+            lower === 'wi fi'))
       ) {
         return;
       }
@@ -276,6 +290,7 @@ export function StayAmenitiesSection({
     locale,
     petFriendly,
     wheelchairFriendly,
+    wifiHasService,
     wifiDownloadMbps,
   ]);
 
