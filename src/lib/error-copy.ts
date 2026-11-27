@@ -156,6 +156,12 @@ const RULES: ErrorCopyRule[] = [
     vi: () => 'Đã có lỗi xảy ra. Vui lòng thử lại.',
     en: () => 'Something went wrong. Please try again.',
   },
+  // — Rate limiting (proxy.ts) —
+  {
+    test: /^Too many requests\. Please try again later\.$/,
+    vi: () => 'Bạn thao tác quá nhanh. Vui lòng thử lại sau.',
+    en: () => 'Too many requests. Please try again later.',
+  },
 ];
 
 /** Map a server error message to guest-facing copy; falls back to the original. */
