@@ -78,9 +78,9 @@ export interface MemberDashboardData {
     cancellationPolicy: string;
     refundAmountVnd: number;
     creditIssuedVnd: number;
-    wifiDownloadMbps: number;
-    wifiUploadMbps: number;
-    wifiJitterMs: number;
+    wifiDownloadMbps: number | null;
+    wifiUploadMbps: number | null;
+    wifiJitterMs: number | null;
     verificationTier: string;
     isWifiVerified: boolean;
     isWorkReady: boolean;
@@ -141,7 +141,7 @@ export interface MemberDashboardData {
     titleEn: string;
     titleVi: string;
     heroImage: string;
-    wifiDownloadMbps: number;
+    wifiDownloadMbps: number | null;
     destinationNameEn: string;
     destinationNameVi: string;
     monthDisplayVnd: number;
@@ -483,7 +483,7 @@ export function MemberDashboardClient({
                           <span className={`rounded-full px-2.5 py-0.5 ${renderStatusBadge(b.status)}`}>
                             {formatBookingStatusLabel(b.status, locale, bookingFeePct)}
                           </span>
-                          {b.wifiDownloadMbps > 0 && (
+                          {b.wifiDownloadMbps !== null && b.wifiDownloadMbps > 0 && (
                             <span className="text-[#53635D]">
                               <Wifi className="mr-1 inline h-3.5 w-3.5 text-[#164E3F]" />
                               {b.wifiDownloadMbps} Mbps
@@ -1221,7 +1221,9 @@ export function MemberDashboardClient({
                     <div className="font-semibold text-[#17221E]">{isVi ? s.titleVi : s.titleEn}</div>
                     <div className="text-xs text-[#53635D]">
                       {isVi ? s.destinationNameVi : s.destinationNameEn}
-                      {s.wifiDownloadMbps > 0 ? ` · ${s.wifiDownloadMbps} Mbps` : ''}
+                      {s.wifiDownloadMbps !== null && s.wifiDownloadMbps > 0
+                        ? ` · ${s.wifiDownloadMbps} Mbps`
+                        : ''}
                     </div>
                   </div>
                   <div className="text-sm font-bold text-[#164E3F]">

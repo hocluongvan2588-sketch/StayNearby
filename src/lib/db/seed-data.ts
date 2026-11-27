@@ -1320,10 +1320,10 @@ export async function runSeed(): Promise<void> {
           workspace_photo_url, has_workspace, has_ergonomic_chair, has_external_monitor, has_call_booth,
           kitchen_type, laundry_type, pet_friendly, wheelchair_friendly,
           google_rating, google_review_count, map_x, map_y, hero_image,
-          gallery_images, amenities, nearby_coworking
+          gallery_images, amenities, nearby_coworking, wifi_status
         ) VALUES (
           $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'live',TRUE,
-          $19,$20,$21,$22,NOW(),$23,$24,$25,NOW(),$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48
+          $19,$20,$21,$22,NOW(),$23,$24,$25,NOW(),$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,'host_declared'
         ) ON CONFLICT (id) DO UPDATE SET
           business_model = EXCLUDED.business_model,
           description_en = EXCLUDED.description_en,
@@ -1363,7 +1363,7 @@ export async function runSeed(): Promise<void> {
           `/api/stays/${s.slug}/speedtest-proof`,
           `/api/stays/${s.slug}/speedtest-proof?view=tour`,
           s.verificationTier,
-          s.isWifiVerified,
+          false,
           s.isWorkReady,
           s.hostWhatsapp,
           s.wsEn,

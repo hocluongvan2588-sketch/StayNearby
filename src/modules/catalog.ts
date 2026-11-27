@@ -7,6 +7,7 @@ import {
 import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
 import type { Locale } from '@/lib/i18n';
 import { calculateStayQuote } from '@/lib/pricing';
+import { normalizeWifiStatus, toNumOrNull, type WifiStatus } from '@/lib/wifi-status';
 import { parseHouseRules, type HostHouseRules } from '@/modules/host';
 import { getPlatformFeeConfig, type PlatformFeeConfig } from '@/modules/platform-settings';
 
@@ -35,9 +36,12 @@ export interface StayCardItem {
   businessModel: 'booking_flow';
   isInstantBook: boolean;
   cancellationPolicy: 'flexible' | 'moderate' | 'strict';
-  wifiDownloadMbps: number;
-  wifiUploadMbps: number;
-  wifiJitterMs: number;
+  // NULL = chưa cập nhật (Phase A integrity — never default/derived values).
+  wifiHasService: boolean | null;
+  wifiDownloadMbps: number | null;
+  wifiUploadMbps: number | null;
+  wifiPingMs: number | null;
+  wifiJitterMs: number | null;
   verificationTier: 'SELF_DECLARED' | 'HOST_VERIFIED' | 'VIETNOMAD_CERTIFIED';
   isWifiVerified: boolean;
   isWorkReady: boolean;
@@ -225,8 +229,9 @@ export interface StayDetail extends StayCardItem {
   reviews: StayGuestReviewItem[];
   reviewsAvg: number | null;
   reviewsCount: number;
-  wifiTestedAt: string;
-  wifiTesterNote: string;
+  wifiTestedAt: string | null;
+  wifiTesterNote: string | null;
+  wifiStatus: WifiStatus;
   speedtestProofUrl: string | null;
   workspaceVideoUrl: string | null;
   workspaceSummaryEn: string;
@@ -348,9 +353,14 @@ function mapStayRowToCard(
     businessModel: 'booking_flow',
     isInstantBook: Boolean(row.is_instant_book),
     cancellationPolicy: row.cancellation_policy as 'flexible' | 'moderate' | 'strict',
-    wifiDownloadMbps: toNum(row.wifi_download_mbps),
-    wifiUploadMbps: toNum(row.wifi_upload_mbps),
-    wifiJitterMs: toNum(row.wifi_jitter_ms),
+    wifiHasService:
+      row.wifi_has_service === null || row.wifi_has_service === undefined
+        ? null
+        : Boolean(row.wifi_has_service),
+    wifiDownloadMbps: toNumOrNull(row.wifi_download_mbps),
+    wifiUploadMbps: toNumOrNull(row.wifi_upload_mbps),
+    wifiPingMs: toNumOrNull(row.wifi_ping_ms),
+    wifiJitterMs: toNumOrNull(row.wifi_jitter_ms),
     verificationTier,
     isWifiVerified,
     isWorkReady,
@@ -469,6 +479,11 @@ export interface SearchStaysFilter {
   sort?: 'featured' | 'wifi_desc' | 'price_asc' | 'savings_desc' | 'rating_desc';
 }
 
+/** Wi-Fi sort rank: NULL (chưa cập nhật) always sorts last. */
+function wifiRank(s: StayCardItem): number {
+  return s.wifiDownloadMbps ?? -1;
+}
+
 export async function searchStays(filters: SearchStaysFilter = {}): Promise<StayCardItem[]> {
   const [res, feeConfig] = await Promise.all([
     dbQuery(
@@ -541,7 +556,10 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
     items = items.filter((s) => s.lifestyleSlugs.includes(filters.lifestyle!));
   }
   if (filters.minWifiMbps && filters.minWifiMbps > 0) {
-    items = items.filter((s) => s.wifiDownloadMbps >= filters.minWifiMbps!);
+    // Only real declared/measured values — NULL (chưa cập nhật) never matches.
+    items = items.filter(
+      (s) => s.wifiDownloadMbps !== null && s.wifiDownloadMbps >= filters.minWifiMbps!
+    );
   }
   if (filters.hasWorkspace) {
     items = items.filter((s) => s.hasWorkspace);
@@ -580,10 +598,10 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
     if (sortBy === 'savings_desc')
       return b.dealSavingsPct + b.stayLongerSavingsPct - (a.dealSavingsPct + a.stayLongerSavingsPct);
     if (sortBy === 'rating_desc') return b.googleRating - a.googleRating;
-    if (sortBy === 'wifi_desc') return b.wifiDownloadMbps - a.wifiDownloadMbps;
+    if (sortBy === 'wifi_desc') return wifiRank(b) - wifiRank(a);
     if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
     if (a.featuredRank !== b.featuredRank) return a.featuredRank - b.featuredRank;
-    return b.wifiDownloadMbps - a.wifiDownloadMbps;
+    return wifiRank(b) - wifiRank(a);
   });
 
   return items;
@@ -866,8 +884,11 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     reviews,
     reviewsAvg,
     reviewsCount,
-    wifiTestedAt: new Date(String(row.wifi_tested_at)).toISOString(),
-    wifiTesterNote: String(row.wifi_tester_note),
+    wifiTestedAt: row.wifi_tested_at
+      ? new Date(String(row.wifi_tested_at)).toISOString()
+      : null,
+    wifiTesterNote: row.wifi_tester_note ? String(row.wifi_tester_note) : null,
+    wifiStatus: normalizeWifiStatus(row.wifi_status),
     speedtestProofUrl: row.speedtest_proof_url ? String(row.speedtest_proof_url) : null,
     workspaceVideoUrl: row.workspace_video_url ? String(row.workspace_video_url) : null,
     workspaceSummaryEn: String(row.workspace_summary_en),

@@ -171,7 +171,7 @@ export function CompareDrawer() {
                     </td>
                     {compareList.map((s) => (
                       <td key={s.id} className="px-3 py-3">
-                        {s.wifiDownloadMbps > 0
+                        {s.wifiDownloadMbps !== null && s.wifiDownloadMbps > 0
                           ? `${s.wifiDownloadMbps} Mbps`
                           : isVi
                             ? 'Chưa cập nhật'

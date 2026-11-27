@@ -50,7 +50,12 @@ export const listingPatchSchema = z.object({
   checkinInstructionsVi: z.string().min(4).max(2000).optional(),
   propertyType: propertyTypeSchema.optional(),
   destinationId: z.string().uuid().optional(),
-  wifiDownloadMbps: z.number().int().min(0).max(10000).optional(),
+  // Wi-Fi: NULL = chưa cập nhật. No defaults, no derived values (Phase A).
+  wifiHasService: z.boolean().nullable().optional(),
+  wifiDownloadMbps: z.number().int().min(0).max(10000).nullable().optional(),
+  wifiUploadMbps: z.number().int().min(0).max(10000).nullable().optional(),
+  wifiPingMs: z.number().int().min(0).max(5000).nullable().optional(),
+  wifiJitterMs: z.number().int().min(0).max(500).nullable().optional(),
   isEntirePlace: z.boolean().optional(),
   bedrooms: z.number().int().min(1).max(30).nullable().optional(),
   bathrooms: z.number().int().min(1).max(30).nullable().optional(),
@@ -121,7 +126,7 @@ export const listingWorkspaceStepSchema = z.object({
   hasCallBooth: z.boolean().optional(),
   workspaceSummaryEn: z.string().min(4).max(1500).optional(),
   workspaceSummaryVi: z.string().min(4).max(1500).optional(),
-  wifiDownloadMbps: z.number().int().min(0).max(10000).optional(),
+  wifiDownloadMbps: z.number().int().min(0).max(10000).nullable().optional(),
 });
 
 /** Step — Location & check-in. */

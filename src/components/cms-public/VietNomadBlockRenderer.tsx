@@ -72,7 +72,7 @@ function StayInlineCard({
               <MapPin className="h-3 w-3 text-[#C25E28]" />
               {nb ? `${nb}, ${destName}` : destName}
             </span>
-            {stay.wifiDownloadMbps > 0 && (
+            {stay.wifiDownloadMbps !== null && stay.wifiDownloadMbps > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F1EC] px-2.5 py-0.5 text-[#164E3F]">
                 <Wifi className="h-3 w-3" />
                 {stay.wifiDownloadMbps} Mbps
@@ -365,7 +365,10 @@ export function renderVietNomadDynamicBlock(params: {
                     {isVi ? st.titleVi : st.titleEn}
                   </div>
                   <div className="text-[11px] text-[#53635D]">
-                    {st.wifiDownloadMbps} Mbps · {isVi ? st.neighborhoodVi : st.neighborhoodEn}
+                    {st.wifiDownloadMbps !== null && st.wifiDownloadMbps > 0
+                      ? `${st.wifiDownloadMbps} Mbps · `
+                      : ''}
+                    {isVi ? st.neighborhoodVi : st.neighborhoodEn}
                   </div>
                 </Link>
               ))}

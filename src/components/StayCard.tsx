@@ -125,7 +125,9 @@ export function StayCard({
 
           <p className="line-clamp-1 text-[13px] text-[#53635D]">
             {summaryBits.join(' · ')}
-            {stay.wifiDownloadMbps > 0 ? ` · ${stay.wifiDownloadMbps} Mbps` : ''}
+            {stay.wifiDownloadMbps !== null && stay.wifiDownloadMbps > 0
+              ? ` · ${stay.wifiDownloadMbps} Mbps`
+              : ''}
           </p>
         </div>
 

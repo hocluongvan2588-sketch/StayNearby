@@ -906,10 +906,12 @@ export function HostListingWizardCreateClient({
                 type="number"
                 min={0}
                 max={10000}
-                label={isVi ? 'Tải Wi-Fi đo được (Mbps)' : 'Measured download (Mbps)'}
-                value={form.wifiDownloadMbps}
+                label={isVi ? 'Tải Wi-Fi đo được (Mbps, để trống nếu chưa kiểm tra)' : 'Measured download (Mbps, leave empty if untested)'}
+                value={form.wifiDownloadMbps ?? ''}
                 onChange={(v) =>
-                  updateForm({ wifiDownloadMbps: Math.max(0, Number(v) || 0) })
+                  updateForm({
+                    wifiDownloadMbps: v === '' ? null : Math.max(0, Number(v) || 0),
+                  })
                 }
               />
             </div>

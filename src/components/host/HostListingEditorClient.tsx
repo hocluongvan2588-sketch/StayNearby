@@ -39,6 +39,7 @@ import {
   ListingSelect,
   ListingTextarea,
 } from '@/components/listing-form';
+import { wifiStatusLabel } from '@/lib/wifi-status';
 import type { DestinationSummary } from '@/modules/catalog';
 import type { HostStayRoomItem, HostStaySummary } from '@/modules/host';
 
@@ -46,7 +47,7 @@ const SECTION_DEFS = [
   { key: 'basic', en: '1. Basic Information', vi: '1. Thông tin cơ bản', icon: FileText },
   { key: 'photos', en: '2. Photos & Videos', vi: '2. Hình ảnh & Video', icon: Camera },
   { key: 'amenities', en: '3. Amenities', vi: '3. Tiện nghi chỗ ở', icon: Sparkles },
-  { key: 'workspace', en: '4. Workspace', vi: '4. Góc làm việc (Tùy chọn)', icon: Laptop },
+  { key: 'workspace', en: '4. Internet & Workspace', vi: '4. Internet & Không gian làm việc', icon: Laptop },
   { key: 'location', en: '5. Location', vi: '5. Vị trí & Địa chỉ', icon: MapPin },
   { key: 'pricing', en: '6. Pricing', vi: '6. Bảng giá & Gói dài ngày', icon: DollarSign },
   { key: 'availability', en: '7. Availability', vi: '7. Tình trạng & Lịch mở bán', icon: CalendarClock },
@@ -105,6 +106,13 @@ export function HostListingEditorClient({
   const [hasCallBooth, setHasCallBooth] = useState(stay.hasCallBooth);
   const [workspaceSummaryEn, setWorkspaceSummaryEn] = useState(stay.workspaceSummaryEn);
   const [workspaceSummaryVi, setWorkspaceSummaryVi] = useState(stay.workspaceSummaryVi);
+  // 4. Internet & Wi-Fi — manual declaration only (Phase A). NULL = chưa
+  // cập nhật; no defaults, no derived values; never blocks publishing.
+  const [wifiHasService, setWifiHasService] = useState<boolean | null>(stay.wifiHasService);
+  const [wifiDownload, setWifiDownload] = useState<number | null>(stay.wifiDownloadMbps);
+  const [wifiUpload, setWifiUpload] = useState<number | null>(stay.wifiUploadMbps);
+  const [wifiPing, setWifiPing] = useState<number | null>(stay.wifiPingMs);
+  const [wifiJitter, setWifiJitter] = useState<number | null>(stay.wifiJitterMs);
 
   // 5. Location
   const [destinationId, setDestinationId] = useState(stay.destinationId);
@@ -215,6 +223,11 @@ export function HostListingEditorClient({
           hasErgonomicChair,
           hasExternalMonitor,
           hasCallBooth,
+          wifiHasService,
+          wifiDownloadMbps: wifiDownload,
+          wifiUploadMbps: wifiUpload,
+          wifiPingMs: wifiPing,
+          wifiJitterMs: wifiJitter,
           workspaceSummaryEn,
           workspaceSummaryVi,
           neighborhoodEn,
@@ -697,48 +710,159 @@ export function HostListingEditorClient({
           )}
 
           {activeSection === 'workspace' && (
-            <div className="space-y-4">
-              <ListingSectionTitle>
-                {isVi ? '4. Góc làm việc & Wi-Fi (Tùy chọn)' : '4. Workspace (Optional)'}
-              </ListingSectionTitle>
-              <ListingHint>
-                {isVi
-                  ? 'Các tiện ích làm việc từ xa là tùy chọn và không ảnh hưởng tới điều kiện đăng phòng.'
-                  : 'All workspace fields are optional and never block publishing.'}
-              </ListingHint>
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                <ListingCheckboxCard
-                  label={isVi ? 'Bàn làm việc riêng' : 'Dedicated desk'}
-                  checked={hasWorkspace}
-                  onChange={setHasWorkspace}
-                />
-                <ListingCheckboxCard
-                  label={isVi ? 'Ghế công thái học' : 'Ergonomic chair'}
-                  checked={hasErgonomicChair}
-                  onChange={setHasErgonomicChair}
-                />
-                <ListingCheckboxCard
-                  label={isVi ? 'Màn hình rời' : 'External monitor'}
-                  checked={hasExternalMonitor}
-                  onChange={setHasExternalMonitor}
-                />
-                <ListingCheckboxCard
-                  label={isVi ? 'Khu vực gọi video yên tĩnh' : 'Quiet call booth'}
-                  checked={hasCallBooth}
-                  onChange={setHasCallBooth}
-                />
+            <div className="space-y-8">
+              {/* 4.1 Internet & Wi-Fi — toàn bộ tùy chọn, NULL = chưa cập nhật */}
+              <div className="space-y-4">
+                <ListingSectionTitle
+                  description={
+                    isVi
+                      ? 'Không bắt buộc kiểm tra tốc độ để đăng listing. Để trống nếu chưa khai báo.'
+                      : 'A speed test is never required to publish. Leave empty when not provided.'
+                  }
+                >
+                  {isVi ? '4.1 Internet & Wi-Fi' : '4.1 Internet & Wi-Fi'}
+                </ListingSectionTitle>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ListingSelect
+                    label={isVi ? 'Có Wi-Fi tại chỗ ở?' : 'Wi-Fi available?'}
+                    value={wifiHasService === null ? '' : String(wifiHasService)}
+                    onChange={(v) => setWifiHasService(v === '' ? null : v === 'true')}
+                    options={[
+                      { value: '', label: isVi ? 'Chưa cập nhật' : 'Not updated' },
+                      { value: 'true', label: isVi ? 'Có' : 'Yes' },
+                      { value: 'false', label: isVi ? 'Không' : 'No' },
+                    ]}
+                  />
+                  <ListingInput
+                    type="number"
+                    min={0}
+                    max={10000}
+                    label={isVi ? 'Download (Mbps)' : 'Download (Mbps)'}
+                    value={wifiDownload ?? ''}
+                    disabled={wifiHasService === false}
+                    onChange={(v) =>
+                      setWifiDownload(v === '' ? null : Math.max(0, Math.round(Number(v) || 0)))
+                    }
+                  />
+                  <ListingInput
+                    type="number"
+                    min={0}
+                    max={10000}
+                    label="Upload (Mbps)"
+                    value={wifiUpload ?? ''}
+                    disabled={wifiHasService === false}
+                    onChange={(v) =>
+                      setWifiUpload(v === '' ? null : Math.max(0, Math.round(Number(v) || 0)))
+                    }
+                  />
+                  <ListingInput
+                    type="number"
+                    min={0}
+                    max={5000}
+                    label="Ping (ms)"
+                    value={wifiPing ?? ''}
+                    disabled={wifiHasService === false}
+                    onChange={(v) =>
+                      setWifiPing(v === '' ? null : Math.max(0, Math.round(Number(v) || 0)))
+                    }
+                  />
+                  <ListingInput
+                    type="number"
+                    min={0}
+                    max={500}
+                    label="Jitter (ms)"
+                    value={wifiJitter ?? ''}
+                    disabled={wifiHasService === false}
+                    onChange={(v) =>
+                      setWifiJitter(v === '' ? null : Math.max(0, Math.round(Number(v) || 0)))
+                    }
+                  />
+                  <ListingInput
+                    label={isVi ? 'Ngày kiểm tra gần nhất' : 'Last tested'}
+                    value={stay.wifiTestedAt ? stay.wifiTestedAt.slice(0, 10) : ''}
+                    disabled
+                    onChange={() => undefined}
+                    hint={
+                      stay.wifiTestedAt
+                        ? undefined
+                        : isVi
+                          ? 'Chưa có lần kiểm tra nào.'
+                          : 'No test recorded yet.'
+                    }
+                  />
+                </div>
+                {(wifiDownload !== null ||
+                  wifiUpload !== null ||
+                  wifiPing !== null ||
+                  wifiJitter !== null) && (
+                  <p className="rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 text-xs text-[#53635D]">
+                    {isVi ? 'Kết quả gần nhất: ' : 'Latest: '}
+                    <span className="font-semibold text-[#17221E]">
+                      {wifiDownload !== null ? `${wifiDownload} Mbps ↓` : ''}
+                      {wifiUpload !== null ? ` · ${wifiUpload} Mbps ↑` : ''}
+                      {wifiPing !== null ? ` · Ping ${wifiPing} ms` : ''}
+                      {wifiJitter !== null ? ` · Jitter ${wifiJitter} ms` : ''}
+                    </span>
+                    {' · '}
+                    {wifiStatusLabel(stay.wifiStatus, isVi)}
+                  </p>
+                )}
+                {stay.wifiStatus !== 'not_updated' &&
+                  (wifiDownload === null &&
+                    wifiUpload === null &&
+                    wifiPing === null &&
+                    wifiJitter === null) && (
+                    <p className="text-xs text-[#53635D]">
+                      {wifiStatusLabel(stay.wifiStatus, isVi)}
+                    </p>
+                  )}
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <ListingTextarea
-                  label="Workspace summary (EN)"
-                  value={workspaceSummaryEn}
-                  onChange={setWorkspaceSummaryEn}
-                />
-                <ListingTextarea
-                  label="Mô tả không gian làm việc (VI)"
-                  value={workspaceSummaryVi}
-                  onChange={setWorkspaceSummaryVi}
-                />
+
+              {/* 4.2 Workspace */}
+              <div className="space-y-4">
+                <ListingSectionTitle
+                  description={
+                    isVi
+                      ? 'Tiện ích làm việc từ xa là tùy chọn và không ảnh hưởng tới điều kiện đăng phòng.'
+                      : 'All workspace fields are optional and never block publishing.'
+                  }
+                >
+                  {isVi ? '4.2 Không gian làm việc' : '4.2 Workspace'}
+                </ListingSectionTitle>
+                <div className="grid gap-2.5 sm:grid-cols-2">
+                  <ListingCheckboxCard
+                    label={isVi ? 'Bàn làm việc riêng' : 'Dedicated desk'}
+                    checked={hasWorkspace}
+                    onChange={setHasWorkspace}
+                  />
+                  <ListingCheckboxCard
+                    label={isVi ? 'Ghế công thái học' : 'Ergonomic chair'}
+                    checked={hasErgonomicChair}
+                    onChange={setHasErgonomicChair}
+                  />
+                  <ListingCheckboxCard
+                    label={isVi ? 'Màn hình rời' : 'External monitor'}
+                    checked={hasExternalMonitor}
+                    onChange={setHasExternalMonitor}
+                  />
+                  <ListingCheckboxCard
+                    label={isVi ? 'Khu vực gọi video yên tĩnh' : 'Quiet call booth'}
+                    checked={hasCallBooth}
+                    onChange={setHasCallBooth}
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <ListingTextarea
+                    label={isVi ? 'Mô tả bổ sung (EN)' : 'Additional description (EN)'}
+                    value={workspaceSummaryEn}
+                    onChange={setWorkspaceSummaryEn}
+                  />
+                  <ListingTextarea
+                    label={isVi ? 'Mô tả bổ sung (VI)' : 'Additional description (VI)'}
+                    value={workspaceSummaryVi}
+                    onChange={setWorkspaceSummaryVi}
+                  />
+                </div>
               </div>
             </div>
           )}

@@ -11,17 +11,21 @@ import {
   Wifi,
 } from 'lucide-react';
 import type { Locale } from '@/lib/i18n';
+import { wifiStatusLabel, type WifiStatus } from '@/lib/wifi-status';
 
 export function StayWorkspaceSection({
   hasWorkspace,
   hasErgonomicChair,
   hasExternalMonitor,
   hasCallBooth,
+  wifiHasService,
   wifiDownloadMbps,
   wifiUploadMbps,
+  wifiPingMs,
   wifiJitterMs,
   wifiTestedAt,
   wifiTesterNote,
+  wifiStatus,
   isWifiVerified,
   isWorkReady,
   verifiedAt,
@@ -35,11 +39,15 @@ export function StayWorkspaceSection({
   hasErgonomicChair: boolean;
   hasExternalMonitor: boolean;
   hasCallBooth: boolean;
-  wifiDownloadMbps: number;
-  wifiUploadMbps: number;
-  wifiJitterMs: number;
-  wifiTestedAt: string;
-  wifiTesterNote: string;
+  // NULL = chưa cập nhật — nothing is assumed or defaulted (Phase A).
+  wifiHasService: boolean | null;
+  wifiDownloadMbps: number | null;
+  wifiUploadMbps: number | null;
+  wifiPingMs: number | null;
+  wifiJitterMs: number | null;
+  wifiTestedAt: string | null;
+  wifiTesterNote: string | null;
+  wifiStatus: WifiStatus;
   isWifiVerified: boolean;
   isWorkReady: boolean;
   verifiedAt: string;
@@ -51,20 +59,23 @@ export function StayWorkspaceSection({
 }) {
   const isVi = locale === 'vi';
   const [showTechnical, setShowTechnical] = useState(false);
+  const hasWifiSpeed =
+    wifiDownloadMbps !== null || wifiUploadMbps !== null || wifiPingMs !== null;
 
   const hasAnyRelevantData =
     hasWorkspace ||
     hasErgonomicChair ||
     hasExternalMonitor ||
     hasCallBooth ||
-    wifiDownloadMbps > 0 ||
+    wifiHasService === true ||
+    hasWifiSpeed ||
     isWifiVerified ||
     isWorkReady;
 
   if (!hasAnyRelevantData) return null;
 
   const highlights: Array<{ icon: React.ReactNode; label: string }> = [];
-  if (wifiDownloadMbps > 0) {
+  if (wifiDownloadMbps !== null && wifiDownloadMbps > 0) {
     highlights.push({
       icon: <Wifi className="h-5 w-5 shrink-0 text-[#164E3F] stroke-[1.75]" />,
       label: isWifiVerified
@@ -129,7 +140,7 @@ export function StayWorkspaceSection({
             ))}
           </ul>
 
-          {(wifiDownloadMbps > 0 || speedtestProofUrl || workspaceVideoUrl || wifiTesterNote) && (
+          {(hasWifiSpeed || speedtestProofUrl || workspaceVideoUrl || wifiTesterNote) && (
             <div className="pt-1">
               <button
                 type="button"
@@ -154,16 +165,19 @@ export function StayWorkspaceSection({
 
               {showTechnical && (
                 <div className="mt-4 space-y-2.5 border-l-2 border-[#E5DFD3] pl-4 text-sm text-[#53635D]">
-                  {wifiDownloadMbps > 0 && (
+                  {hasWifiSpeed && (
                     <p>
                       <span className="font-medium text-[#17221E]">
                         {isVi ? 'Thông số mạng:' : 'Network metrics:'}
                       </span>{' '}
-                      {wifiDownloadMbps} Mbps {isVi ? 'tải xuống' : 'download'}
-                      {wifiUploadMbps > 0
-                        ? ` · ${wifiUploadMbps} Mbps ${isVi ? 'tải lên' : 'upload'}`
+                      {wifiDownloadMbps !== null
+                        ? `${wifiDownloadMbps} Mbps ${isVi ? 'tải xuống' : 'download'}`
                         : ''}
-                      {wifiJitterMs > 0 ? ` · ${wifiJitterMs} ms jitter` : ''}
+                      {wifiUploadMbps !== null
+                        ? `${wifiDownloadMbps !== null ? ' · ' : ''}${wifiUploadMbps} Mbps ${isVi ? 'tải lên' : 'upload'}`
+                        : ''}
+                      {wifiPingMs !== null ? ` · ${wifiPingMs} ms ping` : ''}
+                      {wifiJitterMs !== null ? ` · ${wifiJitterMs} ms jitter` : ''}
                     </p>
                   )}
 
@@ -172,11 +186,15 @@ export function StayWorkspaceSection({
                   <p className="text-xs">
                     {isWifiVerified
                       ? isVi
-                        ? `Đã kiểm định ngày ${verifiedAt.slice(0, 10)}.`
-                        : `Independently tested on ${verifiedAt.slice(0, 10)}.`
-                      : isVi
-                        ? `Thông tin cập nhật bởi chủ nhà ngày ${wifiTestedAt.slice(0, 10)}.`
-                        : `Host-reported specification, updated ${wifiTestedAt.slice(0, 10)}.`}
+                        ? `Đã VietNomad xác minh ngày ${verifiedAt.slice(0, 10)}.`
+                        : `Verified by VietNomad on ${verifiedAt.slice(0, 10)}.`
+                      : `${wifiStatusLabel(wifiStatus, isVi)}${
+                          wifiTestedAt
+                            ? isVi
+                              ? ` · cập nhật ngày ${wifiTestedAt.slice(0, 10)}`
+                              : ` · updated ${wifiTestedAt.slice(0, 10)}`
+                            : ''
+                        }`}
                   </p>
 
                   {(speedtestProofUrl || workspaceVideoUrl) && (

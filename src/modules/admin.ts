@@ -302,7 +302,19 @@ export async function updateAdminStayVerification(
     verification_tier: string;
     is_wifi_verified: boolean;
     is_work_ready: boolean;
-  }>('SELECT verification_tier, is_wifi_verified, is_work_ready FROM stays WHERE id = $1', [stayId]);
+    wifi_download_mbps: number | null;
+    wifi_upload_mbps: number | null;
+    wifi_ping_ms: number | null;
+    wifi_jitter_ms: number | null;
+    wifi_has_service: boolean | null;
+    wifi_status: string;
+  }>(
+    `SELECT verification_tier, is_wifi_verified, is_work_ready,
+            wifi_download_mbps, wifi_upload_mbps, wifi_ping_ms, wifi_jitter_ms,
+            wifi_has_service, wifi_status
+     FROM stays WHERE id = $1`,
+    [stayId]
+  );
   const cur = currentRes.rows[0];
   if (!cur) throw new AppError('NOT_FOUND', 'Stay not found.');
 
@@ -316,12 +328,29 @@ export async function updateAdminStayVerification(
         ? 'HOST_VERIFIED'
         : 'SELF_DECLARED');
 
+  // wifi_status follows the admin's explicit verification action only.
+  const hasWifiValues =
+    cur.wifi_download_mbps !== null ||
+    cur.wifi_upload_mbps !== null ||
+    cur.wifi_ping_ms !== null ||
+    cur.wifi_jitter_ms !== null ||
+    cur.wifi_has_service !== null;
+  const nextWifiStatus =
+    input.isWifiVerified === undefined
+      ? cur.wifi_status
+      : nextWifi
+        ? 'verified'
+        : hasWifiValues
+          ? 'host_declared'
+          : 'not_updated';
+
   await dbQuery(
     `UPDATE stays
      SET verification_tier = $1,
          is_wifi_verified = $2,
          is_work_ready = $3,
          verified_at = NOW(),
+         wifi_status = $7,
          speedtest_proof_url = COALESCE($4, speedtest_proof_url),
          workspace_video_url = COALESCE($5, workspace_video_url)
      WHERE id = $6`,
@@ -332,6 +361,7 @@ export async function updateAdminStayVerification(
       input.speedtestProofUrl?.trim() || null,
       input.workspaceVideoUrl?.trim() || null,
       stayId,
+      nextWifiStatus,
     ]
   );
   return { ok: true };

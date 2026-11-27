@@ -301,11 +301,14 @@ export default async function StayDetailPage({
               hasErgonomicChair={stay.hasErgonomicChair}
               hasExternalMonitor={stay.hasExternalMonitor}
               hasCallBooth={stay.hasCallBooth}
+              wifiHasService={stay.wifiHasService}
               wifiDownloadMbps={stay.wifiDownloadMbps}
               wifiUploadMbps={stay.wifiUploadMbps}
+              wifiPingMs={stay.wifiPingMs}
               wifiJitterMs={stay.wifiJitterMs}
               wifiTestedAt={stay.wifiTestedAt}
               wifiTesterNote={stay.wifiTesterNote}
+              wifiStatus={stay.wifiStatus}
               isWifiVerified={stay.isWifiVerified}
               isWorkReady={stay.isWorkReady}
               verifiedAt={stay.verifiedAt}
