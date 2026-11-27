@@ -316,7 +316,7 @@ export function HostShell({
           {/* Header Right Controls */}
           <div className="flex items-center gap-2">
             <Link
-              href="/host/listings/new"
+              href="/host/listings/create"
               className="hidden items-center gap-1.5 rounded-lg bg-[#164E3F] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#0F392E] sm:inline-flex"
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2} />
@@ -648,7 +648,7 @@ export function HostShell({
                 { href: '/host/insights', labelEn: 'Insights', labelVi: 'Hiệu quả', icon: BarChart3 },
                 { href: '/host/settings', labelEn: 'Settings', labelVi: 'Cài đặt', icon: Settings },
                 { href: '/host/help', labelEn: 'Help Center', labelVi: 'Hỗ trợ', icon: HelpCircle },
-                { href: '/host/listings/new', labelEn: 'Add listing', labelVi: 'Đăng chỗ ở', icon: Plus },
+                { href: '/host/listings/create', labelEn: 'Add listing', labelVi: 'Đăng chỗ ở', icon: Plus },
                 { href: '/', labelEn: 'Guest view', labelVi: 'Giao diện khách', icon: Compass },
               ].map((m) => {
                 const Icon = m.icon;

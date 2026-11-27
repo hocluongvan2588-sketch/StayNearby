@@ -1,7 +1,8 @@
 -- 0010: Listing Revision Management + Row Level Security baseline
 -- ============================================================================
--- STATUS: DRAFT — created for review only. NOT applied to any environment
--- until explicitly approved. Apply only via `npm run db:migrate` after sign-off.
+-- STATUS: APPLIED to du_lich (Supabase) on 2026-11-27 via connector;
+-- recorded in schema_migrations as 0010_listing_revisions_and_rls.sql.
+-- (Do NOT re-run against du_lich.)
 --
 -- Context:
 --   * The application talks to PostgreSQL through the server-side pool as

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   CalendarClock,
@@ -17,6 +17,7 @@ import {
   MapPin,
   Plus,
   Save,
+  Send,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -28,7 +29,16 @@ import {
   formatVndExact,
 } from '@/lib/i18n';
 import { clampHostMinNights, POLICY_MIN_NIGHTS } from '@/lib/business-rules';
+import { KITCHEN_OPTIONS, LAUNDRY_OPTIONS, PROPERTY_TYPE_OPTIONS } from '@/lib/listing-options';
 import { usePreferences } from '@/components/PreferencesProvider';
+import {
+  ListingCheckboxCard,
+  ListingHint,
+  ListingInput,
+  ListingSectionTitle,
+  ListingSelect,
+  ListingTextarea,
+} from '@/components/listing-form';
 import type { HostStayRoomItem, HostStaySummary } from '@/modules/host';
 
 const SECTION_DEFS = [
@@ -132,9 +142,43 @@ export function HostListingEditorClient({
     useState<HostStaySummary['cancellationPolicy']>(stay.cancellationPolicy);
 
   const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [notice, setNotice] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [pendingRevision, setPendingRevision] = useState<{
+    changedFields: string[];
+    createdAt: string;
+  } | null>(null);
+
+  // Live listings: surface any price/policy change waiting for admin review.
+  useEffect(() => {
+    if (stay.status !== 'live') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/host/stays/${stay.id}/revisions`);
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          ok: boolean;
+          revisions?: { status: string; changedFields: string[]; createdAt: string }[];
+        };
+        if (cancelled || !json.ok || !Array.isArray(json.revisions)) return;
+        const pending = json.revisions.find((r) => r.status === 'pending');
+        if (pending) {
+          setPendingRevision({
+            changedFields: pending.changedFields,
+            createdAt: pending.createdAt,
+          });
+        }
+      } catch {
+        /* banner is best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [stay.id, stay.status]);
 
   async function handleSaveAll() {
     setSaving(true);
@@ -195,9 +239,46 @@ export function HostListingEditorClient({
         setErrorMsg(json.error?.message ?? 'Could not save listing changes.');
         return;
       }
+      if (json.pendingRevision) {
+        setNotice(
+          isVi
+            ? 'Đã gửi thay đổi giá/chính sách — chờ admin duyệt trước khi áp dụng.'
+            : 'Price/policy changes submitted — awaiting admin approval before they apply.'
+        );
+        setPendingRevision({
+          changedFields: Array.isArray(json.stagedFields) ? json.stagedFields : [],
+          createdAt: new Date().toISOString(),
+        });
+        return;
+      }
       setNotice(isVi ? 'Đã lưu toàn bộ cấu hình chỗ ở.' : 'Saved listing configuration.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSubmitForReview() {
+    setSubmitting(true);
+    setNotice('');
+    setErrorMsg('');
+    try {
+      const res = await fetch(`/api/host/stays/${stay.id}/submit`, { method: 'POST' });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        setErrorMsg(
+          json?.error?.message ??
+            (isVi ? 'Không thể gửi duyệt.' : 'Could not submit for review.')
+        );
+        return;
+      }
+      setStatus('pending_review');
+      setNotice(
+        isVi
+          ? 'Đã gửi duyệt. Admin sẽ xem xét listing của bạn.'
+          : 'Submitted for review. An admin will review your listing.'
+      );
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -356,14 +437,31 @@ export function HostListingEditorClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/stays/${stay.slug}`}
-            target="_blank"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5DFD3] bg-white px-3 py-2 text-xs font-semibold text-[#17221E] hover:bg-[#FAF8F3]"
-          >
-            <ExternalLink className="h-3.5 w-3.5 text-[#53635D]" />
-            {isVi ? 'Xem trang khách' : 'Public view'}
-          </Link>
+          {(status === 'live' || status === 'paused') && (
+            <Link
+              href={`/stays/${stay.slug}`}
+              target="_blank"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5DFD3] bg-white px-3 py-2 text-xs font-semibold text-[#17221E] hover:bg-[#FAF8F3]"
+            >
+              <ExternalLink className="h-3.5 w-3.5 text-[#53635D]" />
+              {isVi ? 'Xem trang khách' : 'Public view'}
+            </Link>
+          )}
+          {status === 'draft' && (
+            <button
+              type="button"
+              disabled={submitting || saving}
+              onClick={handleSubmitForReview}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#164E3F]/40 bg-[#E7F1EC] px-4 py-2 text-xs font-semibold text-[#164E3F] hover:bg-[#DCEDE4] disabled:opacity-60"
+            >
+              {submitting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              {isVi ? 'Gửi duyệt' : 'Submit for review'}
+            </button>
+          )}
           <button
             type="button"
             disabled={saving}
@@ -385,6 +483,16 @@ export function HostListingEditorClient({
       {errorMsg && (
         <div className="rounded-xl border border-[#C25E28]/40 bg-[#FAEDE5] px-4 py-2.5 text-xs font-medium text-[#C25E28]">
           {errorMsg}
+        </div>
+      )}
+      {pendingRevision && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#C25E28]/40 bg-[#FAEDE5] px-4 py-2.5 text-xs font-medium text-[#C25E28]">
+          <CalendarClock className="h-4 w-4 shrink-0" />
+          <span>
+            {isVi
+              ? `Thay đổi giá/chính sách đang chờ admin duyệt (${pendingRevision.changedFields.join(', ') || '—'}) — gửi lúc ${new Date(pendingRevision.createdAt).toLocaleString()}.`
+              : `Price/policy changes awaiting admin review (${pendingRevision.changedFields.join(', ') || '—'}) — submitted ${new Date(pendingRevision.createdAt).toLocaleString()}.`}
+          </span>
         </div>
       )}
 
@@ -415,87 +523,52 @@ export function HostListingEditorClient({
         <div className="rounded-xl border border-[#E5DFD3] bg-white p-6 text-xs lg:col-span-9">
           {activeSection === 'basic' && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-[#17221E]">
+              <ListingSectionTitle>
                 {isVi ? '1. Thông tin cơ bản' : '1. Basic Information'}
-              </h2>
+              </ListingSectionTitle>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">Title (EN)</label>
-                  <input
-                    value={titleEn}
-                    onChange={(e) => setTitleEn(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">Tiêu đề (VI)</label>
-                  <input
-                    value={titleVi}
-                    onChange={(e) => setTitleVi(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">Subtitle (EN)</label>
-                  <input
-                    value={subtitleEn}
-                    onChange={(e) => setSubtitleEn(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">Phụ đề (VI)</label>
-                  <input
-                    value={subtitleVi}
-                    onChange={(e) => setSubtitleVi(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Loại hình chỗ ở' : 'Property type'}
-                  </label>
-                  <select
-                    value={propertyType}
-                    onChange={(e) =>
-                      setPropertyType(e.target.value as HostStaySummary['propertyType'])
-                    }
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  >
-                    <option value="apartment">Serviced Apartment</option>
-                    <option value="coliving">Coliving House</option>
-                    <option value="boutique_hotel">Boutique Hotel</option>
-                    <option value="villa">Villa</option>
-                    <option value="eco_lodge">Eco Lodge</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">Description (EN)</label>
-                <textarea
-                  rows={4}
-                  value={descriptionEn}
-                  onChange={(e) => setDescriptionEn(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
+                <ListingInput label="Title (EN)" value={titleEn} onChange={setTitleEn} />
+                <ListingInput label="Tiêu đề (VI)" value={titleVi} onChange={setTitleVi} />
+                <ListingInput
+                  label="Subtitle (EN)"
+                  value={subtitleEn}
+                  onChange={setSubtitleEn}
+                />
+                <ListingInput
+                  label="Phụ đề (VI)"
+                  value={subtitleVi}
+                  onChange={setSubtitleVi}
+                />
+                <ListingSelect
+                  label={isVi ? 'Loại hình chỗ ở' : 'Property type'}
+                  value={propertyType}
+                  onChange={(v) => setPropertyType(v as HostStaySummary['propertyType'])}
+                  options={PROPERTY_TYPE_OPTIONS.map((o) => ({
+                    value: o.value,
+                    label: isVi ? o.vi : o.en,
+                  }))}
                 />
               </div>
-              <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">Mô tả (VI)</label>
-                <textarea
-                  rows={4}
-                  value={descriptionVi}
-                  onChange={(e) => setDescriptionVi(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                />
-              </div>
+              <ListingTextarea
+                label="Description (EN)"
+                rows={4}
+                value={descriptionEn}
+                onChange={setDescriptionEn}
+              />
+              <ListingTextarea
+                label="Mô tả (VI)"
+                rows={4}
+                value={descriptionVi}
+                onChange={setDescriptionVi}
+              />
             </div>
           )}
 
           {activeSection === 'photos' && (
             <div className="space-y-5">
-              <h2 className="text-base font-semibold text-[#17221E]">
+              <ListingSectionTitle>
                 {isVi ? '2. Hình ảnh & Bộ sưu tập' : '2. Photos & Media'}
-              </h2>
+              </ListingSectionTitle>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-[#164E3F] bg-[#FAF8F3] px-4 py-3 font-semibold text-[#164E3F] hover:bg-[#E7F1EC]">
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
@@ -564,221 +637,143 @@ export function HostListingEditorClient({
                 })}
               </div>
 
-              <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">
-                  {isVi ? 'URL ảnh góc làm việc (tùy chọn)' : 'Workspace photo URL (optional)'}
-                </label>
-                <input
-                  value={workspacePhotoUrl}
-                  onChange={(e) => setWorkspacePhotoUrl(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                />
-              </div>
+              <ListingInput
+                label={isVi ? 'URL ảnh góc làm việc (tùy chọn)' : 'Workspace photo URL (optional)'}
+                value={workspacePhotoUrl}
+                onChange={setWorkspacePhotoUrl}
+              />
             </div>
           )}
 
           {activeSection === 'amenities' && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-[#17221E]">
+              <ListingSectionTitle>
                 {isVi ? '3. Tiện nghi chỗ ở' : '3. Amenities'}
-              </h2>
+              </ListingSectionTitle>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Khu vực bếp' : 'Kitchen'}
-                  </label>
-                  <select
-                    value={kitchenType}
-                    onChange={(e) =>
-                      setKitchenType(e.target.value as HostStaySummary['kitchenType'])
-                    }
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  >
-                    <option value="full">Full kitchen</option>
-                    <option value="kitchenette">Kitchenette</option>
-                    <option value="shared">Shared kitchen</option>
-                    <option value="none">No kitchen</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Giặt sấy' : 'Laundry'}
-                  </label>
-                  <select
-                    value={laundryType}
-                    onChange={(e) =>
-                      setLaundryType(e.target.value as HostStaySummary['laundryType'])
-                    }
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  >
-                    <option value="in_unit">In-unit</option>
-                    <option value="building">Building laundry</option>
-                    <option value="service">Laundry service</option>
-                    <option value="none">None</option>
-                  </select>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 font-medium">
-                  <input
-                    type="checkbox"
-                    checked={petFriendly}
-                    onChange={(e) => setPetFriendly(e.target.checked)}
-                  />
-                  {isVi ? 'Thân thiện với thú cưng' : 'Pet friendly'}
-                </label>
-                <label className="flex items-center gap-2 font-medium">
-                  <input
-                    type="checkbox"
-                    checked={wheelchairFriendly}
-                    onChange={(e) => setWheelchairFriendly(e.target.checked)}
-                  />
-                  {isVi ? 'Hỗ trợ xe lăn' : 'Wheelchair accessible'}
-                </label>
-              </div>
-              <div>
-                <label className="mb-1 block font-semibold text-[#17221E]">
-                  {isVi ? 'Danh sách tiện nghi (mỗi dòng 1 mục)' : 'Amenities list (one per line)'}
-                </label>
-                <textarea
-                  rows={6}
-                  value={amenitiesText}
-                  onChange={(e) => setAmenitiesText(e.target.value)}
-                  className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
+                <ListingSelect
+                  label={isVi ? 'Khu vực bếp' : 'Kitchen'}
+                  value={kitchenType}
+                  onChange={(v) => setKitchenType(v as HostStaySummary['kitchenType'])}
+                  options={KITCHEN_OPTIONS.map((o) => ({
+                    value: o.value,
+                    label: isVi ? o.vi : o.en,
+                  }))}
+                />
+                <ListingSelect
+                  label={isVi ? 'Giặt sấy' : 'Laundry'}
+                  value={laundryType}
+                  onChange={(v) => setLaundryType(v as HostStaySummary['laundryType'])}
+                  options={LAUNDRY_OPTIONS.map((o) => ({
+                    value: o.value,
+                    label: isVi ? o.vi : o.en,
+                  }))}
                 />
               </div>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <ListingCheckboxCard
+                  label={isVi ? 'Thân thiện với thú cưng' : 'Pet friendly'}
+                  checked={petFriendly}
+                  onChange={setPetFriendly}
+                />
+                <ListingCheckboxCard
+                  label={isVi ? 'Hỗ trợ xe lăn' : 'Wheelchair accessible'}
+                  checked={wheelchairFriendly}
+                  onChange={setWheelchairFriendly}
+                />
+              </div>
+              <ListingTextarea
+                label={isVi ? 'Danh sách tiện nghi (mỗi dòng 1 mục)' : 'Amenities list (one per line)'}
+                rows={6}
+                value={amenitiesText}
+                onChange={setAmenitiesText}
+              />
             </div>
           )}
 
           {activeSection === 'workspace' && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-[#17221E]">
+              <ListingSectionTitle>
                 {isVi ? '4. Góc làm việc & Wi-Fi (Tùy chọn)' : '4. Workspace (Optional)'}
-              </h2>
-              <p className="rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] p-3 text-[#53635D]">
+              </ListingSectionTitle>
+              <ListingHint>
                 {isVi
                   ? 'Các tiện ích làm việc từ xa là tùy chọn và không ảnh hưởng tới điều kiện đăng phòng.'
                   : 'All workspace fields are optional and never block publishing.'}
-              </p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="flex items-center gap-2 rounded-lg border border-[#E5DFD3] px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={hasWorkspace}
-                    onChange={(e) => setHasWorkspace(e.target.checked)}
-                  />
-                  {isVi ? 'Bàn làm việc riêng' : 'Dedicated desk'}
-                </label>
-                <label className="flex items-center gap-2 rounded-lg border border-[#E5DFD3] px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={hasErgonomicChair}
-                    onChange={(e) => setHasErgonomicChair(e.target.checked)}
-                  />
-                  {isVi ? 'Ghế công thái học' : 'Ergonomic chair'}
-                </label>
-                <label className="flex items-center gap-2 rounded-lg border border-[#E5DFD3] px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={hasExternalMonitor}
-                    onChange={(e) => setHasExternalMonitor(e.target.checked)}
-                  />
-                  {isVi ? 'Màn hình rời' : 'External monitor'}
-                </label>
-                <label className="flex items-center gap-2 rounded-lg border border-[#E5DFD3] px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={hasCallBooth}
-                    onChange={(e) => setHasCallBooth(e.target.checked)}
-                  />
-                  {isVi ? 'Khu vực gọi video yên tĩnh' : 'Quiet call booth'}
-                </label>
+              </ListingHint>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <ListingCheckboxCard
+                  label={isVi ? 'Bàn làm việc riêng' : 'Dedicated desk'}
+                  checked={hasWorkspace}
+                  onChange={setHasWorkspace}
+                />
+                <ListingCheckboxCard
+                  label={isVi ? 'Ghế công thái học' : 'Ergonomic chair'}
+                  checked={hasErgonomicChair}
+                  onChange={setHasErgonomicChair}
+                />
+                <ListingCheckboxCard
+                  label={isVi ? 'Màn hình rời' : 'External monitor'}
+                  checked={hasExternalMonitor}
+                  onChange={setHasExternalMonitor}
+                />
+                <ListingCheckboxCard
+                  label={isVi ? 'Khu vực gọi video yên tĩnh' : 'Quiet call booth'}
+                  checked={hasCallBooth}
+                  onChange={setHasCallBooth}
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    Workspace summary (EN)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={workspaceSummaryEn}
-                    onChange={(e) => setWorkspaceSummaryEn(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    Mô tả không gian làm việc (VI)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={workspaceSummaryVi}
-                    onChange={(e) => setWorkspaceSummaryVi(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
+                <ListingTextarea
+                  label="Workspace summary (EN)"
+                  value={workspaceSummaryEn}
+                  onChange={setWorkspaceSummaryEn}
+                />
+                <ListingTextarea
+                  label="Mô tả không gian làm việc (VI)"
+                  value={workspaceSummaryVi}
+                  onChange={setWorkspaceSummaryVi}
+                />
               </div>
             </div>
           )}
 
           {activeSection === 'location' && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-[#17221E]">
+              <ListingSectionTitle>
                 {isVi ? '5. Vị trí & Hướng dẫn nhận phòng' : '5. Location & Check-in Details'}
-              </h2>
+              </ListingSectionTitle>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    Neighborhood (EN)
-                  </label>
-                  <input
-                    value={neighborhoodEn}
-                    onChange={(e) => setNeighborhoodEn(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    Khu vực (VI)
-                  </label>
-                  <input
-                    value={neighborhoodVi}
-                    onChange={(e) => setNeighborhoodVi(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Địa chỉ chính xác (chỉ gửi khách sau khi xác nhận đặt phòng)' : 'Exact address (shared after booking confirmation)'}
-                  </label>
-                  <input
-                    value={exactAddress}
-                    onChange={(e) => setExactAddress(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    Check-in instructions (EN)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={checkinInstructionsEn}
-                    onChange={(e) => setCheckinInstructionsEn(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    Hướng dẫn nhận phòng (VI)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={checkinInstructionsVi}
-                    onChange={(e) => setCheckinInstructionsVi(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
+                <ListingInput
+                  label="Neighborhood (EN)"
+                  value={neighborhoodEn}
+                  onChange={setNeighborhoodEn}
+                />
+                <ListingInput
+                  label="Khu vực (VI)"
+                  value={neighborhoodVi}
+                  onChange={setNeighborhoodVi}
+                />
+                <ListingInput
+                  className="sm:col-span-2"
+                  label={
+                    isVi
+                      ? 'Địa chỉ chính xác (chỉ gửi khách sau khi xác nhận đặt phòng)'
+                      : 'Exact address (shared after booking confirmation)'
+                  }
+                  value={exactAddress}
+                  onChange={setExactAddress}
+                />
+                <ListingTextarea
+                  label="Check-in instructions (EN)"
+                  value={checkinInstructionsEn}
+                  onChange={setCheckinInstructionsEn}
+                />
+                <ListingTextarea
+                  label="Hướng dẫn nhận phòng (VI)"
+                  value={checkinInstructionsVi}
+                  onChange={setCheckinInstructionsVi}
+                />
               </div>
             </div>
           )}
@@ -786,16 +781,15 @@ export function HostListingEditorClient({
           {activeSection === 'pricing' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-[#17221E]">
-                    {isVi ? '6. Phòng & Bảng giá gói 7/14/21/30 đêm' : '6. Rooms & Package Rates'}
-                  </h2>
-                  <p className="text-[#53635D]">
-                    {isVi
+                <ListingSectionTitle
+                  description={
+                    isVi
                       ? `${hostCommissionPct}% hoa hồng chủ nhà. Bạn nhận đủ 100% các mức giá nhập dưới đây.`
-                      : `${hostCommissionPct}% host commission. You receive 100% of these rates.`}
-                  </p>
-                </div>
+                      : `${hostCommissionPct}% host commission. You receive 100% of these rates.`
+                  }
+                >
+                  {isVi ? '6. Phòng & Bảng giá gói 7/14/21/30 đêm' : '6. Rooms & Package Rates'}
+                </ListingSectionTitle>
                 <Link href="/host/calendar" className="font-semibold text-[#164E3F] hover:underline">
                   {isVi ? 'Chỉnh giá theo từng ngày →' : 'Daily overrides on Calendar →'}
                 </Link>
@@ -807,58 +801,43 @@ export function HostListingEditorClient({
                   className="space-y-3 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] p-4"
                 >
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block font-semibold text-[#17221E]">
-                        {isVi ? 'Tên phòng (EN)' : 'Room name (EN)'}
-                      </label>
-                      <input
-                        value={rm.nameEn}
-                        onChange={(e) =>
-                          setRooms((prev) =>
-                            prev.map((x, i) => (i === idx ? { ...x, nameEn: e.target.value } : x))
+                    <ListingInput
+                      label={isVi ? 'Tên phòng (EN)' : 'Room name (EN)'}
+                      value={rm.nameEn}
+                      onChange={(v) =>
+                        setRooms((prev) =>
+                          prev.map((x, i) => (i === idx ? { ...x, nameEn: v } : x))
+                        )
+                      }
+                    />
+                    <ListingInput
+                      type="number"
+                      min={1}
+                      max={50}
+                      label={isVi ? 'Số lượng căn/phòng' : 'Total units'}
+                      value={rm.unitsTotal}
+                      onChange={(v) =>
+                        setRooms((prev) =>
+                          prev.map((x, i) =>
+                            i === idx ? { ...x, unitsTotal: Number(v) } : x
                           )
-                        }
-                        className="w-full rounded-lg border border-[#E5DFD3] bg-white px-3 py-2"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block font-semibold text-[#17221E]">
-                        {isVi ? 'Số lượng căn/phòng' : 'Total units'}
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={50}
-                        value={rm.unitsTotal}
-                        onChange={(e) =>
-                          setRooms((prev) =>
-                            prev.map((x, i) =>
-                              i === idx ? { ...x, unitsTotal: Number(e.target.value) } : x
-                            )
+                        )
+                      }
+                    />
+                    <ListingInput
+                      type="number"
+                      min={1}
+                      max={12}
+                      label={isVi ? 'Số khách tối đa' : 'Max guests'}
+                      value={rm.maxGuests}
+                      onChange={(v) =>
+                        setRooms((prev) =>
+                          prev.map((x, i) =>
+                            i === idx ? { ...x, maxGuests: Number(v) } : x
                           )
-                        }
-                        className="w-full rounded-lg border border-[#E5DFD3] bg-white px-3 py-2"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block font-semibold text-[#17221E]">
-                        {isVi ? 'Số khách tối đa' : 'Max guests'}
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={12}
-                        value={rm.maxGuests}
-                        onChange={(e) =>
-                          setRooms((prev) =>
-                            prev.map((x, i) =>
-                              i === idx ? { ...x, maxGuests: Number(e.target.value) } : x
-                            )
-                          )
-                        }
-                        className="w-full rounded-lg border border-[#E5DFD3] bg-white px-3 py-2"
-                      />
-                    </div>
+                        )
+                      }
+                    />
                   </div>
 
                   <div className="grid gap-2 sm:grid-cols-5">
@@ -996,40 +975,38 @@ export function HostListingEditorClient({
 
           {activeSection === 'availability' && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-[#17221E]">
+              <ListingSectionTitle>
                 {isVi ? '7. Tình trạng hiển thị & Số đêm tối thiểu' : '7. Availability Settings'}
-              </h2>
+              </ListingSectionTitle>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Trạng thái' : 'Listing visibility'}
-                  </label>
-                  <select
-                    value={status}
-                    disabled={status === 'pending_review'}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 disabled:opacity-60"
-                  >
-                    {status === 'pending_review' && (
-                      <option value="pending_review">Pending review</option>
-                    )}
-                    <option value="live">Live</option>
-                    <option value="paused">Paused</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Số đêm tối thiểu mặc định (tối thiểu 7)' : 'Default minimum nights (min 7)'}
-                  </label>
-                  <input
-                    type="number"
-                    min={7}
-                    max={90}
-                    value={defaultMinNights}
-                    onChange={(e) => setDefaultMinNights(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
+                <ListingSelect
+                  label={isVi ? 'Trạng thái' : 'Listing visibility'}
+                  value={status}
+                  disabled={status === 'pending_review' || status === 'draft'}
+                  onChange={setStatus}
+                  options={[
+                    ...(status === 'draft'
+                      ? [{ value: 'draft', label: isVi ? 'Bản nháp' : 'Draft' }]
+                      : []),
+                    ...(status === 'pending_review'
+                      ? [{ value: 'pending_review', label: 'Pending review' }]
+                      : []),
+                    { value: 'live', label: 'Live' },
+                    { value: 'paused', label: 'Paused' },
+                  ]}
+                />
+                <ListingInput
+                  type="number"
+                  min={7}
+                  max={90}
+                  label={
+                    isVi
+                      ? 'Số đêm tối thiểu mặc định (tối thiểu 7)'
+                      : 'Default minimum nights (min 7)'
+                  }
+                  value={defaultMinNights}
+                  onChange={setDefaultMinNights}
+                />
               </div>
               <Link
                 href="/host/calendar"
@@ -1042,89 +1019,58 @@ export function HostListingEditorClient({
 
           {activeSection === 'rules' && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-[#17221E]">
+              <ListingSectionTitle>
                 {isVi ? '8. Nội quy & Giờ nhận/trả phòng' : '8. House Rules'}
-              </h2>
+              </ListingSectionTitle>
               <div className="grid gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Nhận phòng từ' : 'Check-in from'}
-                  </label>
-                  <input
-                    value={checkinFrom}
-                    onChange={(e) => setCheckinFrom(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Trả phòng trước' : 'Check-out before'}
-                  </label>
-                  <input
-                    value={checkoutBefore}
-                    onChange={(e) => setCheckoutBefore(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Giờ yên tĩnh' : 'Quiet hours'}
-                  </label>
-                  <input
-                    value={quietHours}
-                    onChange={(e) => setQuietHours(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
+                <ListingInput
+                  label={isVi ? 'Nhận phòng từ' : 'Check-in from'}
+                  value={checkinFrom}
+                  onChange={setCheckinFrom}
+                />
+                <ListingInput
+                  label={isVi ? 'Trả phòng trước' : 'Check-out before'}
+                  value={checkoutBefore}
+                  onChange={setCheckoutBefore}
+                />
+                <ListingInput
+                  label={isVi ? 'Giờ yên tĩnh' : 'Quiet hours'}
+                  value={quietHours}
+                  onChange={setQuietHours}
+                />
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                <label className="flex items-center gap-2 rounded-lg border border-[#E5DFD3] px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={smokingAllowed}
-                    onChange={(e) => setSmokingAllowed(e.target.checked)}
-                  />
-                  {isVi ? 'Cho phép hút thuốc' : 'Smoking allowed'}
-                </label>
-                <label className="flex items-center gap-2 rounded-lg border border-[#E5DFD3] px-3 py-2.5">
-                  <input
-                    type="checkbox"
-                    checked={partiesAllowed}
-                    onChange={(e) => setPartiesAllowed(e.target.checked)}
-                  />
-                  {isVi ? 'Cho phép tổ chức tiệc nhỏ' : 'Parties / small events allowed'}
-                </label>
+                <ListingCheckboxCard
+                  label={isVi ? 'Cho phép hút thuốc' : 'Smoking allowed'}
+                  checked={smokingAllowed}
+                  onChange={setSmokingAllowed}
+                />
+                <ListingCheckboxCard
+                  label={isVi ? 'Cho phép tổ chức tiệc nhỏ' : 'Parties / small events allowed'}
+                  checked={partiesAllowed}
+                  onChange={setPartiesAllowed}
+                />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Lưu ý thú cưng' : 'Pets note'}
-                  </label>
-                  <input
-                    value={petsNote}
-                    onChange={(e) => setPetsNote(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block font-semibold text-[#17221E]">
-                    {isVi ? 'Lưu ý khách thêm' : 'Extra guest note'}
-                  </label>
-                  <input
-                    value={extraGuestNote}
-                    onChange={(e) => setExtraGuestNote(e.target.value)}
-                    className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2"
-                  />
-                </div>
+                <ListingInput
+                  label={isVi ? 'Lưu ý thú cưng' : 'Pets note'}
+                  value={petsNote}
+                  onChange={setPetsNote}
+                />
+                <ListingInput
+                  label={isVi ? 'Lưu ý khách thêm' : 'Extra guest note'}
+                  value={extraGuestNote}
+                  onChange={setExtraGuestNote}
+                />
               </div>
             </div>
           )}
 
           {activeSection === 'policies' && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-[#17221E]">
+              <ListingSectionTitle>
                 {isVi ? '9. Chính sách đặt phòng & Hủy' : '9. Booking & Cancellation Policies'}
-              </h2>
+              </ListingSectionTitle>
               <label className="flex items-start gap-3 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] p-4">
                 <input
                   type="checkbox"
@@ -1162,9 +1108,9 @@ export function HostListingEditorClient({
 
           {activeSection === 'preview' && (
             <div className="space-y-4">
-              <h2 className="text-base font-semibold text-[#17221E]">
+              <ListingSectionTitle>
                 {isVi ? '10. Xem trước hiển thị' : '10. Listing Preview'}
-              </h2>
+              </ListingSectionTitle>
               <div className="max-w-sm overflow-hidden rounded-xl border border-[#E5DFD3] bg-white">
                 <img src={heroImage} alt="" className="aspect-[16/10] w-full object-cover" />
                 <div className="p-4">

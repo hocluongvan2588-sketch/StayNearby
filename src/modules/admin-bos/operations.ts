@@ -10,6 +10,8 @@ import {
 } from '@/modules/admin-rbac';
 import { releaseBookingPromotionTx } from '@/modules/bookings';
 import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
+import { assertAdminStatusTransition } from '@/modules/listing-lifecycle';
+import { captureStayRevision } from '@/modules/listing-revisions';
 import { triggerAutomationTask } from './shared';
 
 export type StayLifecycleStatus =
@@ -178,6 +180,7 @@ export async function moderateListing(
     if (!cur) throw new AppError('NOT_FOUND', 'Listing not found.');
 
     const nextStatus = input.status ?? (cur.status as StayLifecycleStatus);
+    assertAdminStatusTransition(String(cur.status), String(nextStatus));
     const nextWifi = input.isWifiVerified ?? Boolean(cur.is_wifi_verified);
     const nextWork = input.isWorkReady ?? Boolean(cur.is_work_ready);
     const nextTier =
@@ -246,6 +249,26 @@ export async function moderateListing(
           actorUserId: actor.user.id,
         });
       }
+
+      // Listing Revision history (Phase 4): publish / unpublish / moderate.
+      await captureStayRevision(tx, {
+        stayId,
+        actorUserId: actor.user.id,
+        action:
+          nextStatus === 'live'
+            ? 'publish'
+            : cur.status === 'live'
+              ? 'unpublish'
+              : 'moderate',
+        snapshot: {
+          kind: 'status',
+          from: cur.status,
+          to: nextStatus,
+          reason: input.moderationReason ?? null,
+        },
+        changedFields: ['status'],
+        changeSummary: `Status ${cur.status} → ${nextStatus}`,
+      });
     }
 
     await logAdminAudit(

@@ -13,11 +13,12 @@ import { getAdminActorContext } from '@/modules/admin-rbac';
 import {
   createHostLead,
   listHostLeads,
+  moderateListing,
   updateHostLead,
   updateSupportTicket,
 } from '@/modules/admin-bos';
 import { confirmBookingFeePayment, createStayBooking } from '@/modules/bookings';
-import { submitHostApplication } from '@/modules/host';
+import { createDraftStay, submitHostApplication, submitHostStayForReview } from '@/modules/host';
 import {
   createGuestSupportTicket,
   listGuestSupportTickets,
@@ -255,7 +256,9 @@ describe('Phase 2 Sync: Interactive Support Tickets & Host Lead CRM Pipeline', (
     expect(row.application_id).toBe(submitted.applicationId);
     expect(row.linked_user_id).toBe(userId);
 
-    // 3. Admin approves application -> user role becomes 'host', stay goes live, lead moves to 'published'
+    // 3. Admin approves application -> user role becomes 'host'; NO stay is
+    //    created (application = lead CRM; listings live in their own lifecycle)
+    const staysBefore = await dbQuery('SELECT id FROM stays WHERE host_id = $1', [userId]);
     const approved = await reviewHostApplication(
       admin,
       submitted.applicationId,
@@ -263,15 +266,41 @@ describe('Phase 2 Sync: Interactive Support Tickets & Host Lead CRM Pipeline', (
       'Verified and live'
     );
     expect(approved.status).toBe('approved');
-    expect(approved.createdStaySlug).toBeTruthy();
+    expect(approved.createdStaySlug).toBeNull();
+    const staysAfter = await dbQuery('SELECT id FROM stays WHERE host_id = $1', [userId]);
+    expect(staysAfter.rows.length).toBe(staysBefore.rows.length);
 
+    const roleAfterApprove = await dbQuery<{ role: string }>(
+      'SELECT role FROM users WHERE id = $1',
+      [userId]
+    );
+    expect(roleAfterApprove.rows[0]!.role).toBe('host');
+
+    // Lead stays at 'under_review' until the host's own listing goes live
     const postApproveLead = await dbQuery<{ stage: string }>(
       'SELECT stage FROM host_leads WHERE id = $1',
       [lead.id]
     );
-    expect(postApproveLead.rows[0]!.stage).toBe('published');
+    expect(postApproveLead.rows[0]!.stage).toBe('under_review');
 
-    // 4. Guest pays first booking on the newly published stay -> lead advances to 'first_booking'
+    // 4. Host creates + publishes their listing the new way:
+    //    draft stay -> pending_review -> live (admin moderation)
+    const hostUser = await fetchSessionUser(userId);
+    const stay = await createDraftStay(hostUser, {
+      titleEn: 'Thu Bon Riverside Villa',
+      destinationSlug: 'hoi-an',
+      propertyType: 'villa',
+    });
+    await submitHostStayForReview(hostUser, stay.id);
+    await moderateListing(actor, stay.id, { status: 'live' });
+
+    const postPublishLead = await dbQuery<{ stage: string }>(
+      'SELECT stage FROM host_leads WHERE id = $1',
+      [lead.id]
+    );
+    expect(postPublishLead.rows[0]!.stage).toBe('published');
+
+    // 5. Guest pays first booking on the live stay -> lead advances to 'first_booking'
     const stayInfo = await dbQuery<{
       stay_id: string;
       room_id: string;
@@ -282,8 +311,9 @@ describe('Phase 2 Sync: Interactive Support Tickets & Host Lead CRM Pipeline', (
        JOIN stay_rooms r ON r.stay_id = s.id
        JOIN stay_packages p ON p.stay_id = s.id
        WHERE s.slug = $1 LIMIT 1`,
-      [approved.createdStaySlug]
+      [stay.slug]
     );
+    expect(stayInfo.rows.length).toBe(1);
     const info = stayInfo.rows[0]!;
     const checkIn = addDaysIso(getTodayIsoVietnam(), 20);
     const booking = await createStayBooking(guest, {

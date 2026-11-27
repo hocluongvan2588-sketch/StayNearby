@@ -28,6 +28,7 @@ import type {
   listSupportTickets,
   StayLifecycleStatus,
 } from '@/modules/admin-bos';
+import type { PendingRevisionSummary } from '@/modules/listing-revisions';
 
 type ListingsData = Awaited<ReturnType<typeof listAdminListings>>;
 type BookingsList = Awaited<ReturnType<typeof listAdminBookings>>;
@@ -36,9 +37,16 @@ type ReviewsList = Awaited<ReturnType<typeof listAdminReviews>>;
 type TicketsList = Awaited<ReturnType<typeof listSupportTickets>>;
 type SafetyList = Awaited<ReturnType<typeof listSafetyReports>>;
 
-export function ListingsModerationView({ initialData }: { initialData: ListingsData }) {
+export function ListingsModerationView({
+  initialData,
+  initialRevisions,
+}: {
+  initialData: ListingsData;
+  initialRevisions: PendingRevisionSummary[];
+}) {
   const [stays, setStays] = useState(initialData.stays);
   const [apps, setApps] = useState(initialData.applications);
+  const [revisions, setRevisions] = useState<PendingRevisionSummary[]>(initialRevisions);
   const [tab, setTab] = useState<'listings' | 'applications'>('listings');
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
@@ -58,6 +66,30 @@ export function ListingsModerationView({ initialData }: { initialData: ListingsD
       const d = (await res.json()) as ListingsData;
       setStays(d.stays);
       setApps(d.applications);
+    }
+  }
+
+  async function refreshRevisions() {
+    const res = await fetch('/api/admin/operations/listings/revisions');
+    if (res.ok) {
+      const d = (await res.json()) as { revisions?: PendingRevisionSummary[] };
+      setRevisions(d.revisions ?? []);
+    }
+  }
+
+  async function reviewRevision(id: string, action: 'approve' | 'reject') {
+    const note = window.prompt(
+      action === 'approve' ? 'Optional approval note:' : 'Reason for rejection:'
+    );
+    if (note === null) return;
+    const res = await fetch(`/api/admin/operations/listings/revisions/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, note }),
+    });
+    if (res.ok) {
+      await refreshRevisions();
+      await refresh();
     }
   }
 
@@ -131,6 +163,68 @@ export function ListingsModerationView({ initialData }: { initialData: ListingsD
         title="Listings & Supply Moderation"
         subtitle="Full listing lifecycle, featured placement, and optional trust badges (Wi-Fi/Work-Ready verification never blocks publication)."
       />
+
+      {revisions.length > 0 && (
+        <div className="mb-4 rounded-xl border border-[#C25E28]/40 bg-[#FAEDE5] p-4">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#C25E28]">
+            <ShieldAlert className="h-4 w-4" />
+            Pending price/policy revisions ({revisions.length})
+          </div>
+          <ul className="mt-3 space-y-3">
+            {revisions.map((r) => {
+              const patch =
+                r.snapshot && typeof r.snapshot === 'object'
+                  ? ((r.snapshot as { patch?: Record<string, unknown> }).patch ?? {})
+                  : {};
+              return (
+                <li key={r.id} className="rounded-lg border border-[#E5DFD3] bg-white p-3 text-xs">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="font-semibold text-[#17221E]">{r.titleEn}</span>
+                      <span className="ml-2 text-[#53635D]">
+                        by {r.hostName} · {r.slug} · {r.stayStatus}
+                      </span>
+                      <div className="mt-1 text-[#53635D]">
+                        {r.changedFields.join(', ')} · submitted{' '}
+                        {new Date(r.createdAt).toLocaleString()}
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {Object.entries(patch).map(([k, v]) => (
+                          <span
+                            key={k}
+                            className="rounded bg-[#FAF8F3] px-1.5 py-0.5 font-mono text-[10px] text-[#17221E]"
+                          >
+                            {k}:{' '}
+                            {typeof v === 'number' && k.includes('Vnd')
+                              ? fmtVnd(v)
+                              : String(v)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void reviewRevision(r.id, 'approve')}
+                        className="rounded-lg bg-[#164E3F] px-3 py-1.5 font-semibold text-white hover:bg-[#0F392E]"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void reviewRevision(r.id, 'reject')}
+                        className="rounded-lg border border-[#C25E28] px-3 py-1.5 font-semibold text-[#C25E28] hover:bg-[#FAEDE5]"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <div className="mb-4 flex gap-3 border-b border-[#E5DFD3]">
         <button
