@@ -25,6 +25,7 @@ import {
   type StayPackageTier,
 } from '@/lib/business-rules';
 import { addDaysIso, enumerateStayNights, getTodayIsoVietnam } from '@/lib/dates';
+import { localizeGuestError } from '@/lib/error-copy';
 import { formatCancellationPolicyLabel, formatCountNoun } from '@/lib/i18n';
 import { calculateStayQuote, type PromotionAdjustmentInput } from '@/lib/pricing';
 import type { StayDetail } from '@/modules/catalog';
@@ -155,7 +156,7 @@ export function StayBookingWidget({
   const effectivePromoError =
     appliedPromo && totalNights < appliedPromo.minNights
       ? isVi
-        ? `Mã ${appliedPromo.code} yêu cầu tối thiểu ${appliedPromo.minNights} đêm.`
+        ? `Mã ${appliedPromo.code} áp dụng cho đơn từ ${appliedPromo.minNights} đêm trở lên.`
         : `Code ${appliedPromo.code} requires at least ${appliedPromo.minNights} nights.`
       : promoError;
 
@@ -209,12 +210,7 @@ export function StayBookingWidget({
       const json = await res.json();
       if (!json.ok || !json.promotion) {
         setAppliedPromo(null);
-        setPromoError(
-          json.error?.message ??
-            (isVi
-              ? 'Mã giảm giá không hợp lệ hoặc đã hết hạn.'
-              : 'Promo code is invalid or expired.')
-        );
+        setPromoError(localizeGuestError(json.error?.message, locale));
         return;
       }
       setAppliedPromo({
@@ -286,10 +282,7 @@ export function StayBookingWidget({
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(
-          json.error?.message ??
-            (isVi ? 'Không thể tạo đặt phòng.' : 'Could not create booking.')
-        );
+        setError(localizeGuestError(json.error?.message, locale));
         return;
       }
 
@@ -301,7 +294,7 @@ export function StayBookingWidget({
         payAtCheckinVnd: json.booking.quote.payAtCheckinVnd,
       });
     } catch {
-      setError(isVi ? 'Lỗi kết nối. Vui lòng thử lại.' : 'Network error. Please retry.');
+      setError(localizeGuestError(null, locale));
     } finally {
       setSubmitting(false);
     }
@@ -565,7 +558,7 @@ export function StayBookingWidget({
           <span>
             {isVi
               ? `Tiền thuê chỗ ở (${totalNights} đêm)`
-              : `Accommodation rent (${totalNights} nights)`}
+              : `Stay rent (${totalNights} nights)`}
           </span>
           <span className="text-[#17221E]">{formatMoney(quote.wholesaleTotalVnd)}</span>
         </div>

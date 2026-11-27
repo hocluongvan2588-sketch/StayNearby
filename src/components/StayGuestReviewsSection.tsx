@@ -12,6 +12,7 @@ import {
   Star,
 } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
+import { localizeGuestError } from '@/lib/error-copy';
 import {
   formatCancellationPolicyLabel,
   formatCountNoun,
@@ -99,7 +100,7 @@ export function StayGuestReviewsSection({
       });
       const json = await res.json();
       if (!json.ok) {
-        setErrMsg(json.error?.message ?? 'Could not submit review.');
+        setErrMsg(localizeGuestError(json.error?.message, locale));
         return;
       }
       if (json.review) {
@@ -224,7 +225,7 @@ export function StayGuestReviewsSection({
               <p>
                 {isVi
                   ? `Thanh toán ${serviceFeePct}% phí dịch vụ online để giữ phòng. Phần tiền thuê trả trực tiếp cho chủ nhà khi nhận phòng.`
-                  : `Pay the ${serviceFeePct}% service fee online to lock your dates. Settle accommodation rent directly with your host at check-in.`}
+                  : `Pay the ${serviceFeePct}% service fee online to lock your dates. Settle stay rent directly with your host at check-in.`}
               </p>
             </div>
           </div>

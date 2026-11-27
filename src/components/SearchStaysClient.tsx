@@ -129,7 +129,7 @@ export function SearchStaysClient({
               {isVi ? 'Bộ lọc chỗ ở' : 'Filters'}
             </span>
             <Link href="/stays" className="text-xs font-medium text-[#C25E28] hover:underline">
-              {isVi ? 'Đặt lại' : 'Reset'}
+              {isVi ? 'Xóa bộ lọc' : 'Reset filters'}
             </Link>
           </div>
 

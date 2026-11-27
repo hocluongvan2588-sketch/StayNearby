@@ -113,7 +113,7 @@ export default async function HomePage() {
     : [
         {
           q: `How does the ${serviceFeePct}% online booking fee work?`,
-          a: `You pay the ${serviceFeePct}% service fee online to confirm your reservation and unlock the exact property address. You pay the accommodation rent directly to your host at check-in (${hostCommissionPct}% host commission).`,
+          a: `You pay the ${serviceFeePct}% service fee online to confirm your reservation and unlock the exact property address. You pay the stay rent directly to your host at check-in (${hostCommissionPct}% host commission).`,
         },
         {
           q: 'Who are VietNomad Stays designed for?',

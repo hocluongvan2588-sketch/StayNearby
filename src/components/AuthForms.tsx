@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
+import { localizeGuestError } from '@/lib/error-copy';
 import { usePreferences } from './PreferencesProvider';
 
 export interface DemoAccountOption {
@@ -40,7 +41,7 @@ export function LoginClient({
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(json.error?.message ?? (isVi ? 'Email hoặc mật khẩu chưa đúng.' : 'Invalid email or password.'));
+        setError(localizeGuestError(json.error?.message, locale));
         return;
       }
       const fallback =
@@ -201,7 +202,7 @@ export function RegisterClient() {
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(json.error?.message ?? (isVi ? 'Không thể tạo tài khoản.' : 'Could not register.'));
+        setError(localizeGuestError(json.error?.message, locale));
         return;
       }
       window.location.assign(role === 'host' ? '/list-your-stay' : '/dashboard');

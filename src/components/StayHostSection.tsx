@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2, Loader2, MessageSquare, Send, ShieldCheck, X } from 'lucide-react';
 import type { SessionUser } from '@/lib/auth/session';
+import { localizeGuestError } from '@/lib/error-copy';
 import type { Locale } from '@/lib/i18n';
 
 interface HostMessageItem {
@@ -85,10 +86,7 @@ export function StayHostSection({
       });
       const json = await res.json();
       if (!json.ok) {
-        setErrorMsg(
-          json.error?.message ??
-            (isVi ? 'Không thể gửi tin nhắn lúc này.' : 'Could not send message.')
-        );
+        setErrorMsg(localizeGuestError(json.error?.message, locale));
         return;
       }
       if (json.message) {

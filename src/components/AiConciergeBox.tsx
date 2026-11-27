@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Loader2, MessageCircle, Send } from 'lucide-react';
+import { localizeGuestError } from '@/lib/error-copy';
 import type { ConciergeResponse } from '@/modules/concierge';
 import { usePreferences } from './PreferencesProvider';
 import { PaginatedStayGrid } from './PaginatedStayGrid';
@@ -41,10 +42,7 @@ export function AiConciergeBox({ isAuthenticated }: { isAuthenticated: boolean }
       });
       const json = await res.json();
       if (!json.ok) {
-        setError(
-          json.error?.message ??
-            (isVi ? 'Không thể tìm phòng lúc này.' : 'Could not run search.')
-        );
+        setError(localizeGuestError(json.error?.message, locale));
       } else {
         setResult(json.result);
       }
