@@ -78,6 +78,7 @@ describe('Listing lifecycle: draft → pending_review → live (one data archite
 
     expect(stay.status).toBe('draft');
     expect(stay.slug).toContain('han-river-sunlit-studio');
+    expect(stay.registrationCode).toContain('VN-NEW-');
 
     const row = await dbQuery<{ status: string; destination_id: string; title_en: string }>(
       'SELECT status, destination_id, title_en FROM stays WHERE id = $1',

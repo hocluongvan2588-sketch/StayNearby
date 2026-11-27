@@ -224,6 +224,7 @@ export async function getHostConsoleData(user: SessionUser) {
       return {
         id: stayId,
         slug: String(s.slug),
+        registrationCode: String(s.registration_code ?? ''),
         titleEn: String(s.title_en),
         titleVi: String(s.title_vi),
         subtitleEn: String(s.subtitle_en),
@@ -607,7 +608,7 @@ export async function createDraftStay(
       [pkgId, id, roomId, today, addDaysIso(today, 365)]
     );
 
-    return { id, slug, status: 'draft' as const };
+    return { id, slug, status: 'draft' as const, registrationCode: regCode };
   });
 }
 

@@ -165,6 +165,12 @@ export function HostListingsClient({
             <Plus className="h-4 w-4" />
             {isVi ? 'Thêm chỗ ở mới' : 'Create listing'}
           </Link>
+          <Link
+            href="/host/listings/create"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#164E3F] px-3.5 py-2 text-xs font-semibold text-[#164E3F] hover:bg-[#E7F1EC]"
+          >
+            {isVi ? 'Trình hướng dẫn mới' : 'New setup wizard'}
+          </Link>
         </div>
       </div>
 
@@ -296,13 +302,31 @@ export function HostListingsClient({
                   </div>
 
                   <div className="mt-4 flex items-center justify-between gap-2 border-t border-[#E5DFD3] pt-3 text-xs">
-                    <Link
-                      href={`/host/listings/${stay.id}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#164E3F] px-3 py-1.5 font-semibold text-white hover:bg-[#0F392E]"
-                    >
-                      <Edit3 className="h-3.5 w-3.5" />
-                      {isVi ? 'Chỉnh sửa' : 'Edit'}
-                    </Link>
+                    {stay.status === 'draft' ? (
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/host/listings/create?stay=${stay.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[#164E3F] px-3 py-1.5 font-semibold text-white hover:bg-[#0F392E]"
+                        >
+                          {isVi ? 'Tiếp tục thiết lập' : 'Continue setup'}
+                        </Link>
+                        <Link
+                          href={`/host/listings/${stay.id}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5DFD3] bg-white px-3 py-1.5 font-semibold text-[#17221E] hover:bg-[#FAF8F3]"
+                        >
+                          <Edit3 className="h-3.5 w-3.5" />
+                          {isVi ? 'Sửa' : 'Edit'}
+                        </Link>
+                      </div>
+                    ) : (
+                      <Link
+                        href={`/host/listings/${stay.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#164E3F] px-3 py-1.5 font-semibold text-white hover:bg-[#0F392E]"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" />
+                        {isVi ? 'Chỉnh sửa' : 'Edit'}
+                      </Link>
+                    )}
 
                     <div className="flex items-center gap-1.5">
                       {stay.status !== 'pending_review' && stay.status !== 'draft' && (
@@ -392,6 +416,14 @@ export function HostListingsClient({
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex items-center gap-2">
+                        {stay.status === 'draft' && (
+                          <Link
+                            href={`/host/listings/create?stay=${stay.id}`}
+                            className="rounded-lg bg-[#164E3F] px-2.5 py-1 font-semibold text-white hover:bg-[#0F392E]"
+                          >
+                            {isVi ? 'Tiếp tục' : 'Continue'}
+                          </Link>
+                        )}
                         <Link
                           href={`/host/listings/${stay.id}`}
                           className="rounded-lg border border-[#E5DFD3] bg-white px-2.5 py-1 font-semibold text-[#17221E] hover:bg-[#FAF8F3]"
