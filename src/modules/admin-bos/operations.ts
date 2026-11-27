@@ -11,6 +11,7 @@ import {
 import { releaseBookingPromotionTx } from '@/modules/bookings';
 import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
 import { assertAdminStatusTransition } from '@/modules/listing-lifecycle';
+import { captureStayRevision } from '@/modules/listing-revisions';
 import { triggerAutomationTask } from './shared';
 
 export type StayLifecycleStatus =
@@ -248,6 +249,26 @@ export async function moderateListing(
           actorUserId: actor.user.id,
         });
       }
+
+      // Listing Revision history (Phase 4): publish / unpublish / moderate.
+      await captureStayRevision(tx, {
+        stayId,
+        actorUserId: actor.user.id,
+        action:
+          nextStatus === 'live'
+            ? 'publish'
+            : cur.status === 'live'
+              ? 'unpublish'
+              : 'moderate',
+        snapshot: {
+          kind: 'status',
+          from: cur.status,
+          to: nextStatus,
+          reason: input.moderationReason ?? null,
+        },
+        changedFields: ['status'],
+        changeSummary: `Status ${cur.status} → ${nextStatus}`,
+      });
     }
 
     await logAdminAudit(

@@ -38,6 +38,8 @@ import {
   sendConversationMessage,
 } from '@/modules/host-inbox';
 import { updateHostStayConfiguration } from '@/modules/host';
+import { approveStayRevision, listPendingStayRevisions } from '@/modules/listing-revisions';
+import { getAdminActorContext } from '@/modules/admin-rbac';
 
 let tempDir: string;
 
@@ -147,8 +149,10 @@ describe('Host Console v2 Pricing, Calendar, Pending Bookings, Inbox, Insights &
     const room = stay!.rooms[0]!;
     const pkg = room.packages[0]!;
 
-    // Switch stay to host approval required & add house rules
-    await updateHostStayConfiguration(host, stay!.id, {
+    // Switch stay to host approval required & add house rules.
+    // isInstantBook is a policy field on a LIVE listing → Phase 4 stages it
+    // as a pending revision; an admin approval applies it.
+    const saveOut = await updateHostStayConfiguration(host, stay!.id, {
       isInstantBook: false,
       checkinFrom: '15:00',
       checkoutBefore: '11:00',
@@ -161,6 +165,20 @@ describe('Host Console v2 Pricing, Calendar, Pending Bookings, Inbox, Insights &
         extraGuestNote: 'Register passport on check-in',
       },
     });
+    expect(saveOut.pendingRevision).toBe(true);
+    expect(saveOut.stagedFields).toContain('isInstantBook');
+
+    const adminUser = await fetchUser('admin@vietnomad.demo');
+    const actor = await getAdminActorContext(adminUser);
+    const pending = await listPendingStayRevisions();
+    const target = pending.find((r) => r.stayId === stay!.id);
+    expect(target).toBeDefined();
+    await approveStayRevision(actor, target!.id);
+    const ibRow = await dbQuery<{ is_instant_book: boolean }>(
+      'SELECT is_instant_book FROM stays WHERE id = $1',
+      [stay!.id]
+    );
+    expect(ibRow.rows[0]?.is_instant_book).toBe(false);
 
     const intent = await createStayBooking(guest, {
       stayId: stay!.id,

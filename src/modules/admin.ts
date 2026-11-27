@@ -5,6 +5,7 @@ import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
 import { assertAdminStatusTransition } from '@/modules/listing-lifecycle';
+import { captureStayRevision, dbExecutor } from '@/modules/listing-revisions';
 
 export async function getAdminConsoleData() {
   const [appsRes, staysRes, crmRes, bookingsRes, notifRes] = await Promise.all([
@@ -381,6 +382,17 @@ export async function updateAdminStayStatus(
     ) VALUES ($1,$2,$3,'listings','edit','stay',$4,$5::jsonb)`,
     [crypto.randomUUID(), _admin.id, _admin.email, stayId, JSON.stringify({ status })]
   );
+  if (current.status !== status) {
+    await captureStayRevision(dbExecutor(), {
+      stayId,
+      actorUserId: _admin.id,
+      action:
+        status === 'live' ? 'publish' : current.status === 'live' ? 'unpublish' : 'moderate',
+      snapshot: { kind: 'status', from: current.status, to: status },
+      changedFields: ['status'],
+      changeSummary: `Status ${current.status} → ${status}`,
+    });
+  }
   return { ok: true };
 }
 

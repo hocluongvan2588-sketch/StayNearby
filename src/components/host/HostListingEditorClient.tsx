@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowLeft,
   CalendarClock,
@@ -146,6 +146,39 @@ export function HostListingEditorClient({
   const [uploading, setUploading] = useState(false);
   const [notice, setNotice] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [pendingRevision, setPendingRevision] = useState<{
+    changedFields: string[];
+    createdAt: string;
+  } | null>(null);
+
+  // Live listings: surface any price/policy change waiting for admin review.
+  useEffect(() => {
+    if (stay.status !== 'live') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/host/stays/${stay.id}/revisions`);
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          ok: boolean;
+          revisions?: { status: string; changedFields: string[]; createdAt: string }[];
+        };
+        if (cancelled || !json.ok || !Array.isArray(json.revisions)) return;
+        const pending = json.revisions.find((r) => r.status === 'pending');
+        if (pending) {
+          setPendingRevision({
+            changedFields: pending.changedFields,
+            createdAt: pending.createdAt,
+          });
+        }
+      } catch {
+        /* banner is best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [stay.id, stay.status]);
 
   async function handleSaveAll() {
     setSaving(true);
@@ -204,6 +237,18 @@ export function HostListingEditorClient({
       const json = await res.json();
       if (!json.ok) {
         setErrorMsg(json.error?.message ?? 'Could not save listing changes.');
+        return;
+      }
+      if (json.pendingRevision) {
+        setNotice(
+          isVi
+            ? 'Đã gửi thay đổi giá/chính sách — chờ admin duyệt trước khi áp dụng.'
+            : 'Price/policy changes submitted — awaiting admin approval before they apply.'
+        );
+        setPendingRevision({
+          changedFields: Array.isArray(json.stagedFields) ? json.stagedFields : [],
+          createdAt: new Date().toISOString(),
+        });
         return;
       }
       setNotice(isVi ? 'Đã lưu toàn bộ cấu hình chỗ ở.' : 'Saved listing configuration.');
@@ -438,6 +483,16 @@ export function HostListingEditorClient({
       {errorMsg && (
         <div className="rounded-xl border border-[#C25E28]/40 bg-[#FAEDE5] px-4 py-2.5 text-xs font-medium text-[#C25E28]">
           {errorMsg}
+        </div>
+      )}
+      {pendingRevision && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[#C25E28]/40 bg-[#FAEDE5] px-4 py-2.5 text-xs font-medium text-[#C25E28]">
+          <CalendarClock className="h-4 w-4 shrink-0" />
+          <span>
+            {isVi
+              ? `Thay đổi giá/chính sách đang chờ admin duyệt (${pendingRevision.changedFields.join(', ') || '—'}) — gửi lúc ${new Date(pendingRevision.createdAt).toLocaleString()}.`
+              : `Price/policy changes awaiting admin review (${pendingRevision.changedFields.join(', ') || '—'}) — submitted ${new Date(pendingRevision.createdAt).toLocaleString()}.`}
+          </span>
         </div>
       )}
 

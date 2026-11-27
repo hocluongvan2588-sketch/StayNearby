@@ -2,6 +2,14 @@ import crypto from 'node:crypto';
 import type { SessionUser } from '@/lib/auth/session';
 import { addDaysIso, getTodayIsoVietnam, isValidIsoDate, isValidUuid } from '@/lib/dates';
 import { assertHostSubmitForReview } from '@/modules/listing-lifecycle';
+import {
+  captureStayRevision,
+  pickChangedRoomProposals,
+  pickChangedStayProposals,
+  splitProtectedRoomPatch,
+  splitProtectedStayPatch,
+  stagePendingRevision,
+} from '@/modules/listing-revisions';
 import { clampHostMinNights, POLICY_MIN_NIGHTS } from '@/lib/business-rules';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
@@ -99,8 +107,9 @@ export async function assertHostOwnsStay(user: SessionUser, stayId: string) {
     hero_image: string;
     workspace_photo_url: string;
     gallery_images: unknown;
+    status: string;
   }>(
-    'SELECT id, host_id, hero_image, workspace_photo_url, gallery_images FROM stays WHERE id = $1',
+    'SELECT id, host_id, hero_image, workspace_photo_url, gallery_images, status FROM stays WHERE id = $1',
     [stayId]
   );
   const row = res.rows[0];
@@ -608,6 +617,23 @@ export async function createDraftStay(
       [pkgId, id, roomId, today, addDaysIso(today, 365)]
     );
 
+    await captureStayRevision(tx, {
+      stayId: id,
+      actorUserId: user.id,
+      action: 'create',
+      snapshot: {
+        kind: 'create',
+        titleEn,
+        titleVi,
+        propertyType,
+        destinationId: dest.id,
+        status: 'draft',
+      },
+      changedFields: [],
+      changeSummary: 'Listing draft created',
+      status: 'applied',
+    });
+
     return { id, slug, status: 'draft' as const, registrationCode: regCode };
   });
 }
@@ -817,7 +843,8 @@ export interface UpdateHostStayFullInput {
 export async function updateHostStayConfiguration(
   user: SessionUser,
   stayId: string,
-  input: UpdateHostStayFullInput
+  patchInput: UpdateHostStayFullInput,
+  opts: { applyAsRevision?: boolean } = {}
 ) {
   if (!isValidUuid(stayId)) {
     throw new AppError('VALIDATION_ERROR', 'Invalid stay identifier.');
@@ -832,6 +859,22 @@ export async function updateHostStayConfiguration(
     if (!current) throw new AppError('NOT_FOUND', 'Stay not found.');
     if (String(current.host_id) !== user.id && user.role !== 'admin') {
       throw new AppError('FORBIDDEN', 'You do not own this property.');
+    }
+
+    // Listing Revision Management (Phase 4): on a LIVE listing, price & policy
+    // fields are staged as a pending revision instead of applying directly.
+    // Unchanged values never stage (the editor always sends the full payload).
+    let stagedSnapshot: Record<string, unknown> | null = null;
+    let input = patchInput;
+    if (String(current.status) === 'live' && !opts.applyAsRevision) {
+      const { applied, proposed } = splitProtectedStayPatch(
+        patchInput as unknown as Record<string, unknown>
+      );
+      const changed = await pickChangedStayProposals(tx, stayId, proposed, current);
+      input = applied as UpdateHostStayFullInput;
+      if (Object.keys(changed).length > 0) {
+        stagedSnapshot = { kind: 'stay_patch', patch: changed };
+      }
     }
 
     const nextHero = input.heroImage?.trim() || String(current.hero_image);
@@ -1044,7 +1087,24 @@ export async function updateHostStayConfiguration(
       );
     }
 
-    return { ok: true };
+    if (stagedSnapshot) {
+      const patch = stagedSnapshot.patch as Record<string, unknown>;
+      await stagePendingRevision(tx, {
+        stayId,
+        actorUserId: user.id,
+        snapshot: stagedSnapshot,
+        changedFields: Object.keys(patch),
+        changeSummary: `Price/policy change pending review: ${Object.keys(patch).join(', ')}`,
+      });
+    }
+
+    return {
+      ok: true,
+      pendingRevision: stagedSnapshot !== null,
+      stagedFields: stagedSnapshot
+        ? Object.keys(stagedSnapshot.patch as Record<string, unknown>)
+        : [],
+    };
   });
 }
 
@@ -1156,12 +1216,13 @@ export async function updateHostStayRoom(
   user: SessionUser,
   stayId: string,
   roomId: string,
-  input: Partial<RoomInput>
+  rawInput: Partial<RoomInput>,
+  opts: { applyAsRevision?: boolean } = {}
 ) {
   if (!isValidUuid(roomId)) {
     throw new AppError('VALIDATION_ERROR', 'Invalid room identifier.');
   }
-  await assertHostOwnsStay(user, stayId);
+  const stayRow = await assertHostOwnsStay(user, stayId);
 
   return dbTransaction(async (tx) => {
     const roomRes = await tx.query<Record<string, unknown>>(
@@ -1170,6 +1231,21 @@ export async function updateHostStayRoom(
     );
     const cur = roomRes.rows[0];
     if (!cur) throw new AppError('NOT_FOUND', 'Room not found for this stay.');
+
+    // Listing Revision Management (Phase 4): room price edits on a LIVE
+    // listing stage a pending revision; names/capacity keep applying directly.
+    let stagedSnapshot: Record<string, unknown> | null = null;
+    let input = rawInput;
+    if (String(stayRow.status) === 'live' && !opts.applyAsRevision) {
+      const { applied, proposed } = splitProtectedRoomPatch(
+        rawInput as unknown as Record<string, unknown>
+      );
+      const changed = await pickChangedRoomProposals(tx, stayId, roomId, proposed);
+      input = applied as Partial<RoomInput>;
+      if (Object.keys(changed).length > 0) {
+        stagedSnapshot = { kind: 'room_patch', roomId, patch: changed };
+      }
+    }
 
     const nextImage = input.roomImage?.trim() || String(cur.room_image);
     if (!isSafeImageUrl(nextImage)) {
@@ -1241,7 +1317,24 @@ export async function updateHostStayRoom(
       );
     }
 
-    return { ok: true };
+    if (stagedSnapshot) {
+      const patch = stagedSnapshot.patch as Record<string, unknown>;
+      await stagePendingRevision(tx, {
+        stayId,
+        actorUserId: user.id,
+        snapshot: stagedSnapshot,
+        changedFields: Object.keys(patch),
+        changeSummary: `Room price change pending review: ${Object.keys(patch).join(', ')}`,
+      });
+    }
+
+    return {
+      ok: true,
+      pendingRevision: stagedSnapshot !== null,
+      stagedFields: stagedSnapshot
+        ? Object.keys(stagedSnapshot.patch as Record<string, unknown>)
+        : [],
+    };
   });
 }
 
