@@ -1,6 +1,7 @@
 -- Phase A — Wi-Fi data integrity (approved plan).
--- Environment: apply to development/staging FIRST. Production apply is a
--- separate, explicitly approved step — do not run this on prod yet.
+-- Applied to dev/staging first, then to production (du_lich,
+-- pcsyxwccylfpbgvmmifp) on 2026-11-27 after explicit approval.
+-- Fully idempotent (IF NOT EXISTS / guarded backfills / ON CONFLICT).
 --
 -- Principles:
 --   * NULL  = "chưa cập nhật" — no defaults, no assumed/formula values.
