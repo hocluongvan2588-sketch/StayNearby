@@ -836,6 +836,10 @@ export interface UpdateHostStayFullInput {
   wifiUploadMbps?: number | null;
   wifiPingMs?: number | null;
   wifiJitterMs?: number | null;
+  /** Test date as YYYY-MM-DD (host-declared evidence). */
+  wifiTestedAt?: string;
+  /** Optional speed-test result link / image URL. Empty string clears. */
+  speedtestProofUrl?: string | null;
   isEntirePlace?: boolean;
   bedrooms?: number | null;
   bathrooms?: number | null;
@@ -977,10 +981,28 @@ export async function updateHostStayConfiguration(
     const nextWifiPing = wifiNext.pingMs;
     const nextWifiJitter = wifiNext.jitterMs;
     const nextWifiHasService = wifiNext.hasService;
-    const nextWifiStatus = wifiNext.status;
-    const nextIsWifiVerified = wifiNext.verificationLost
+    let nextWifiStatus = wifiNext.status;
+    let nextIsWifiVerified = wifiNext.verificationLost
       ? false
       : Boolean(current.is_wifi_verified);
+
+    // Host-declared evidence (test date / result link): changing either on a
+    // verified listing sends it back to reverify_pending — host evidence never
+    // keeps the Verified badge.
+    const testedAtProvided = typeof input.wifiTestedAt === 'string' && input.wifiTestedAt.length > 0;
+    const nextTestedAt = testedAtProvided ? new Date(`${input.wifiTestedAt}T00:00:00.000Z`) : null;
+    const proofProvided = input.speedtestProofUrl !== undefined;
+    const nextProof = proofProvided ? input.speedtestProofUrl?.trim() || null : null;
+    const evidenceChanged =
+      (testedAtProvided &&
+        nextTestedAt !== null &&
+        nextTestedAt.toISOString().slice(0, 10) !==
+          String(current.wifi_tested_at ?? '').slice(0, 10)) ||
+      (proofProvided && nextProof !== (current.speedtest_proof_url || null));
+    if (evidenceChanged && nextWifiStatus === 'verified') {
+      nextWifiStatus = 'reverify_pending';
+      nextIsWifiVerified = false;
+    }
 
     await tx.query(
       `UPDATE stays
@@ -1036,10 +1058,12 @@ export async function updateHostStayConfiguration(
            wifi_status = $50,
            is_wifi_verified = $51,
            wifi_tested_at = CASE
+             WHEN $53::timestamptz IS NOT NULL THEN $53::timestamptz
              WHEN $50 = 'not_updated' THEN NULL
              WHEN $52 THEN NOW()
              ELSE wifi_tested_at
-           END
+           END,
+           speedtest_proof_url = CASE WHEN $55 THEN $54 ELSE speedtest_proof_url END
        WHERE id = $30`,
       [
         input.titleEn?.trim() || String(current.title_en),
@@ -1096,6 +1120,9 @@ export async function updateHostStayConfiguration(
         nextWifiStatus,
         nextIsWifiVerified,
         wifiNext.speedChanged,
+        nextTestedAt,
+        nextProof,
+        proofProvided,
       ]
     );
 
@@ -1492,6 +1519,21 @@ export async function recordWifiSpeedTest(
     const nextIsWifiVerified = wifiNext.verificationLost
       ? false
       : Boolean(row.is_wifi_verified);
+    let nextStatus = wifiNext.status;
+    let nextVerified = nextIsWifiVerified;
+    // A new result link/evidence sent from the direct test invalidates a
+    // host-declared Verified badge (host never keeps Verified from their own
+    // evidence).
+    const proofProvided =
+      typeof input.speedtestProofUrl === 'string' && input.speedtestProofUrl.trim().length > 0;
+    if (
+      proofProvided &&
+      input.speedtestProofUrl!.trim() !== String(row.speedtest_proof_url || '') &&
+      nextStatus === 'verified'
+    ) {
+      nextStatus = 'reverify_pending';
+      nextVerified = false;
+    }
 
     await tx.query(
       `UPDATE stays
@@ -1517,8 +1559,8 @@ export async function recordWifiSpeedTest(
         wifiNext.pingMs,
         wifiNext.jitterMs,
         wifiNext.hasService,
-        wifiNext.status,
-        nextIsWifiVerified,
+        nextStatus,
+        nextVerified,
         wifiNext.speedChanged,
         input.note?.trim() || null,
         input.speedtestProofUrl?.trim() || null,

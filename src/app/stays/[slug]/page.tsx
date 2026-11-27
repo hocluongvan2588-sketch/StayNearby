@@ -316,6 +316,10 @@ export default async function StayDetailPage({
               workspaceVideoUrl={stay.workspaceVideoUrl}
               workspaceSummary={workspaceSummary}
               workspacePhotoUrl={stay.workspacePhotoUrl}
+              wifiGuestAvgRating={stay.wifiGuestAvgRating}
+              wifiGuestReviewCount={stay.wifiGuestReviewCount}
+              wifiGuestRecentBookingCount={stay.wifiGuestRecentBookingCount}
+              wifiVerifiedByGuests={stay.wifiVerifiedByGuests}
               locale={prefs.locale}
             />
           </div>

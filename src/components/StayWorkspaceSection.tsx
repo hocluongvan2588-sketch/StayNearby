@@ -8,6 +8,7 @@ import {
   Laptop,
   Monitor,
   ShieldCheck,
+  Star,
   Wifi,
 } from 'lucide-react';
 import type { Locale } from '@/lib/i18n';
@@ -33,6 +34,11 @@ export function StayWorkspaceSection({
   workspaceVideoUrl,
   workspaceSummary,
   workspacePhotoUrl,
+  // Guest-rated Wi-Fi quality — separate from host-declared figures.
+  wifiGuestAvgRating,
+  wifiGuestReviewCount,
+  wifiGuestRecentBookingCount,
+  wifiVerifiedByGuests,
   locale,
 }: {
   hasWorkspace: boolean;
@@ -55,6 +61,10 @@ export function StayWorkspaceSection({
   workspaceVideoUrl: string | null;
   workspaceSummary: string;
   workspacePhotoUrl: string;
+  wifiGuestAvgRating: number | null;
+  wifiGuestReviewCount: number;
+  wifiGuestRecentBookingCount: number;
+  wifiVerifiedByGuests: boolean;
   locale: Locale;
 }) {
   const isVi = locale === 'vi';
@@ -70,7 +80,9 @@ export function StayWorkspaceSection({
     wifiHasService === true ||
     hasWifiSpeed ||
     isWifiVerified ||
-    isWorkReady;
+    isWorkReady ||
+    wifiGuestReviewCount > 0 ||
+    wifiVerifiedByGuests;
 
   if (!hasAnyRelevantData) return null;
 
@@ -113,14 +125,33 @@ export function StayWorkspaceSection({
         <h2 className="text-[22px] font-semibold tracking-tight text-[#17221E]">
           {isVi ? 'Không gian làm việc & Internet' : 'Workspace & Internet'}
         </h2>
-        {(isWifiVerified || isWorkReady) && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F1EC] px-2.5 py-1 text-xs font-medium text-[#164E3F]">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            {isWifiVerified && isWorkReady
-              ? 'Wi-Fi Verified · Work-Ready'
-              : isWifiVerified
-                ? 'Wi-Fi Verified'
-                : 'Work-Ready'}
+        {(isWifiVerified || isWorkReady || wifiVerifiedByGuests) && (
+          <span className="flex flex-wrap items-center gap-2">
+            {(isWifiVerified || isWorkReady) && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F1EC] px-2.5 py-1 text-xs font-medium text-[#164E3F]">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {isWifiVerified && isWorkReady
+                  ? 'Wi-Fi Verified · Work-Ready'
+                  : isWifiVerified
+                    ? 'Wi-Fi Verified'
+                    : 'Work-Ready'}
+              </span>
+            )}
+            {wifiVerifiedByGuests && (
+              <span
+                title={
+                  isVi
+                    ? 'Từ ≥5 khách đã hoàn thành kỳ lưu trú · điểm TB ≥4.5/5 · trong 90 ngày gần nhất · không khiếu nại Wi-Fi nghiêm trọng'
+                    : 'From ≥5 guests with completed stays · avg ≥4.5/5 · within the last 90 days · no severe open Wi-Fi complaints'
+                }
+                className="inline-flex items-center gap-1 rounded-full bg-[#FBF3E2] px-2.5 py-1 text-xs font-medium text-[#8A5A12]"
+              >
+                <Star className="h-3.5 w-3.5" fill="#A67C2E" />
+                {isVi
+                  ? 'Wi-Fi được khách lưu trú xác nhận'
+                  : 'Wi-Fi Verified by Guests'}
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -139,6 +170,36 @@ export function StayWorkspaceSection({
               </li>
             ))}
           </ul>
+
+          {/* Guest-rated Internet quality — strictly separate from the
+              host-declared figures above; a review is NOT a Mbps verification. */}
+          {wifiGuestReviewCount > 0 && (
+            <div className="rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] p-4">
+              <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#17221E]">
+                <Star className="h-4 w-4 text-[#A67C2E]" fill="#A67C2E" />
+                <span>
+                  {isVi
+                    ? 'Chất lượng Internet theo khách lưu trú'
+                    : 'Internet quality rated by guests'}
+                </span>
+                <span className="font-bold">
+                  {wifiGuestAvgRating !== null ? `${wifiGuestAvgRating.toFixed(1)}/5` : '—'}
+                </span>
+                <span className="text-xs font-normal text-[#53635D]">
+                  {wifiGuestReviewCount}{' '}
+                  {isVi ? 'lượt đánh giá' : 'ratings'}
+                  {wifiGuestRecentBookingCount > 0
+                    ? ` · ${wifiGuestRecentBookingCount} ${isVi ? 'trong 90 ngày gần nhất' : 'in the last 90 days'}`
+                    : ''}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xs leading-relaxed text-[#53635D]">
+                {isVi
+                  ? 'Điểm số từ trải nghiệm thực tế của khách đã hoàn thành kỳ lưu trú (tốc độ · ổn định · phù hợp làm việc từ xa). Khác với thông số do chủ nhà khai báo ở trên — đánh giá của khách không phải là kiểm chứng số Mbps.'
+                  : 'Scores from the real experience of guests who completed their stay (speed · stability · fit for remote work). These are separate from the host-declared figures above — guest ratings do not verify Mbps numbers.'}
+              </p>
+            </div>
+          )}
 
           {(hasWifiSpeed || speedtestProofUrl || workspaceVideoUrl || wifiTesterNote) && (
             <div className="pt-1">

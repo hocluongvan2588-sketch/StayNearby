@@ -56,6 +56,13 @@ export const listingPatchSchema = z.object({
   wifiUploadMbps: z.number().int().min(0).max(10000).nullable().optional(),
   wifiPingMs: z.number().int().min(0).max(5000).nullable().optional(),
   wifiJitterMs: z.number().int().min(0).max(500).nullable().optional(),
+  // Host-declared evidence: test date (YYYY-MM-DD) and optional result link
+  // or image URL. Changing either on a verified listing -> reverify_pending.
+  wifiTestedAt: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
+    .optional(),
+  speedtestProofUrl: z.string().max(500).nullable().optional(),
   isEntirePlace: z.boolean().optional(),
   bedrooms: z.number().int().min(1).max(30).nullable().optional(),
   bathrooms: z.number().int().min(1).max(30).nullable().optional(),

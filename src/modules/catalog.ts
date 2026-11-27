@@ -164,6 +164,12 @@ export interface StayGuestReviewItem {
   hostReply: string | null;
   hostRepliedAt: string | null;
   createdAt: string;
+  // Wi-Fi quality (Phase A): null = guest skipped Wi-Fi. Guest-rated
+  // experience only — never a verification of host-declared Mbps.
+  wifiSpeedRating: number | null;
+  wifiStabilityRating: number | null;
+  wifiWorkRating: number | null;
+  wifiComment: string | null;
 }
 
 export interface LocalDiscoveryPlace {
@@ -233,6 +239,11 @@ export interface StayDetail extends StayCardItem {
   wifiTesterNote: string | null;
   wifiStatus: WifiStatus;
   speedtestProofUrl: string | null;
+  // Guest Wi-Fi quality — kept separate from host-declared figures above.
+  wifiGuestAvgRating: number | null;
+  wifiGuestReviewCount: number;
+  wifiGuestRecentBookingCount: number;
+  wifiVerifiedByGuests: boolean;
   workspaceVideoUrl: string | null;
   workspaceSummaryEn: string;
   workspaceSummaryVi: string;
@@ -685,6 +696,10 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
       host_reply: string | null;
       host_replied_at: string | Date | null;
       created_at: string | Date;
+      wifi_speed_rating: number | null;
+      wifi_stability_rating: number | null;
+      wifi_work_rating: number | null;
+      wifi_comment: string | null;
     }>(
       `SELECT sr.id,
               COALESCE(u.full_name, 'Verified Guest') AS guest_name,
@@ -692,7 +707,11 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
               sr.comment,
               sr.host_reply,
               sr.host_replied_at,
-              sr.created_at
+              sr.created_at,
+              sr.wifi_speed_rating,
+              sr.wifi_stability_rating,
+              sr.wifi_work_rating,
+              sr.wifi_comment
        FROM stay_reviews sr
        LEFT JOIN users u ON u.id = sr.guest_id
        WHERE sr.stay_id = $1
@@ -852,6 +871,10 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
       ? new Date(String(rv.host_replied_at)).toISOString()
       : null,
     createdAt: new Date(String(rv.created_at)).toISOString(),
+    wifiSpeedRating: toNullablePositiveInt(rv.wifi_speed_rating),
+    wifiStabilityRating: toNullablePositiveInt(rv.wifi_stability_rating),
+    wifiWorkRating: toNullablePositiveInt(rv.wifi_work_rating),
+    wifiComment: rv.wifi_comment ? String(rv.wifi_comment) : null,
   }));
 
   const reviewsCount = reviews.length;
@@ -861,6 +884,75 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
           (reviews.reduce((s, r) => s + r.rating, 0) / reviewsCount).toFixed(2)
         )
       : null;
+
+  // Guest Wi-Fi quality — displayed as its own block, never merged with the
+  // host-declared figures. "Verified by Guests" needs ALL of:
+  //   1. ≥5 distinct completed bookings with Wi-Fi ratings in the last 90 days
+  //   2. average ≥4.5/5 over those recent ratings
+  //   3. no unresolved high/urgent Wi-Fi complaint ticket
+  //   (the 90-day window is condition 1+2's data window)
+  const wifiStatsRes = await dbQuery<{
+    review_count: number;
+    booking_count: number;
+    avg_rating: string | number | null;
+    recent_booking_count: number;
+    recent_avg_rating: string | number | null;
+    has_open_complaint: boolean;
+  }>(
+    `WITH wifi_reviews AS (
+       SELECT r.booking_id,
+              r.created_at,
+              (COALESCE(r.wifi_speed_rating, 0) + COALESCE(r.wifi_stability_rating, 0) + COALESCE(r.wifi_work_rating, 0))::numeric /
+                NULLIF(
+                  (CASE WHEN r.wifi_speed_rating IS NOT NULL THEN 1 ELSE 0 END +
+                   CASE WHEN r.wifi_stability_rating IS NOT NULL THEN 1 ELSE 0 END +
+                   CASE WHEN r.wifi_work_rating IS NOT NULL THEN 1 ELSE 0 END), 0
+                ) AS review_avg
+       FROM stay_reviews r
+       WHERE r.stay_id = $1
+         AND (r.wifi_speed_rating IS NOT NULL
+           OR r.wifi_stability_rating IS NOT NULL
+           OR r.wifi_work_rating IS NOT NULL)
+     ),
+     agg AS (
+       SELECT count(*)::int AS review_count,
+              count(DISTINCT r.booking_id)::int AS booking_count,
+              avg(r.review_avg)::numeric AS avg_rating,
+              count(*) FILTER (WHERE r.created_at >= NOW() - INTERVAL '90 days')::int AS recent_count,
+              count(DISTINCT r.booking_id) FILTER (WHERE r.created_at >= NOW() - INTERVAL '90 days')::int AS recent_booking_count,
+              avg(r.review_avg) FILTER (WHERE r.created_at >= NOW() - INTERVAL '90 days')::numeric AS recent_avg_rating
+       FROM wifi_reviews r
+     )
+     SELECT agg.review_count,
+            agg.booking_count,
+            agg.avg_rating,
+            agg.recent_booking_count,
+            agg.recent_avg_rating,
+            EXISTS (
+              SELECT 1 FROM support_tickets t
+              WHERE t.stay_id = $1
+                AND t.category = 'listing_accuracy'
+                AND t.issue_sub_category IN ('wifi_speed_mismatch', 'wifi_or_property_issue')
+                AND t.priority IN ('high', 'urgent')
+                AND t.status NOT IN ('resolved', 'closed')
+            ) AS has_open_complaint
+     FROM agg`,
+    [row.id]
+  );
+  const wifiStats = wifiStatsRes.rows[0];
+  const wifiGuestReviewCount = wifiStats ? toNum(wifiStats.review_count) : 0;
+  const wifiGuestAvgRating =
+    wifiStats && wifiStats.avg_rating !== null && wifiGuestReviewCount > 0
+      ? Number(toNum(wifiStats.avg_rating).toFixed(1))
+      : null;
+  const wifiGuestRecentBookingCount = wifiStats ? toNum(wifiStats.recent_booking_count) : 0;
+  const wifiVerifiedByGuests = Boolean(
+    wifiStats &&
+      wifiGuestRecentBookingCount >= 5 &&
+      wifiStats.recent_avg_rating !== null &&
+      toNum(wifiStats.recent_avg_rating) >= 4.5 &&
+      !wifiStats.has_open_complaint
+  );
 
   return {
     ...card,
@@ -890,6 +982,10 @@ export async function getStayDetailBySlug(slug: string): Promise<StayDetail | nu
     wifiTesterNote: row.wifi_tester_note ? String(row.wifi_tester_note) : null,
     wifiStatus: normalizeWifiStatus(row.wifi_status),
     speedtestProofUrl: row.speedtest_proof_url ? String(row.speedtest_proof_url) : null,
+    wifiGuestAvgRating,
+    wifiGuestReviewCount,
+    wifiGuestRecentBookingCount,
+    wifiVerifiedByGuests,
     workspaceVideoUrl: row.workspace_video_url ? String(row.workspace_video_url) : null,
     workspaceSummaryEn: String(row.workspace_summary_en),
     workspaceSummaryVi: String(row.workspace_summary_vi),

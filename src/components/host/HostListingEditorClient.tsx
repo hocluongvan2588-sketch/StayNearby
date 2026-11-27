@@ -112,7 +112,12 @@ export function HostListingEditorClient({
   const [wifiDownload, setWifiDownload] = useState<number | null>(stay.wifiDownloadMbps);
   const [wifiUpload, setWifiUpload] = useState<number | null>(stay.wifiUploadMbps);
   const [wifiPing, setWifiPing] = useState<number | null>(stay.wifiPingMs);
-  const [wifiJitter, setWifiJitter] = useState<number | null>(stay.wifiJitterMs);
+  // Jitter is NOT a host-declared field (Phase A scope): DB column stays for
+  // direct measurement only, no editor input.
+  const [wifiTestedDate, setWifiTestedDate] = useState<string>(
+    stay.wifiTestedAt ? stay.wifiTestedAt.slice(0, 10) : ''
+  );
+  const [wifiProofUrl, setWifiProofUrl] = useState<string>(stay.speedtestProofUrl || '');
 
   // 5. Location
   const [destinationId, setDestinationId] = useState(stay.destinationId);
@@ -227,7 +232,9 @@ export function HostListingEditorClient({
           wifiDownloadMbps: wifiDownload,
           wifiUploadMbps: wifiUpload,
           wifiPingMs: wifiPing,
-          wifiJitterMs: wifiJitter,
+          wifiJitterMs: null,
+          wifiTestedAt: wifiTestedDate || undefined,
+          speedtestProofUrl: wifiProofUrl,
           workspaceSummaryEn,
           workspaceSummaryVi,
           neighborhoodEn,
@@ -767,51 +774,65 @@ export function HostListingEditorClient({
                     }
                   />
                   <ListingInput
-                    type="number"
-                    min={0}
-                    max={500}
-                    label="Jitter (ms)"
-                    value={wifiJitter ?? ''}
+                    type="date"
+                    label={isVi ? 'Ngày kiểm tra' : 'Test date'}
+                    value={wifiTestedDate}
                     disabled={wifiHasService === false}
-                    onChange={(v) =>
-                      setWifiJitter(v === '' ? null : Math.max(0, Math.round(Number(v) || 0)))
+                    onChange={setWifiTestedDate}
+                    hint={
+                      wifiTestedDate
+                        ? undefined
+                        : isVi
+                          ? 'Chưa có ngày kiểm tra.'
+                          : 'No test date yet.'
                     }
                   />
                   <ListingInput
-                    label={isVi ? 'Ngày kiểm tra gần nhất' : 'Last tested'}
-                    value={stay.wifiTestedAt ? stay.wifiTestedAt.slice(0, 10) : ''}
-                    disabled
-                    onChange={() => undefined}
+                    label={
+                      isVi ? 'Đường dẫn hoặc ảnh kết quả kiểm tra' : 'Result link or image'
+                    }
+                    placeholder="https://…"
+                    value={wifiProofUrl}
+                    disabled={wifiHasService === false}
+                    onChange={setWifiProofUrl}
                     hint={
-                      stay.wifiTestedAt
-                        ? undefined
-                        : isVi
-                          ? 'Chưa có lần kiểm tra nào.'
-                          : 'No test recorded yet.'
+                      isVi
+                        ? 'Không bắt buộc — dán link speedtest hoặc URL ảnh kết quả.'
+                        : 'Optional — paste a speed-test link or a result image URL.'
                     }
                   />
                 </div>
-                {(wifiDownload !== null ||
-                  wifiUpload !== null ||
-                  wifiPing !== null ||
-                  wifiJitter !== null) && (
+                {/* Guidance — đúng câu ngắn + link bài CMS (không nhồi nội dung dài vào editor) */}
+                <p className="text-xs leading-relaxed text-[#53635D]">
+                  {isVi
+                    ? 'Để cung cấp thông tin chính xác cho khách, hãy kết nối với mạng Wi-Fi tại chỗ ở và kiểm tra tốc độ Internet trước khi nhập kết quả.'
+                    : 'For accurate guest information, connect to the property Wi-Fi and run an Internet speed test before entering your results.'}{' '}
+                  <Link
+                    href="/guides/wifi-speed-test-guide"
+                    className="font-semibold text-[#1C7C64] underline-offset-2 hover:underline"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {isVi
+                      ? 'Hướng dẫn kiểm tra tốc độ Wi-Fi'
+                      : 'How to test your Wi-Fi speed'}
+                  </Link>
+                </p>
+                {(wifiDownload !== null || wifiUpload !== null || wifiPing !== null) && (
                   <p className="rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 text-xs text-[#53635D]">
                     {isVi ? 'Kết quả gần nhất: ' : 'Latest: '}
                     <span className="font-semibold text-[#17221E]">
                       {wifiDownload !== null ? `${wifiDownload} Mbps ↓` : ''}
                       {wifiUpload !== null ? ` · ${wifiUpload} Mbps ↑` : ''}
                       {wifiPing !== null ? ` · Ping ${wifiPing} ms` : ''}
-                      {wifiJitter !== null ? ` · Jitter ${wifiJitter} ms` : ''}
                     </span>
                     {' · '}
                     {wifiStatusLabel(stay.wifiStatus, isVi)}
+                    {wifiTestedDate ? ` · ${wifiTestedDate}` : ''}
                   </p>
                 )}
                 {stay.wifiStatus !== 'not_updated' &&
-                  (wifiDownload === null &&
-                    wifiUpload === null &&
-                    wifiPing === null &&
-                    wifiJitter === null) && (
+                  (wifiDownload === null && wifiUpload === null && wifiPing === null) && (
                     <p className="text-xs text-[#53635D]">
                       {wifiStatusLabel(stay.wifiStatus, isVi)}
                     </p>
