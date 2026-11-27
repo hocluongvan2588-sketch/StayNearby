@@ -10,7 +10,6 @@ import {
   formatLaundryTypeLabel,
   formatPropertyTypeLabel,
   formatStayLocationLabel,
-  formatVndExact,
 } from '@/lib/i18n';
 import { getServerPreferences } from '@/lib/preferences';
 import { getStayDetailBySlug } from '@/modules/catalog';
@@ -21,6 +20,7 @@ import { StayDescriptionToggle } from '@/components/StayDescriptionToggle';
 import { StayGuestReviewsSection } from '@/components/StayGuestReviewsSection';
 import { StayHeaderActions } from '@/components/StayHeaderActions';
 import { StayHostSection } from '@/components/StayHostSection';
+import StayMobileBookingBar from '@/components/StayMobileBookingBar';
 import { StayNeighborhoodExplore } from '@/components/StayNeighborhoodExplore';
 import { StayPhotoGallery } from '@/components/StayPhotoGallery';
 import { StayWorkspaceSection } from '@/components/StayWorkspaceSection';
@@ -319,41 +319,12 @@ export default async function StayDetailPage({
         </div>
 
         {/* Mobile: compact sticky booking bar (scrolls to the full widget) */}
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E5DFD3] bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate text-[15px] font-semibold text-[#17221E]">
-                {formatVndExact(stay.weekDisplayVnd)}{' '}
-                <span className="text-[12px] font-normal text-[#53635D]">
-                  {isVi ? '/ 7 đêm' : '/ 7 nights'}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  document
-                    .getElementById('booking-widget')
-                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
-                className="text-[11px] font-medium text-[#164E3F] underline-offset-2 hover:underline"
-              >
-                {isVi ? 'Xem chi phí kỳ lưu trú' : 'View stay cost'}
-              </button>
-            </div>
-            <a
-              href="#booking-widget"
-              className="inline-flex min-h-[44px] shrink-0 items-center rounded-xl bg-[#164E3F] px-5 text-sm font-semibold text-white hover:bg-[#0F392E]"
-            >
-              {stay.isInstantBook
-                ? isVi
-                  ? 'Đặt chỗ'
-                  : 'Reserve'
-                : isVi
-                  ? 'Gửi yêu cầu đặt chỗ'
-                  : 'Request to book'}
-            </a>
-          </div>
-        </div>
+        <StayMobileBookingBar
+          locale={prefs.locale}
+          stayTitle={title}
+          weekTotalVnd={stay.weekDisplayVnd ?? 0}
+          isInstantBook={stay.isInstantBook}
+        />
 
         {/* Full-width Bottom Open Sections (Sections 8, 10, 11) */}
         <div className="mt-4 divide-y divide-[#E5DFD3] border-t border-[#E5DFD3]">
