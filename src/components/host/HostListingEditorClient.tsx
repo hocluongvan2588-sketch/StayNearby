@@ -39,6 +39,7 @@ import {
   ListingSelect,
   ListingTextarea,
 } from '@/components/listing-form';
+import type { DestinationSummary } from '@/modules/catalog';
 import type { HostStayRoomItem, HostStaySummary } from '@/modules/host';
 
 const SECTION_DEFS = [
@@ -58,8 +59,10 @@ type SectionKey = (typeof SECTION_DEFS)[number]['key'];
 
 export function HostListingEditorClient({
   initialStay,
+  destinations,
 }: {
   initialStay: HostStaySummary;
+  destinations: DestinationSummary[];
 }) {
   const { locale, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
@@ -104,6 +107,7 @@ export function HostListingEditorClient({
   const [workspaceSummaryVi, setWorkspaceSummaryVi] = useState(stay.workspaceSummaryVi);
 
   // 5. Location
+  const [destinationId, setDestinationId] = useState(stay.destinationId);
   const [neighborhoodEn, setNeighborhoodEn] = useState(stay.neighborhoodEn);
   const [neighborhoodVi, setNeighborhoodVi] = useState(stay.neighborhoodVi);
   const [exactAddress, setExactAddress] = useState(stay.exactAddress);
@@ -218,6 +222,7 @@ export function HostListingEditorClient({
           exactAddress,
           checkinInstructionsEn,
           checkinInstructionsVi,
+          ...(destinationId !== stay.destinationId ? { destinationId } : {}),
           checkinFrom,
           checkoutBefore,
           defaultMinNights: clampHostMinNights(Number(defaultMinNights) || POLICY_MIN_NIGHTS),
@@ -744,6 +749,22 @@ export function HostListingEditorClient({
                 {isVi ? '5. Vị trí & Hướng dẫn nhận phòng' : '5. Location & Check-in Details'}
               </ListingSectionTitle>
               <div className="grid gap-4 sm:grid-cols-2">
+                <ListingSelect
+                  label={isVi ? 'Điểm đến' : 'Destination'}
+                  value={destinationId}
+                  onChange={setDestinationId}
+                  options={destinations.map((d) => ({
+                    value: d.id,
+                    label: isVi
+                      ? `${d.nameVi} · ${d.regionVi}`
+                      : `${d.nameEn} · ${d.regionEn}`,
+                  }))}
+                  hint={
+                    isVi
+                      ? 'Chọn thành phố của chỗ ở.'
+                      : 'Choose the city for this listing.'
+                  }
+                />
                 <ListingInput
                   label="Neighborhood (EN)"
                   value={neighborhoodEn}
