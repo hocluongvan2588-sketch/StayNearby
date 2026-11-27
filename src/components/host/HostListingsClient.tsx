@@ -48,7 +48,7 @@ export function HostListingsClient({
   const [errorMsg, setErrorMsg] = useState('');
 
   async function toggleStatus(stay: HostStaySummary) {
-    if (stay.status === 'pending_review') return;
+    if (stay.status === 'pending_review' || stay.status === 'draft') return;
     const nextStatus = stay.status === 'live' ? 'paused' : 'live';
     setBusyId(stay.id);
     setErrorMsg('');
@@ -91,6 +91,12 @@ export function HostListingsClient({
   }
 
   function statusBadge(status: string) {
+    if (status === 'draft') {
+      return {
+        label: isVi ? 'Bản nháp' : 'Draft',
+        cls: 'border-dashed border-[#A67C2E]/50 bg-[#FDF4DF] text-[#8E651A]',
+      };
+    }
     if (status === 'live') {
       return {
         label: isVi ? 'Đang hoạt động' : 'Live',
@@ -188,7 +194,7 @@ export function HostListingsClient({
                 <div>
                   <span className="font-semibold text-[#17221E]">{d.titlePreview}</span>
                   <span className="ml-2 text-[#53635D]">
-                    {d.city} · {isVi ? `Bước ${d.currentStep}/7` : `Step ${d.currentStep}/7`}
+                    {d.city} · {isVi ? `Bước ${d.currentStep}/6` : `Step ${d.currentStep}/6`}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -299,7 +305,7 @@ export function HostListingsClient({
                     </Link>
 
                     <div className="flex items-center gap-1.5">
-                      {stay.status !== 'pending_review' && (
+                      {stay.status !== 'pending_review' && stay.status !== 'draft' && (
                         <button
                           type="button"
                           disabled={busyId === stay.id}

@@ -17,6 +17,7 @@ import {
   MapPin,
   Plus,
   Save,
+  Send,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -132,6 +133,7 @@ export function HostListingEditorClient({
     useState<HostStaySummary['cancellationPolicy']>(stay.cancellationPolicy);
 
   const [saving, setSaving] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [notice, setNotice] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -198,6 +200,31 @@ export function HostListingEditorClient({
       setNotice(isVi ? 'Đã lưu toàn bộ cấu hình chỗ ở.' : 'Saved listing configuration.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSubmitForReview() {
+    setSubmitting(true);
+    setNotice('');
+    setErrorMsg('');
+    try {
+      const res = await fetch(`/api/host/stays/${stay.id}/submit`, { method: 'POST' });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        setErrorMsg(
+          json?.error?.message ??
+            (isVi ? 'Không thể gửi duyệt.' : 'Could not submit for review.')
+        );
+        return;
+      }
+      setStatus('pending_review');
+      setNotice(
+        isVi
+          ? 'Đã gửi duyệt. Admin sẽ xem xét listing của bạn.'
+          : 'Submitted for review. An admin will review your listing.'
+      );
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -356,14 +383,31 @@ export function HostListingEditorClient({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={`/stays/${stay.slug}`}
-            target="_blank"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5DFD3] bg-white px-3 py-2 text-xs font-semibold text-[#17221E] hover:bg-[#FAF8F3]"
-          >
-            <ExternalLink className="h-3.5 w-3.5 text-[#53635D]" />
-            {isVi ? 'Xem trang khách' : 'Public view'}
-          </Link>
+          {(status === 'live' || status === 'paused') && (
+            <Link
+              href={`/stays/${stay.slug}`}
+              target="_blank"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5DFD3] bg-white px-3 py-2 text-xs font-semibold text-[#17221E] hover:bg-[#FAF8F3]"
+            >
+              <ExternalLink className="h-3.5 w-3.5 text-[#53635D]" />
+              {isVi ? 'Xem trang khách' : 'Public view'}
+            </Link>
+          )}
+          {status === 'draft' && (
+            <button
+              type="button"
+              disabled={submitting || saving}
+              onClick={handleSubmitForReview}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#164E3F]/40 bg-[#E7F1EC] px-4 py-2 text-xs font-semibold text-[#164E3F] hover:bg-[#DCEDE4] disabled:opacity-60"
+            >
+              {submitting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              {isVi ? 'Gửi duyệt' : 'Submit for review'}
+            </button>
+          )}
           <button
             type="button"
             disabled={saving}
@@ -1006,10 +1050,13 @@ export function HostListingEditorClient({
                   </label>
                   <select
                     value={status}
-                    disabled={status === 'pending_review'}
+                    disabled={status === 'pending_review' || status === 'draft'}
                     onChange={(e) => setStatus(e.target.value)}
                     className="w-full rounded-lg border border-[#E5DFD3] bg-[#FAF8F3] px-3 py-2 disabled:opacity-60"
                   >
+                    {status === 'draft' && (
+                      <option value="draft">{isVi ? 'Bản nháp' : 'Draft'}</option>
+                    )}
                     {status === 'pending_review' && (
                       <option value="pending_review">Pending review</option>
                     )}

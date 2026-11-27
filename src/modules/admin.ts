@@ -4,6 +4,7 @@ import { addDaysIso, getTodayIsoVietnam, isValidUuid } from '@/lib/dates';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
+import { assertAdminStatusTransition } from '@/modules/listing-lifecycle';
 
 export async function getAdminConsoleData() {
   const [appsRes, staysRes, crmRes, bookingsRes, notifRes] = await Promise.all([
@@ -362,6 +363,13 @@ export async function updateAdminStayStatus(
   status: 'live' | 'limited' | 'paused'
 ) {
   if (!isValidUuid(stayId)) throw new AppError('VALIDATION_ERROR', 'Invalid stay ID.');
+  const curRes = await dbQuery<{ status: string }>(
+    'SELECT status FROM stays WHERE id = $1',
+    [stayId]
+  );
+  const current = curRes.rows[0];
+  if (!current) throw new AppError('NOT_FOUND', 'Stay not found.');
+  assertAdminStatusTransition(String(current.status), status);
   await dbQuery('UPDATE stays SET status = $1, reviewed_by = $2, reviewed_at = NOW() WHERE id = $3', [
     status,
     _admin.id,

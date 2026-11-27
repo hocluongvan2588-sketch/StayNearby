@@ -37,6 +37,8 @@ const schema = z.object({
   propertyType: z
     .enum(['apartment', 'coliving', 'boutique_hotel', 'villa', 'eco_lodge'])
     .optional(),
+  destinationId: z.string().uuid().optional(),
+  wifiDownloadMbps: z.number().int().min(0).max(10000).optional(),
   isEntirePlace: z.boolean().optional(),
   bedrooms: z.number().int().min(1).max(30).nullable().optional(),
   bathrooms: z.number().int().min(1).max(30).nullable().optional(),

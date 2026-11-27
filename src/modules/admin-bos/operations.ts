@@ -10,6 +10,7 @@ import {
 } from '@/modules/admin-rbac';
 import { releaseBookingPromotionTx } from '@/modules/bookings';
 import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
+import { assertAdminStatusTransition } from '@/modules/listing-lifecycle';
 import { triggerAutomationTask } from './shared';
 
 export type StayLifecycleStatus =
@@ -178,6 +179,7 @@ export async function moderateListing(
     if (!cur) throw new AppError('NOT_FOUND', 'Listing not found.');
 
     const nextStatus = input.status ?? (cur.status as StayLifecycleStatus);
+    assertAdminStatusTransition(String(cur.status), String(nextStatus));
     const nextWifi = input.isWifiVerified ?? Boolean(cur.is_wifi_verified);
     const nextWork = input.isWorkReady ?? Boolean(cur.is_work_ready);
     const nextTier =

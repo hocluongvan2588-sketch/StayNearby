@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { SessionUser } from '@/lib/auth/session';
-import { getTodayIsoVietnam, isValidIsoDate, isValidUuid } from '@/lib/dates';
+import { addDaysIso, getTodayIsoVietnam, isValidIsoDate, isValidUuid } from '@/lib/dates';
+import { assertHostSubmitForReview } from '@/modules/listing-lifecycle';
 import { clampHostMinNights, POLICY_MIN_NIGHTS } from '@/lib/business-rules';
 import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
@@ -458,6 +459,196 @@ export async function submitHostApplication(
   };
 }
 
+const DRAFT_PROPERTY_TYPES = [
+  'apartment',
+  'coliving',
+  'boutique_hotel',
+  'villa',
+  'eco_lodge',
+] as const;
+
+/**
+ * Create a listing as a `draft` stay immediately (Listing ID assigned now).
+ * Wizard and Editor both operate on this same stay — no separate draft store.
+ * Scaffold values satisfy NOT NULL columns and the editor's save validation;
+ * the host replaces them before submitting for review.
+ */
+export async function createDraftStay(
+  user: SessionUser,
+  input: {
+    destinationSlug?: string;
+    propertyType?: string;
+    titleEn?: string;
+    titleVi?: string;
+  } = {}
+) {
+  const propertyType = (
+    DRAFT_PROPERTY_TYPES.includes(input.propertyType as (typeof DRAFT_PROPERTY_TYPES)[number])
+      ? input.propertyType
+      : 'apartment'
+  ) as (typeof DRAFT_PROPERTY_TYPES)[number];
+
+  return dbTransaction(async (tx) => {
+    const destRes = input.destinationSlug
+      ? await tx.query<{
+          id: string;
+          name_en: string;
+          name_vi: string;
+          map_x: number;
+          map_y: number;
+        }>(
+          `SELECT id, name_en, name_vi, map_x, map_y FROM destinations WHERE slug = $1`,
+          [input.destinationSlug]
+        )
+      : await tx.query<{
+          id: string;
+          name_en: string;
+          name_vi: string;
+          map_x: number;
+          map_y: number;
+        }>(
+          `SELECT id, name_en, name_vi, map_x, map_y FROM destinations ORDER BY name_en ASC LIMIT 1`
+        );
+    const dest = destRes.rows[0];
+    if (!dest) {
+      throw new AppError('NOT_FOUND', 'No destination found for this listing.');
+    }
+
+    const id = crypto.randomUUID();
+    const titleEn = input.titleEn?.trim() || 'New listing';
+    const titleVi = input.titleVi?.trim() || 'Chỗ ở mới';
+    const slugBase =
+      titleEn
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'listing';
+    const slug = `${slugBase}-${id.slice(0, 6)}`;
+    const regCode = `VN-NEW-${id.slice(0, 6).toUpperCase()}`;
+
+    await tx.query(
+      `INSERT INTO stays (
+        id, slug, host_id, destination_id, title_en, title_vi, subtitle_en, subtitle_vi,
+        description_en, description_vi, neighborhood_en, neighborhood_vi, exact_address,
+        checkin_instructions_en, checkin_instructions_vi, registration_code,
+        property_type, business_model, status, is_instant_book,
+        cancellation_policy, wifi_download_mbps, wifi_upload_mbps, wifi_jitter_ms,
+        verification_tier, is_wifi_verified, is_work_ready, verified_at,
+        wifi_tester_note, workspace_summary_en, workspace_summary_vi, workspace_photo_url,
+        has_workspace, has_ergonomic_chair, has_external_monitor, has_call_booth,
+        kitchen_type, laundry_type, map_x, map_y, hero_image, gallery_images,
+        amenities, nearby_coworking
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,
+        'Comfortable Vietnam residence for 7 to 30+ night stays',
+        'Không gian lưu trú thoải mái từ 7 đến 30+ đêm tại Việt Nam',
+        'Newly listed property ready for comfortable weekly and monthly stays across Vietnam.',
+        'Chỗ ở mới sẵn sàng cho lưu trú theo tuần và theo tháng thoải mái tại Việt Nam.',
+        $7,$8,
+        'Address unlocked upon confirmation',
+        'Smart lock details emailed upon confirmation',
+        'Mã nhận phòng gửi tự động sau khi đặt',
+        $9,$10,'booking_flow','draft',TRUE,'flexible',
+        100,75,4,
+        'SELF_DECLARED', FALSE, FALSE, NOW(),
+        'Host-declared property amenities & Internet profile',
+        'Comfortable living space','Không gian sinh hoạt thoải mái',
+        '/images/workspaces/ergonomic-indochine-desk.jpg',
+        FALSE,FALSE,FALSE,FALSE,
+        'full','in_unit',$11,$12,
+        '/images/stays/hanoi-tayho-jade.jpg',
+        '["/images/stays/hanoi-tayho-jade.jpg","/images/workspaces/ergonomic-indochine-desk.jpg"]'::jsonb,
+        '[]'::jsonb,'[]'::jsonb
+      )`,
+      [
+        id,
+        slug,
+        user.id,
+        dest.id,
+        titleEn,
+        titleVi,
+        dest.name_en,
+        dest.name_vi,
+        regCode,
+        propertyType,
+        dest.map_x,
+        dest.map_y,
+      ]
+    );
+
+    // Default room + package so pricing UI works out of the box
+    // (same defaults the admin approval path used to seed).
+    const roomId = crypto.randomUUID();
+    const pkgId = crypto.randomUUID();
+    await tx.query(
+      `INSERT INTO stay_rooms (
+        id, stay_id, name_en, name_vi, description_en, description_vi,
+        max_guests, beds_count, units_total, room_image, room_features
+      ) VALUES (
+        $1,$2,'Private Studio','Studio Riêng Tư',
+        'Comfortable private apartment for weekly and monthly stays.',
+        'Căn hộ riêng thoải mái cho lưu trú theo tuần và theo tháng.',
+        2,1,2,'/images/stays/hanoi-tayho-jade.jpg','[]'::jsonb
+      )`,
+      [roomId, id]
+    );
+    const today = getTodayIsoVietnam();
+    await tx.query(
+      `INSERT INTO stay_packages (
+        id, stay_id, room_id, name_en, name_vi, description_en, description_vi,
+        valid_from, valid_to, is_listed, wholesale_7_vnd, wholesale_14_vnd,
+        wholesale_21_vnd, wholesale_30_vnd, compare_30_vnd, extra_night_vnd,
+        is_deal_featured, deal_month_label
+      ) VALUES (
+        $1,$2,$3,'Standard Long-Stay Package','Gói Lưu Trú Dài Ngày',
+        'All-inclusive 7/14/21/30 night rate.',
+        'Trọn gói tiện ích cho 7/14/21/30 đêm.',
+        $4,$5,TRUE,5800000,10800000,15200000,19500000,24500000,630000,FALSE,'January'
+      )`,
+      [pkgId, id, roomId, today, addDaysIso(today, 365)]
+    );
+
+    return { id, slug, status: 'draft' as const };
+  });
+}
+
+/**
+ * Host submits a draft listing for review: draft → pending_review.
+ * Admin then moderates the SAME stay to live (never creates a new one).
+ */
+export async function submitHostStayForReview(user: SessionUser, stayId: string) {
+  if (!isValidUuid(stayId)) throw new AppError('VALIDATION_ERROR', 'Invalid stay ID.');
+  return dbTransaction(async (tx) => {
+    const res = await tx.query<{
+      host_id: string;
+      status: string;
+      title_en: string;
+      title_vi: string;
+    }>(
+      `SELECT host_id, status, title_en, title_vi FROM stays WHERE id = $1 FOR UPDATE`,
+      [stayId]
+    );
+    const stay = res.rows[0];
+    if (!stay) throw new AppError('NOT_FOUND', 'Stay not found.');
+    if (stay.host_id !== user.id && user.role !== 'admin') {
+      throw new AppError('FORBIDDEN', 'You do not own this property.');
+    }
+    assertHostSubmitForReview(String(stay.status));
+    if (stay.title_en.trim().length < 2 || stay.title_vi.trim().length < 2) {
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Add listing titles before submitting for review.'
+      );
+    }
+    await tx.query(
+      `UPDATE stays
+       SET status = 'pending_review', reviewed_by = NULL, reviewed_at = NULL
+       WHERE id = $1`,
+      [stayId]
+    );
+    return { status: 'pending_review' as const };
+  });
+}
+
 export async function attachMediaToStay(
   user: SessionUser,
   stayId: string,
@@ -598,6 +789,8 @@ export interface UpdateHostStayFullInput {
   checkinInstructionsEn?: string;
   checkinInstructionsVi?: string;
   propertyType?: 'apartment' | 'coliving' | 'boutique_hotel' | 'villa' | 'eco_lodge';
+  destinationId?: string;
+  wifiDownloadMbps?: number;
   isEntirePlace?: boolean;
   bedrooms?: number | null;
   bathrooms?: number | null;
@@ -689,6 +882,34 @@ export async function updateHostStayConfiguration(
         ? input.status
         : currentStatus;
 
+    // Optional destination move (updates map coordinates with it)
+    let nextDestinationId = String(current.destination_id);
+    let nextMapX = toNum(current.map_x, 0);
+    let nextMapY = toNum(current.map_y, 0);
+    if (input.destinationId) {
+      if (!isValidUuid(input.destinationId)) {
+        throw new AppError('VALIDATION_ERROR', 'Invalid destination ID.');
+      }
+      const destRes = await tx.query<{ id: string; map_x: number; map_y: number }>(
+        'SELECT id, map_x, map_y FROM destinations WHERE id = $1',
+        [input.destinationId]
+      );
+      const dest = destRes.rows[0];
+      if (!dest) throw new AppError('NOT_FOUND', 'Destination not found.');
+      nextDestinationId = dest.id;
+      nextMapX = toNum(dest.map_x, nextMapX);
+      nextMapY = toNum(dest.map_y, nextMapY);
+    }
+    // Optional host-declared Wi-Fi speed (download; upload estimated)
+    const nextWifiDown =
+      input.wifiDownloadMbps !== undefined
+        ? Math.min(10000, Math.max(0, Math.round(input.wifiDownloadMbps)))
+        : toNum(current.wifi_download_mbps, 100);
+    const nextWifiUp =
+      input.wifiDownloadMbps !== undefined
+        ? Math.round(nextWifiDown * 0.75)
+        : toNum(current.wifi_upload_mbps, 75);
+
     await tx.query(
       `UPDATE stays
        SET business_model = 'booking_flow',
@@ -731,7 +952,12 @@ export async function updateHostStayConfiguration(
            bathrooms = $38,
            area_sqm = $39,
            host_bio_en = $40,
-           host_bio_vi = $41
+           host_bio_vi = $41,
+           destination_id = $42,
+           map_x = $43,
+           map_y = $44,
+           wifi_download_mbps = $45,
+           wifi_upload_mbps = $46
        WHERE id = $30`,
       [
         input.titleEn?.trim() || String(current.title_en),
@@ -777,6 +1003,11 @@ export async function updateHostStayConfiguration(
         input.areaSqm !== undefined ? input.areaSqm : (current.area_sqm ?? null),
         input.hostBioEn !== undefined ? input.hostBioEn.trim() : String(current.host_bio_en ?? ''),
         input.hostBioVi !== undefined ? input.hostBioVi.trim() : String(current.host_bio_vi ?? ''),
+        nextDestinationId,
+        nextMapX,
+        nextMapY,
+        nextWifiDown,
+        nextWifiUp,
       ]
     );
 
