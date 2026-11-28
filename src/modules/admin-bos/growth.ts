@@ -2,10 +2,11 @@ import crypto from 'node:crypto';
 import { computeReadingMetrics, legacyTextToTiptapDoc } from '@/lib/cms-core/schema';
 import { analyzeSeoContent } from '@/lib/cms-core/seo-analyzer';
 import { isValidUuid } from '@/lib/dates';
-import { dbQuery, toNum } from '@/lib/db';
+import { dbQuery, dbTransaction, toNum } from '@/lib/db';
 import { AppError } from '@/lib/errors';
 import { safeRevalidateAll } from '@/lib/revalidate-safe';
 import { logAdminAudit, type AdminActorContext } from '@/modules/admin-rbac';
+import { PLACE_CATEGORIES, type PlaceCategory } from '@/lib/place-categories';
 
 export async function listAdminDestinations() {
   const [destsRes, nbsRes] = await Promise.all([
@@ -191,8 +192,19 @@ export async function listAdminPlaces(filters?: { destinationId?: string; catego
       opening_hours: string;
       verification_status: string;
       is_featured: boolean;
+      website: string;
+      google_maps_url: string;
+      is_onsite: boolean;
+      data_source: string;
+      last_verified_at: string | null;
+      reviewed_by: string | null;
+      linked_stays: string | number;
+      host_suggesters: string | number;
     }>(
-      `SELECT p.*, d.name_en AS destination_name, n.name_en AS neighborhood_name, lp.business_name AS partner_name
+      `SELECT p.*, d.name_en AS destination_name, n.name_en AS neighborhood_name, lp.business_name AS partner_name,
+              (SELECT COUNT(*) FROM stay_nearby_places snp WHERE snp.place_id = p.id) AS linked_stays,
+              (SELECT COUNT(DISTINCT ps.suggested_by) FROM place_suggestions ps
+                WHERE ps.place_id = p.id AND ps.status = 'approved') AS host_suggesters
        FROM places p
        JOIN destinations d ON d.id = p.destination_id
        LEFT JOIN neighborhoods n ON n.id = p.neighborhood_id
@@ -231,6 +243,14 @@ export async function listAdminPlaces(filters?: { destinationId?: string; catego
       openingHours: String(p.opening_hours),
       verificationStatus: String(p.verification_status),
       isFeatured: Boolean(p.is_featured),
+      website: String(p.website ?? ''),
+      googleMapsUrl: String(p.google_maps_url ?? ''),
+      isOnsite: Boolean(p.is_onsite),
+      dataSource: String(p.data_source ?? 'admin'),
+      lastVerifiedAt: p.last_verified_at ? new Date(p.last_verified_at).toISOString() : null,
+      reviewedBy: p.reviewed_by ? String(p.reviewed_by) : null,
+      linkedStays: Number(p.linked_stays ?? 0),
+      hostSuggesters: Number(p.host_suggesters ?? 0),
     })),
     destinations: destsRes.rows.map((d) => ({ id: String(d.id), slug: String(d.slug), nameEn: String(d.name_en) })),
     neighborhoods: nbsRes.rows.map((n) => ({ id: String(n.id), destinationId: String(n.destination_id), nameEn: String(n.name_en) })),
@@ -252,6 +272,9 @@ export async function createAdminPlace(
     priceRange?: string;
     openingHours?: string;
     isFeatured?: boolean;
+    website?: string;
+    googleMapsUrl?: string;
+    isOnsite?: boolean;
   }
 ) {
   if (!isValidUuid(input.destinationId)) {
@@ -267,8 +290,9 @@ export async function createAdminPlace(
   await dbQuery(
     `INSERT INTO places (
       id, destination_id, neighborhood_id, partner_id, category, slug, name, address,
-      description_en, description_vi, price_range, opening_hours, verification_status, is_featured
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'verified',$13)`,
+      description_en, description_vi, price_range, opening_hours, verification_status, is_featured,
+      website, google_maps_url, is_onsite, created_by, reviewed_by, last_verified_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'verified',$13,$14,$15,$16,'admin',$17,NOW())`,
     [
       id,
       input.destinationId,
@@ -280,9 +304,13 @@ export async function createAdminPlace(
       input.address.trim(),
       input.descriptionEn.trim(),
       input.descriptionVi?.trim() ?? '',
-      input.priceRange ?? '$$',
-      input.openingHours ?? '08:00 - 22:00',
+      input.priceRange ?? '',
+      input.openingHours ?? '',
       Boolean(input.isFeatured),
+      input.website?.trim() ?? '',
+      input.googleMapsUrl?.trim() ?? '',
+      Boolean(input.isOnsite),
+      actor.user.id,
     ]
   );
 
@@ -307,6 +335,13 @@ export async function updateAdminPlace(
     isFeatured?: boolean;
     openingHours?: string;
     priceRange?: string;
+    name?: string;
+    address?: string;
+    descriptionEn?: string;
+    descriptionVi?: string;
+    website?: string;
+    googleMapsUrl?: string;
+    isOnsite?: boolean;
   }
 ) {
   if (!isValidUuid(placeId)) throw new AppError('VALIDATION_ERROR', 'Invalid place ID.');
@@ -317,6 +352,14 @@ export async function updateAdminPlace(
          is_featured = COALESCE($2, is_featured),
          opening_hours = COALESCE($3, opening_hours),
          price_range = COALESCE($4, price_range),
+         name = COALESCE($6, name),
+         address = COALESCE($7, address),
+         description_en = COALESCE($8, description_en),
+         description_vi = COALESCE($9, description_vi),
+         website = COALESCE($10, website),
+         google_maps_url = COALESCE($11, google_maps_url),
+         is_onsite = COALESCE($12, is_onsite),
+         reviewed_by = CASE WHEN $1 = 'verified' THEN $13 ELSE reviewed_by END,
          last_verified_at = CASE WHEN $1 = 'verified' THEN NOW() ELSE last_verified_at END,
          updated_at = NOW()
      WHERE id = $5`,
@@ -326,6 +369,14 @@ export async function updateAdminPlace(
       input.openingHours ?? null,
       input.priceRange ?? null,
       placeId,
+      input.name?.trim() || null,
+      input.address?.trim() || null,
+      input.descriptionEn?.trim() || null,
+      input.descriptionVi?.trim() || null,
+      input.website?.trim() || null,
+      input.googleMapsUrl?.trim() || null,
+      input.isOnsite ?? null,
+      actor.user.id,
     ]
   );
 
@@ -354,6 +405,234 @@ export async function deleteAdminPlace(actor: AdminActorContext, placeId: string
   });
   safeRevalidateAll(['/destinations']);
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Local Discovery — host place suggestions (moderation workflow)
+// ---------------------------------------------------------------------------
+
+export type PlaceSuggestionAdminStatus = 'pending' | 'needs_info' | 'approved' | 'rejected';
+
+export async function listPlaceSuggestions(filters?: {
+  status?: string;
+  q?: string;
+}) {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (filters?.status && filters.status !== 'all') {
+    params.push(filters.status);
+    conditions.push(`ps.status = $${params.length}`);
+  }
+  if (filters?.q?.trim()) {
+    params.push(`%${filters.q.trim()}%`);
+    conditions.push(`(ps.name ILIKE $${params.length} OR u.full_name ILIKE $${params.length} OR s.title_en ILIKE $${params.length})`);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const res = await dbQuery<{
+    id: string;
+    stay_id: string;
+    stay_title: string;
+    suggested_by: string;
+    host_name: string;
+    place_id: string | null;
+    place_name: string | null;
+    category: string;
+    name: string;
+    address: string;
+    google_maps_url: string;
+    reason: string;
+    distance_label: string;
+    image_url: string;
+    status: string;
+    review_note: string;
+    reviewed_by: string | null;
+    reviewer_name: string | null;
+    reviewed_at: string | null;
+    created_at: string;
+    destination_id: string;
+    duplicate_count: string | number;
+  }>(
+    `SELECT ps.*, s.title_en AS stay_title, s.destination_id,
+            u.full_name AS host_name,
+            p.name AS place_name,
+            ru.full_name AS reviewer_name,
+            (SELECT COUNT(*) FROM places p2
+              WHERE p2.destination_id = s.destination_id
+                AND p2.id <> COALESCE(ps.place_id, '00000000-0000-0000-0000-000000000000'::uuid)
+                AND lower(p2.name) = lower(ps.name)) AS duplicate_count
+     FROM place_suggestions ps
+     JOIN stays s ON s.id = ps.stay_id
+     JOIN users u ON u.id = ps.suggested_by
+     LEFT JOIN places p ON p.id = ps.place_id
+     LEFT JOIN users ru ON ru.id = ps.reviewed_by
+     ${where}
+     ORDER BY CASE ps.status WHEN 'pending' THEN 0 WHEN 'needs_info' THEN 1 ELSE 2 END,
+              ps.created_at DESC
+     LIMIT 200`,
+    params
+  );
+
+  return {
+    suggestions: res.rows.map((r) => ({
+      id: String(r.id),
+      stayId: String(r.stay_id),
+      stayTitle: String(r.stay_title),
+      suggestedBy: String(r.suggested_by),
+      hostName: String(r.host_name),
+      placeId: r.place_id ? String(r.place_id) : null,
+      placeName: r.place_name ? String(r.place_name) : null,
+      category: String(r.category),
+      name: String(r.name),
+      address: String(r.address),
+      googleMapsUrl: String(r.google_maps_url ?? ''),
+      reason: String(r.reason ?? ''),
+      distanceLabel: String(r.distance_label ?? ''),
+      imageUrl: String(r.image_url ?? ''),
+      status: String(r.status) as PlaceSuggestionAdminStatus,
+      reviewNote: String(r.review_note ?? ''),
+      reviewedBy: r.reviewed_by ? String(r.reviewed_by) : null,
+      reviewerName: r.reviewer_name ? String(r.reviewer_name) : null,
+      reviewedAt: r.reviewed_at ? new Date(r.reviewed_at).toISOString() : null,
+      createdAt: new Date(r.created_at).toISOString(),
+      duplicateCount: Number(r.duplicate_count ?? 0),
+    })),
+  };
+}
+
+/**
+ * Moderate a host suggestion. approve → creates the shared place when needed
+ * (data_source='host_suggested') AND links it to the listing in one step —
+ * the review act IS the verification. needs_info/reject never publish.
+ */
+export async function reviewPlaceSuggestion(
+  actor: AdminActorContext,
+  suggestionId: string,
+  input: { action: 'approve' | 'needs_info' | 'reject'; note?: string }
+) {
+  if (!isValidUuid(suggestionId)) throw new AppError('VALIDATION_ERROR', 'Invalid suggestion ID.');
+  const note = (input.note ?? '').trim().slice(0, 500);
+
+  const result = await dbTransaction(async (tx) => {
+    const res = await tx.query<{
+      id: string;
+      stay_id: string;
+      suggested_by: string;
+      place_id: string | null;
+      category: string;
+      name: string;
+      address: string;
+      google_maps_url: string;
+      lat: string | number | null;
+      lng: string | number | null;
+      reason: string;
+      distance_label: string;
+      image_url: string;
+      status: string;
+    }>('SELECT * FROM place_suggestions WHERE id = $1 FOR UPDATE', [suggestionId]);
+    const row = res.rows[0];
+    if (!row) throw new AppError('NOT_FOUND', 'Suggestion not found.');
+    if (row.status === 'approved') {
+      throw new AppError('VALIDATION_ERROR', 'Suggestion already approved.');
+    }
+
+    if (input.action !== 'approve') {
+      // action 'reject' maps to persisted status 'rejected' (DB CHECK).
+      const nextStatus = input.action === 'reject' ? 'rejected' : input.action;
+      await tx.query(
+        `UPDATE place_suggestions
+         SET status = $1, review_note = $2, reviewed_by = $3, reviewed_at = NOW(), updated_at = NOW()
+         WHERE id = $4`,
+        [nextStatus, note, actor.user.id, suggestionId]
+      );
+      return { status: nextStatus as string, placeId: row.place_id as string | null };
+    }
+
+    // --- approve ---
+    let placeId = row.place_id ? String(row.place_id) : null;
+    if (!placeId) {
+      const stayRes = await tx.query<{ destination_id: string }>(
+        'SELECT destination_id FROM stays WHERE id = $1',
+        [row.stay_id]
+      );
+      const destinationId = stayRes.rows[0]?.destination_id;
+      if (!destinationId) throw new AppError('NOT_FOUND', 'Stay not found for suggestion.');
+
+      placeId = crypto.randomUUID();
+      const slugBase = row.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 60);
+      const slug = `${slugBase || 'place'}-${placeId.slice(0, 6)}`;
+      await tx.query(
+        `INSERT INTO places (
+           id, destination_id, category, slug, name, address, lat, lng,
+           image_url, description_en, description_vi, price_range, opening_hours,
+           google_maps_url, data_source, verification_status, is_featured,
+           created_by, reviewed_by, last_verified_at
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'','','','',$10,'host_suggested','verified',FALSE,'host_suggestion',$11,NOW())`,
+        [
+          placeId,
+          destinationId,
+          row.category,
+          slug,
+          row.name.trim(),
+          row.address.trim(),
+          row.lat == null ? null : Number(row.lat),
+          row.lng == null ? null : Number(row.lng),
+          row.image_url ?? '',
+          row.google_maps_url ?? '',
+          actor.user.id,
+        ]
+      );
+      await tx.query('UPDATE place_suggestions SET place_id = $1 WHERE id = $2', [
+        placeId,
+        suggestionId,
+      ]);
+    } else {
+      await tx.query(
+        `UPDATE places
+         SET reviewed_by = $1, last_verified_at = NOW(),
+             verification_status = CASE WHEN verification_status = 'outdated' THEN 'verified' ELSE verification_status END,
+             updated_at = NOW()
+         WHERE id = $2`,
+        [actor.user.id, placeId]
+      );
+    }
+
+    await tx.query(
+      `INSERT INTO stay_nearby_places (stay_id, place_id, distance_label, source, suggested_by, host_note)
+       VALUES ($1,$2,$3,'host_suggested',$4,$5)
+       ON CONFLICT (stay_id, place_id) DO UPDATE
+         SET source = 'host_suggested',
+             suggested_by = EXCLUDED.suggested_by,
+             host_note = EXCLUDED.host_note,
+             distance_label = EXCLUDED.distance_label`,
+      [row.stay_id, placeId, row.distance_label ?? '', row.suggested_by, row.reason ?? '']
+    );
+
+    await tx.query(
+      `UPDATE place_suggestions
+       SET status = 'approved', review_note = $1, reviewed_by = $2, reviewed_at = NOW(), updated_at = NOW()
+       WHERE id = $3`,
+      [note, actor.user.id, suggestionId]
+    );
+
+    return { status: 'approved' as string, placeId };
+  });
+
+  await logAdminAudit({
+    actor,
+    module: 'discovery',
+    action: 'moderate',
+    entityType: 'place_suggestion',
+    entityId: suggestionId,
+    after: { action: input.action, placeId: result.placeId, note },
+  });
+  safeRevalidateAll(['/destinations']);
+  return { ok: true, ...result };
 }
 
 export async function listCmsContents() {

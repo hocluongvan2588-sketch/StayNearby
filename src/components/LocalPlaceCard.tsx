@@ -15,7 +15,12 @@ import {
   Store,
   Utensils,
 } from 'lucide-react';
-import { formatDistanceLabel, formatPlaceCategoryLabel, type Locale } from '@/lib/i18n';
+import {
+  formatDistanceLabel,
+  formatDistanceMeters,
+  formatPlaceCategoryLabel,
+  type Locale,
+} from '@/lib/i18n';
 import type { LocalDiscoveryPlace } from '@/modules/catalog';
 
 function CategoryFallbackIcon({ category }: { category: string }) {
@@ -74,7 +79,9 @@ export function LocalPlaceCard({
     ? place.neighborhoodNameVi || place.neighborhoodNameEn
     : place.neighborhoodNameEn || place.neighborhoodNameVi;
   const mapsUrl = buildPlaceMapsUrl(place);
-  const distance = formatDistanceLabel(place.distanceLabel, locale);
+  const distance =
+    formatDistanceLabel(place.distanceLabel, locale) ||
+    formatDistanceMeters(place.distanceMeters, locale);
 
   return (
     <article
@@ -112,7 +119,7 @@ export function LocalPlaceCard({
           </div>
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-        {place.distanceLabel && (
+        {distance && (
           <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#17221E] shadow-sm">
             <MapPin className="h-3 w-3 text-[#C25E28]" />
             {distance}

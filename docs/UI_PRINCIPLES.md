@@ -107,3 +107,30 @@ Jitter ≠ Ping; missing parameters stay missing (never defaulted, never
 - Localize dates, money, decimals, and units through `src/lib/i18n.ts`
   helpers; no per-component hardcoded bilingual strings when the dictionary
   exists.
+
+## Local Discovery (contribution, moderation, ranking)
+
+- **One shared `places` database.** Hosts and the VietNomad team both contribute;
+  never build parallel place stores. Hosts propose via the Listing Editor
+  ("6. Giới thiệu khu vực"); proposals land in `place_suggestions` as `pending`
+  and are **never public before moderation**.
+- **Hosts never edit shared place data** and can only edit/unlink their own
+  stay's `host_suggested` links. Unlinking removes the listing relationship
+  only — the shared place row always survives.
+- **Ranking on stay detail** (spec §7, `src/lib/discovery-ranking.ts`):
+  onsite → host-approved links → VietNomad curated links → category radius
+  (only when stay AND place have coordinates) → featured/fill. Radii live in
+  `platform_settings` key `local_discovery` via `getLocalDiscoveryConfig()` —
+  never hardcoded in components.
+- **Distances are honest:** curated `distance_label` first; otherwise a
+  privacy-rounded haversine (`≈800 m` / `≈1,2 km`) computed server-side.
+  Never invent walk times. Stay coordinates never leave the server — the
+  neighborhood maps link searches by neighborhood/city NAME, not lat/lng.
+- **No fabricated fields:** `opening_hours` / `price_range` default to empty;
+  blank values are simply not rendered. Host forms never ask for hours, price,
+  ratings, commissions or commercial relationships.
+- **Taxonomy is shared:** `src/lib/place-categories.ts` (11 categories) maps to
+  `normalizePlaceExploreGroup` tabs — do not add parallel category lists.
+- **Tracking:** `place_detail_view` / `place_map_click` / `place_website_click`
+  via `/api/track` (`attribution_events.place_id`) — basic counts only, never
+  treated as commercial transactions.

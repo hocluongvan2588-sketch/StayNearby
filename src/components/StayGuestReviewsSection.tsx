@@ -42,8 +42,6 @@ export function StayGuestReviewsSection({
   destinationName,
   neighborhoodName,
   destinationTagline,
-  lat,
-  lng,
 }: {
   slug: string;
   user: SessionUser | null;
@@ -63,8 +61,6 @@ export function StayGuestReviewsSection({
   destinationName: string;
   neighborhoodName: string;
   destinationTagline: string;
-  lat: number | null;
-  lng: number | null;
 }) {
   const isVi = locale === 'vi';
   const [reviews, setReviews] = useState<StayGuestReviewItem[]>(initialReviews);
@@ -151,12 +147,12 @@ export function StayGuestReviewsSection({
     }
   }
 
-  const areaMapsUrl =
-    lat !== null && lng !== null
-      ? `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
-      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-          [neighborhoodName, destinationName, 'Vietnam'].filter(Boolean).join(', ')
-        )}`;
+  // Privacy (Local Discovery spec §7): the area link deliberately searches by
+  // neighborhood/city NAME — never the stay's exact coordinates, which must
+  // not leak to unauthenticated clients.
+  const areaMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    [neighborhoodName, destinationName, 'Vietnam'].filter(Boolean).join(', ')
+  )}`;
 
   const policyDescription =
     cancellationPolicy === 'flexible'

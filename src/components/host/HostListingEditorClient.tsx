@@ -20,9 +20,11 @@ import {
   Send,
   ShieldCheck,
   Sparkles,
+  Store,
   Trash2,
   Upload,
 } from 'lucide-react';
+import { HostLocalPlacesPanel } from '@/components/host/HostLocalPlacesPanel';
 import {
   formatCancellationPolicyLabel,
   formatPropertyTypeLabel,
@@ -49,11 +51,12 @@ const SECTION_DEFS = [
   { key: 'amenities', en: '3. Amenities', vi: '3. Tiện nghi chỗ ở', icon: Sparkles },
   { key: 'workspace', en: '4. Internet & Workspace', vi: '4. Internet & Không gian làm việc', icon: Laptop },
   { key: 'location', en: '5. Location', vi: '5. Vị trí & Địa chỉ', icon: MapPin },
-  { key: 'pricing', en: '6. Pricing', vi: '6. Bảng giá & Gói dài ngày', icon: DollarSign },
-  { key: 'availability', en: '7. Availability', vi: '7. Tình trạng & Lịch mở bán', icon: CalendarClock },
-  { key: 'rules', en: '8. House Rules', vi: '8. Nội quy chỗ ở', icon: ClipboardList },
-  { key: 'policies', en: '9. Booking & Policies', vi: '9. Chính sách đặt & Hủy', icon: ShieldCheck },
-  { key: 'preview', en: '10. Preview', vi: '10. Xem trước hiển thị', icon: Eye },
+  { key: 'local', en: '6. Local Recommendations', vi: '6. Giới thiệu khu vực', icon: Store },
+  { key: 'pricing', en: '7. Pricing', vi: '7. Bảng giá & Gói dài ngày', icon: DollarSign },
+  { key: 'availability', en: '8. Availability', vi: '8. Tình trạng & Lịch mở bán', icon: CalendarClock },
+  { key: 'rules', en: '9. House Rules', vi: '9. Nội quy chỗ ở', icon: ClipboardList },
+  { key: 'policies', en: '10. Booking & Policies', vi: '10. Chính sách đặt & Hủy', icon: ShieldCheck },
+  { key: 'preview', en: '11. Preview', vi: '11. Xem trước hiển thị', icon: Eye },
 ] as const;
 
 type SectionKey = (typeof SECTION_DEFS)[number]['key'];
@@ -130,6 +133,7 @@ export function HostListingEditorClient({
   const [checkinInstructionsVi, setCheckinInstructionsVi] = useState(
     stay.checkinInstructionsVi
   );
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(stay.googleMapsUrl ?? '');
 
   // 6. Rooms & Pricing
   const [rooms, setRooms] = useState<HostStayRoomItem[]>(stay.rooms);
@@ -240,6 +244,7 @@ export function HostListingEditorClient({
           neighborhoodEn,
           neighborhoodVi,
           exactAddress,
+          googleMapsUrl,
           checkinInstructionsEn,
           checkinInstructionsVi,
           ...(destinationId !== stay.destinationId ? { destinationId } : {}),
@@ -930,6 +935,22 @@ export function HostListingEditorClient({
                   value={exactAddress}
                   onChange={setExactAddress}
                 />
+                <ListingInput
+                  className="sm:col-span-2"
+                  label={
+                    isVi
+                      ? 'Link Google Maps của chỗ ở (tùy chọn — dùng cho khoảng cách gợi ý)'
+                      : 'Google Maps link for this listing (optional — powers distance suggestions)'
+                  }
+                  placeholder="https://www.google.com/maps/..."
+                  value={googleMapsUrl}
+                  onChange={setGoogleMapsUrl}
+                  hint={
+                    isVi
+                      ? 'Dán link chia sẻ từ Google Maps; tọa độ được đọc tự động, không gọi API trả phí.'
+                      : 'Paste a Google Maps share link; coordinates are read automatically (no paid API).'
+                  }
+                />
                 <ListingTextarea
                   label="Check-in instructions (EN)"
                   value={checkinInstructionsEn}
@@ -944,6 +965,21 @@ export function HostListingEditorClient({
             </div>
           )}
 
+          {activeSection === 'local' && (
+            <div className="space-y-4">
+              <ListingSectionTitle
+                description={
+                  isVi
+                    ? 'Tùy chọn: giới thiệu địa điểm hữu ích quanh chỗ ở. VietNomad kiểm duyệt trước khi hiển thị cho khách.'
+                    : 'Optional: recommend useful nearby places. VietNomad reviews them before guests see them.'
+                }
+              >
+                {isVi ? '6. Giới thiệu khu vực xung quanh' : '6. Local Recommendations'}
+              </ListingSectionTitle>
+              <HostLocalPlacesPanel stayId={stay.id} />
+            </div>
+          )}
+
           {activeSection === 'pricing' && (
             <div className="space-y-5">
               <div className="flex items-center justify-between">
@@ -954,7 +990,7 @@ export function HostListingEditorClient({
                       : `${hostCommissionPct}% host commission. You receive 100% of these rates.`
                   }
                 >
-                  {isVi ? '6. Phòng & Bảng giá gói 7/14/21/30 đêm' : '6. Rooms & Package Rates'}
+                  {isVi ? '7. Phòng & Bảng giá gói 7/14/21/30 đêm' : '7. Rooms & Package Rates'}
                 </ListingSectionTitle>
                 <Link href="/host/calendar" className="font-semibold text-[#164E3F] hover:underline">
                   {isVi ? 'Chỉnh giá theo từng ngày →' : 'Daily overrides on Calendar →'}
@@ -1142,7 +1178,7 @@ export function HostListingEditorClient({
           {activeSection === 'availability' && (
             <div className="space-y-4">
               <ListingSectionTitle>
-                {isVi ? '7. Tình trạng hiển thị & Số đêm tối thiểu' : '7. Availability Settings'}
+                {isVi ? '8. Tình trạng hiển thị & Số đêm tối thiểu' : '8. Availability Settings'}
               </ListingSectionTitle>
               <div className="grid gap-4 sm:grid-cols-2">
                 <ListingSelect
@@ -1186,7 +1222,7 @@ export function HostListingEditorClient({
           {activeSection === 'rules' && (
             <div className="space-y-4">
               <ListingSectionTitle>
-                {isVi ? '8. Nội quy & Giờ nhận/trả phòng' : '8. House Rules'}
+                {isVi ? '9. Nội quy & Giờ nhận/trả phòng' : '9. House Rules'}
               </ListingSectionTitle>
               <div className="grid gap-4 sm:grid-cols-3">
                 <ListingInput
@@ -1235,7 +1271,7 @@ export function HostListingEditorClient({
           {activeSection === 'policies' && (
             <div className="space-y-4">
               <ListingSectionTitle>
-                {isVi ? '9. Chính sách đặt phòng & Hủy' : '9. Booking & Cancellation Policies'}
+                {isVi ? '10. Chính sách đặt phòng & Hủy' : '10. Booking & Cancellation Policies'}
               </ListingSectionTitle>
               <label className="flex items-start gap-3 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] p-4">
                 <input
@@ -1275,7 +1311,7 @@ export function HostListingEditorClient({
           {activeSection === 'preview' && (
             <div className="space-y-4">
               <ListingSectionTitle>
-                {isVi ? '10. Xem trước hiển thị' : '10. Listing Preview'}
+                {isVi ? '11. Xem trước hiển thị' : '11. Listing Preview'}
               </ListingSectionTitle>
               <div className="max-w-sm overflow-hidden rounded-xl border border-[#E5DFD3] bg-white">
                 <img src={heroImage} alt="" className="aspect-[16/10] w-full object-cover" />

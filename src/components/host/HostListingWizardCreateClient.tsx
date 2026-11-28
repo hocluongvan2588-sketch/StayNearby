@@ -941,6 +941,22 @@ export function HostListingWizardCreateClient({
               value={form.exactAddress}
               onChange={(v) => updateForm({ exactAddress: v })}
             />
+            <ListingInput
+              className="sm:col-span-2"
+              label={
+                isVi
+                  ? 'Link Google Maps của chỗ ở (tùy chọn — dùng cho khoảng cách gợi ý)'
+                  : 'Google Maps link for this listing (optional — powers distance suggestions)'
+              }
+              placeholder="https://www.google.com/maps/..."
+              value={form.googleMapsUrl}
+              onChange={(v) => updateForm({ googleMapsUrl: v })}
+              hint={
+                isVi
+                  ? 'Dán link chia sẻ từ Google Maps; tọa độ được đọc tự động, không gọi API trả phí.'
+                  : 'Paste a Google Maps share link; coordinates are read automatically (no paid API).'
+              }
+            />
             <ListingTextarea
               label="Check-in instructions (EN)"
               rows={3}

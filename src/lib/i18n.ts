@@ -406,6 +406,26 @@ export function formatDistanceLabel(
 }
 
 /**
+ * Display an approximate straight-line distance (meters) derived from real
+ * coordinates on both ends. Callers must pass already privacy-rounded meters
+ * (roundDistanceMeters). Never used to invent walk times.
+ * e.g. 800 → "≈800 m", 1200 → "≈1,2 km" (vi) / "≈1.2 km" (en)
+ */
+export function formatDistanceMeters(meters: number | null | undefined, locale: Locale): string {
+  if (meters == null || !Number.isFinite(meters) || meters <= 0) return '';
+  if (meters < 1000) {
+    const m = Math.round(meters);
+    return `≈${m} m`;
+  }
+  const km = meters / 1000;
+  const rounded = Math.round(km * 10) / 10;
+  const text =
+    Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  const localized = locale === 'vi' ? text.replace('.', ',') : text;
+  return `≈${localized} km`;
+}
+
+/**
  * Public display name for a host: strips a trailing internal handle like
  * "Admin (hocluongvan2588)" while keeping intentional parentheticals.
  */
