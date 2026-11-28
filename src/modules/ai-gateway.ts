@@ -445,7 +445,7 @@ export async function runCmsAiAssistant(
   } else if (req.featureKey === 'outlineBrief') {
     userPrompt = `Topic: ${req.title ?? req.focusKeyword ?? 'Vietnam long-stay guide'}\nDraft an H2/H3 article brief tailored to guests staying 7-30+ nights, suggesting where to embed live VietNomad stay or destination blocks.`;
   } else if (req.featureKey === 'faqGenerator') {
-    userPrompt = `Topic: ${req.title ?? ''}\nBody context:\n${req.bodyExcerpt ?? ''}\n\nGenerate 4 practical Q&A pairs for long-stay guests (checking neighborhood fit, Wi-Fi/workspace expectations, check-in, and online service fee transparency — describe the fee mechanism only, never state a specific percentage unless one is given in the context — without fabricating property-specific claims).`;
+    userPrompt = `Topic: ${req.title ?? ''}\nBody context:\n${req.bodyExcerpt ?? ''}\n\nGenerate 4 practical Q&A pairs for long-stay guests (checking neighborhood fit, Wi-Fi/workspace expectations, check-in, and online service fee transparency (describe the fee mechanism only, never state a specific percentage unless one is given in the context) without fabricating property-specific claims).`;
   } else if (req.featureKey === 'internalLinkSuggestions') {
     userPrompt = `Current article: "${req.title ?? ''}"\nBody:\n${req.bodyExcerpt ?? ''}\n\nSuggest up to 5 internal links strictly from liveStays, verifiedDestinations, or publishedGuides in the snapshot, including exact /path and natural anchor text.`;
   } else {

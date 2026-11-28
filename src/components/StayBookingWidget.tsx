@@ -541,8 +541,8 @@ export function StayBookingWidget({
           }
           subtitle={
             isVi
-              ? `Phí dịch vụ trả hôm nay dùng để khóa lịch ngay. Phần ${formatMoney(pendingBooking.payAtCheckinVnd)} trả chủ nhà khi nhận phòng.`
-              : `Today's payment is the service fee that locks your dates immediately. Pay ${formatMoney(pendingBooking.payAtCheckinVnd)} directly to host at check-in.`
+              ? `Số tiền trả hôm nay là phí dịch vụ để giữ chỗ. Phần ${formatMoney(pendingBooking.payAtCheckinVnd)} trả cho chủ nhà khi nhận phòng.`
+              : `You pay the service fee today to reserve your dates. Pay ${formatMoney(pendingBooking.payAtCheckinVnd)} to your host at check-in.`
           }
           onPaid={() => {
             setConfirmed({
@@ -566,8 +566,8 @@ export function StayBookingWidget({
           </div>
           <p className="text-[#53635D]">
             {isVi
-              ? `Đã thanh toán ${formatMoney(confirmed.feePaidOnlineVnd)} online (phí dịch vụ giữ chỗ). Trả ${formatMoney(confirmed.payAtCheckinVnd)} cho chủ nhà khi nhận phòng.`
-              : `Paid ${formatMoney(confirmed.feePaidOnlineVnd)} online (the reservation service fee). Pay ${formatMoney(confirmed.payAtCheckinVnd)} to your host at check-in.`}
+              ? `Đã thanh toán ${formatMoney(confirmed.feePaidOnlineVnd)} phí dịch vụ online. Trả ${formatMoney(confirmed.payAtCheckinVnd)} cho chủ nhà khi nhận phòng.`
+              : `Paid the ${formatMoney(confirmed.feePaidOnlineVnd)} service fee online. Pay ${formatMoney(confirmed.payAtCheckinVnd)} to your host at check-in.`}
           </p>
           <Link
             href="/dashboard"
@@ -657,8 +657,8 @@ export function StayBookingWidget({
 
         <p className="text-xs text-[#53635D]">
           {isVi
-            ? 'Phí dịch vụ là chi phí đặt chỗ của VietNomad — không phải tiền đặt cọc và không được khấu trừ vào tiền thuê.'
-            : "The service fee is VietNomad's booking fee — not a deposit, and never deducted from your rent."}
+            ? 'Phí này giữ chỗ cho bạn. Đây không phải tiền đặt cọc và không được trừ vào tiền thuê.'
+            : 'This fee reserves your dates. It is not a deposit and is not deducted from your rent.'}
         </p>
 
         {quote.rewardCreditEarnedVnd > 0 && (

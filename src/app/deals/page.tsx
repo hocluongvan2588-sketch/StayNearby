@@ -44,8 +44,8 @@ export default async function DealsPage() {
         </h1>
         <p className="text-sm text-[#53635D]">
           {isVi
-            ? 'Giá 30 đêm hiển thị sẵn trọn gói, minh bạch ngay khi bạn chọn.'
-            : '30-night totals shown upfront — transparent from the first click.'}
+            ? 'Mỗi chỗ ở dưới đây đều hiển thị giá kỳ 30 đêm.'
+            : 'Every stay below shows its 30-night price.'}
         </p>
       </div>
 
