@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Bookmark,
   Briefcase,
@@ -38,6 +38,7 @@ export function StayCard({
   // Cards are keyed by stay.id upstream, so state resets on stay change; the
   // clamp guards the rare same-instance prop swap instead of an effect.
   const [photoIdx, setPhotoIdx] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const photos = useMemo(() => {
     const seen = new Set<string>();
     const out: string[] = [];
@@ -119,23 +120,51 @@ export function StayCard({
   return (
     <article className="group flex flex-col">
       <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-[#F2EDE3]">
-        <Link href={`/stays/${stay.slug}`} className="block h-full w-full">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={photos[activePhotoIdx] ?? stay.heroImage}
-            alt={title}
-            className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
-          />
+        <Link
+          href={`/stays/${stay.slug}`}
+          className="relative block h-full w-full"
+        >
+          {/* Swipe strip (app-standard): native horizontal scroll-snap, so
+              touch users flick through photos like on Airbnb/Booking apps. */}
+          <div
+            ref={scrollRef}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              if (el.clientWidth === 0) return;
+              const idx = Math.round(el.scrollLeft / el.clientWidth);
+              setPhotoIdx(Math.min(Math.max(idx, 0), photos.length - 1));
+            }}
+            className="flex h-full w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {photos.map((src, i) => (
+              <div
+                key={`${src}-${i}`}
+                className="relative h-full w-full shrink-0 snap-center"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={i === 0 ? title : ''}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                />
+              </div>
+            ))}
+          </div>
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
         </Link>
 
-        {/* Carousel controls (Airbnb-style): arrows on hover, dots always */}
+        {/* Controls: arrows scroll the strip, dots jump to a photo —
+            swipe itself is handled natively by the scroll container. */}
         {photos.length > 1 && (
           <>
             <button
               type="button"
               aria-label={isVi ? 'Ảnh trước' : 'Previous photo'}
-              onClick={() => setPhotoIdx((i) => (i - 1 + photos.length) % photos.length)}
+              onClick={() => {
+                const el = scrollRef.current;
+                if (!el) return;
+                el.scrollBy({ left: -el.clientWidth, behavior: 'smooth' });
+              }}
               className="absolute left-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#17221E] shadow-sm opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -143,7 +172,11 @@ export function StayCard({
             <button
               type="button"
               aria-label={isVi ? 'Ảnh tiếp theo' : 'Next photo'}
-              onClick={() => setPhotoIdx((i) => (i + 1) % photos.length)}
+              onClick={() => {
+                const el = scrollRef.current;
+                if (!el) return;
+                el.scrollBy({ left: el.clientWidth, behavior: 'smooth' });
+              }}
               className="absolute right-11 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#17221E] shadow-sm opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
             >
               <ChevronRight className="h-4 w-4" />
@@ -154,7 +187,11 @@ export function StayCard({
                   key={`${src}-${i}`}
                   type="button"
                   aria-label={isVi ? `Ảnh ${i + 1}/${photos.length}` : `Photo ${i + 1}/${photos.length}`}
-                  onClick={() => setPhotoIdx(i)}
+                  onClick={() => {
+                    const el = scrollRef.current;
+                    if (!el) return;
+                    el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' });
+                  }}
                   className={`h-1.5 rounded-full transition-all ${
                     i === activePhotoIdx
                       ? 'w-4 bg-white shadow-sm'
