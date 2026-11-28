@@ -90,3 +90,14 @@ _Updated2026-11-28. This is the standing direction for all agents working on thi
 **Reuse first.** Extend existing modules and services (catalog, bookings, payments, notifications, admin-bos, community) instead of building parallel systems.
 
 **Later (not scheduled).** iOS/Android apps, PWA, and any app-specific backend will consume the same API, database, authentication, and permission system defined above. When that phase starts, this section is the hand-off contract.
+
+## 5. Stay Extras (additional services)
+
+_Added2026-11-28. Host-provided services (motorbike, airport pick-up/drop-off, monitor, cleaning, laundry, coworking) — see `docs/stay-extras-architecture.md` for the full map._
+
+- **No platform money, ever.** Extras are request/notify flows only: guests pay providers directly, no commission, no escrow, no gateway, and extras never enter the platform-fee (12%) computation or the revenue ledger.
+- **Confirmation is the single materialization point.** Checkout selections are stashed in `bookings.extras_selection`; `service_requests` rows are created only when the booking becomes `RESERVED_LOCKED`/confirmed — via the hooks in `src/modules/bookings.ts` (instant create, `markBookingPaidInTx`, `respondToPendingBooking` approve) and the admin operations cancel/confirm paths. The helper (`ensureServiceRequestsForBookingTx`) is idempotent (partial unique index) — safe for webhook replays.
+- **Schema is additive** (`supabase/migrations/0017_stay_extras.sql`): `service_catalog` (admin-togglable), `stay_services` (stay-level, snapshots of price/terms at request time), `service_requests` (7-state machine, no Paid), `service_request_events` (history like `booking_events`). Never store service money fields as payments.
+- **Logic lives in `src/modules/stay-extras.ts`**; routes under `/api/host/*`, `/api/bookings/[id]/service-requests`, `/api/service-requests/*`, `/api/admin/service-requests`, `/api/admin/service-catalog`, `/api/cron/extras-reminders`. Roles: guest = own bookings, host = own stays, admin = RBAC + `admin_audit_logs` (`module: stay_extras`).
+- **Notifications** reuse `booking_notifications` + `maybeSendResendEmail` (host bell + email); reminders run from `vercel.json` cron `/api/cron/extras-reminders` (same `CRON_SECRET` pattern as `ical-sync`) and skip cancelled/declined/completed rows.
+- **Copy & help content:** neutral disclaimer, no Verified/Trusted/Insured/Guaranteed labels, no identity-document collection; two published guides (`/guides/dat-dich-vu-bo-sung-cho-ky-luu-tru`, `/guides/book-extra-services-for-your-stay` + host pair) seeded in `seed-bos.ts`. UI rules live in `docs/UI_PRINCIPLES.md` §Stay extras.

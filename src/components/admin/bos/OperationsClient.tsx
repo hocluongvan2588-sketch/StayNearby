@@ -19,6 +19,7 @@ import {
   fmtVnd,
   statusToTone,
 } from './BosPrimitives';
+import { AdminServiceRequestsPanel } from './AdminServiceRequestsPanel';
 import type {
   getBookingDetail360,
   listAdminBookings,
@@ -511,6 +512,9 @@ export function BookingsOperationsView({ initialBookings }: { initialBookings: B
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [page, setPage] = useState(1);
+  // Stay Extras (§14): a dedicated tab inside the bookings module — no new
+  // sidebar entry.
+  const [subTab, setSubTab] = useState<'bookings' | 'extras'>('bookings');
 
   const [detail, setDetail] = useState<Booking360 | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -588,12 +592,53 @@ export function BookingsOperationsView({ initialBookings }: { initialBookings: B
   const pageSize = 20;
   const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
 
+  const bookingsTabBar = (
+    <div className="mb-4 flex gap-2">
+      <button
+        type="button"
+        onClick={() => setSubTab('bookings')}
+        className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+          subTab === 'bookings'
+            ? 'bg-[#164E3F] text-white'
+            : 'border border-[#E5DFD3] bg-white text-[#53635D] hover:bg-[#FAF8F3]'
+        }`}
+      >
+        Bookings
+      </button>
+      <button
+        type="button"
+        onClick={() => setSubTab('extras')}
+        className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+          subTab === 'extras'
+            ? 'bg-[#164E3F] text-white'
+            : 'border border-[#E5DFD3] bg-white text-[#53635D] hover:bg-[#FAF8F3]'
+        }`}
+      >
+        Stay Extras
+      </button>
+    </div>
+  );
+
+  if (subTab === 'extras') {
+    return (
+      <div>
+        <PageHeader
+          title="Bookings & Stay Extras"
+          subtitle="Service requests across all stays. Hosts respond in their reservation drawer; admins monitor, filter, and disable violating services."
+        />
+        {bookingsTabBar}
+        <AdminServiceRequestsPanel />
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHeader
         title="Bookings & 5-Axis Lifecycle Sync"
         subtitle="Synced with Guest Platform and Host Console across Booking, Stay, Payment, Payout, and Refund status."
       />
+      {bookingsTabBar}
 
       <SavedViewToolbar
         moduleKey="bookings"

@@ -34,6 +34,7 @@ import {
   formatStayAxisStatusLabel,
 } from '@/lib/i18n';
 import { GatewayCheckoutPanel } from './GatewayCheckoutPanel';
+import { TripExtrasSection } from './TripExtrasSection';
 import { usePreferences } from './PreferencesProvider';
 
 export interface MemberDashboardData {
@@ -588,6 +589,15 @@ export function MemberDashboardClient({
                         <strong>{formatMoney(b.guestTotalVnd)}</strong>
                       </div>
                     </div>
+
+                    {/* Stay Extras (§9): prepare-for-your-stay service panel */}
+                    {(isActive || b.status === 'CHECKED_IN_COMPLETED') && (
+                      <TripExtrasSection
+                        bookingId={b.id}
+                        staySlug={b.staySlug}
+                        isVi={isVi}
+                      />
+                    )}
 
                     {b.status === 'PENDING_PAYMENT' && (
                       <div className="space-y-3 rounded-2xl border border-[#A67C2E]/35 bg-[#FAF8F3] p-3.5 text-xs">

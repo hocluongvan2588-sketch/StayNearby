@@ -19,6 +19,7 @@ import { refundGatewayTransactionIfLive } from '@/lib/stripe-refund';
 import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
 import { dispatchBookingLockedNotifications } from '@/modules/notifications';
 import { getPlatformFeeConfig } from '@/modules/platform-settings';
+import { ensureServiceRequestsForBookingTx, handleBookingCancelledForExtrasTx } from '@/modules/stay-extras';
 import { validatePromotionTx, type ValidatedPromotionRecord } from '@/modules/promotions';
 
 export interface CreateBookingInput {
@@ -31,6 +32,13 @@ export interface CreateBookingInput {
   applyVatFree?: boolean;
   useRewardCredit?: boolean;
   guestNote?: string;
+  /** Stay Extras selections captured at checkout (materialized on confirmation). */
+  extrasSelection?: Array<{
+    serviceId: string;
+    quantity?: number;
+    desiredAt?: string | null;
+    note?: string;
+  }>;
   checkoutMode?: 'intent' | 'instant';
   promotionCode?: string;
   attributionSessionKey?: string;
@@ -537,6 +545,26 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
       }
     }
 
+    // Stay Extras: selections must reference enabled services of THIS stay
+    // (authoritative re-check happens again when requests materialize).
+    const extrasSelection = Array.isArray(input.extrasSelection) ? input.extrasSelection : [];
+    if (extrasSelection.length > 0) {
+      const wantedIds = [
+        ...new Set(extrasSelection.map((s) => s?.serviceId).filter((id): id is string => isValidUuid(id))),
+      ];
+      if (wantedIds.length !== new Set(extrasSelection.map((s) => s?.serviceId)).size) {
+        throw new AppError('VALIDATION_ERROR', 'Invalid stay service in extras selection.');
+      }
+      const okRes = await tx.query<{ id: string }>(
+        `SELECT id FROM stay_services
+         WHERE stay_id = $1 AND enabled = TRUE AND id = ANY($2::uuid[])`,
+        [meta.stay_id, wantedIds]
+      );
+      if (okRes.rows.length !== wantedIds.length) {
+        throw new AppError('VALIDATION_ERROR', 'Extras selection contains unavailable services.');
+      }
+    }
+
     await tx.query(
       `INSERT INTO bookings (
         id, booking_code, stay_id, room_id, package_id, guest_id, business_model,
@@ -547,7 +575,8 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         check_in, check_out, nights, guests_count, wholesale_total_vnd,
         service_fee_vnd, vat_discount_vnd, reward_credit_used_vnd, guest_total_vnd,
         booking_fee_online_vnd, pay_at_checkin_vnd, payment_intent_id, paid_at,
-        reward_credit_earned_vnd, cancellation_policy, guest_note
+        reward_credit_earned_vnd, cancellation_policy, guest_note,
+        extras_selection
       ) VALUES (
         $1,$2,$3,$4,$5,$6,'booking_flow',
         $7,$8,'upcoming',$9,$10,'none',
@@ -556,7 +585,8 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         $21,$22,$23,$24,$25,
         $26,$27,$28,$29,
         $30,$31,$32,$33,
-        $34,$35,$36
+        $34,$35,$36,
+        $37
       )`,
       [
         bookingId,
@@ -595,6 +625,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         quote.rewardCreditEarnedVnd,
         meta.cancellation_policy,
         (input.guestNote ?? '').trim(),
+        JSON.stringify(input.extrasSelection ?? null),
       ]
     );
 
@@ -656,6 +687,10 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
         guestId: user.id,
         guestRole: user.role,
       });
+      if (instantApproved) {
+        // Confirmed now → materialize checkout extras selections (idempotent).
+        await ensureServiceRequestsForBookingTx(tx, bookingId);
+      }
       await dispatchBookingLockedNotifications(tx, bookingId);
     }
 
@@ -767,6 +802,11 @@ export async function markBookingPaidInTx(
      WHERE id = $1`,
     [b.id, nextPaymentIntentId, nextProvider, nextRef, nextStatus, nextBookingStatus]
   );
+
+  if (nextStatus === 'RESERVED_LOCKED') {
+    // Booking confirmed via online fee payment → materialize extras selections.
+    await ensureServiceRequestsForBookingTx(tx, b.id);
+  }
 
   await recordBookingFinancialLedgerTx(tx, {
     bookingId: b.id,
@@ -939,6 +979,8 @@ export async function respondToPendingBooking(
           ? `Host approved booking request (${note.trim()}).`
           : 'Host approved booking request.',
       });
+      // Host approved → booking confirmed → materialize extras selections.
+      await ensureServiceRequestsForBookingTx(tx, b.id);
       await dispatchBookingLockedNotifications(tx, b.id);
       return { bookingId: b.id, status: 'RESERVED_LOCKED' as const };
     }
@@ -1132,6 +1174,8 @@ export async function refundWifiMismatch(
       [feePaid, cleanReason, b.id]
     );
 
+    await handleBookingCancelledForExtrasTx(tx, b.id);
+
     if (feePaid > 0) {
       await tx.query(
         `INSERT INTO ledger_entries (
@@ -1233,6 +1277,7 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
         eventType: 'cancelled_unpaid',
         summary: 'Unpaid reservation request cancelled by guest.',
       });
+      await handleBookingCancelledForExtrasTx(tx, b.id);
       return {
         bookingId: b.id,
         tier: 'cooling_off' as const,
@@ -1338,6 +1383,8 @@ export async function cancelBookingByMember(user: SessionUser, bookingId: string
       eventType: 'cancelled_by_guest',
       summary: `Reservation cancelled (${outcome.tier}); refund ${outcome.refundAmountVnd}₫, credit ${outcome.creditIssuedVnd}₫.`,
     });
+
+    await handleBookingCancelledForExtrasTx(tx, b.id);
 
     await refundGatewayTransactionIfLive(tx, {
       bookingId: b.id,

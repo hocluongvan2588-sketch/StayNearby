@@ -20,6 +20,7 @@ import {
   formatVndExact,
 } from '@/lib/i18n';
 import { usePreferences } from '@/components/PreferencesProvider';
+import { ReservationExtrasPanel } from '@/components/host/ReservationExtrasPanel';
 
 export interface HostReservationItem {
   id: string;
@@ -387,6 +388,13 @@ export function ReservationSideDrawer({
               <span>{formatVndExact(reservation.payAtCheckinVnd)}</span>
             </div>
           </div>
+
+          {/* Stay Extras: service requests for this booking (spec §8) */}
+          <ReservationExtrasPanel
+            bookingId={reservation.id}
+            isVi={isVi}
+            onUpdated={onUpdated}
+          />
 
           {/* Internal Note */}
           <div className="space-y-2">

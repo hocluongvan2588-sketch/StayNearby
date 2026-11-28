@@ -157,6 +157,28 @@ Jitter ≠ Ping; missing parameters stay missing (never defaulted, never
   on the rent — never hardcode percentages in UI, and never render the rate
   as a percentage at all (amount-only display, see §Fee display).
 
+## Stay extras (additional services)
+
+- Host-declared extras (motorbike, airport pick-up/drop-off, monitor, cleaning,
+  laundry, coworking) are **informational flows**: the guest selects them at
+  checkout with a **default-off checkbox**, and the selection never changes the
+  online total, the room price, or the 12% service-fee inputs.
+- Always show the standing note: the host confirms services after booking and
+  the guest **pays the provider directly** — VietNomad never collects service
+  money and charges no commission on extras.
+- Stay Detail renders the section (post-Amenities/Workspace, pre-Neighborhood)
+  only when the stay has enabled services; a compact `Name · Price/Unit` list
+  with an expand toggle past four items. Never render extras on StayCard or
+  search results.
+- Quotes always require an explicit guest accept for the **current**
+  `quoteVersion`; a host price edit returns the request to `awaiting_guest`
+  and must never look like guest approval. Status set is
+  pending/awaiting_guest/confirmed/preparing/completed/declined/cancelled —
+  there is **no "Paid"** state and no auto-Completed.
+- No trust labels (Verified/Trusted/Insured/Guaranteed) on services, and no
+  identity documents (passport/ID/licence) in any extras form — trip details
+  only.
+
 ## Local Discovery
 
 - The whole place card is clickable (image, name, body) and opens a detail
