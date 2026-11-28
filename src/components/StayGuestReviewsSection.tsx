@@ -25,6 +25,7 @@ import type { HostHouseRules } from '@/modules/host';
 
 export function StayGuestReviewsSection({
   slug,
+  stayTitle,
   user,
   locale,
   checkinFrom,
@@ -43,6 +44,7 @@ export function StayGuestReviewsSection({
   destinationTagline,
 }: {
   slug: string;
+  stayTitle: string;
   user: SessionUser | null;
   locale: Locale;
   checkinFrom: string;
@@ -165,40 +167,58 @@ export function StayGuestReviewsSection({
           ? 'Hoàn hủy theo tiêu chuẩn trước thời hạn quy định.'
           : 'Standard cancellation terms apply prior to arrival.';
 
+  // Right-column summary panel — real data only (never invented ratings).
+  const hasGoogle =
+    googleRating !== null && googleReviewCount !== null && googleReviewCount > 0;
+  const directCount = reviews.length;
+  const directAvg =
+    directCount > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / directCount
+      : null;
+  const ratingBreakdown = [5, 4, 3, 2, 1]
+    .map((n) => ({ n, count: reviews.filter((r) => r.rating === n).length }))
+    .filter((row) => row.count > 0);
+  const wifiAverage = (pick: (r: StayGuestReviewItem) => number | null) => {
+    const vals = reviews
+      .map(pick)
+      .filter((v): v is number => typeof v === 'number' && v > 0);
+    return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  };
+  const wifiSpeedAvg = wifiAverage((r) => r.wifiSpeedRating);
+  const wifiStabilityAvg = wifiAverage((r) => r.wifiStabilityRating);
+  const wifiWorkAvg = wifiAverage((r) => r.wifiWorkRating);
+  const hasWifiSummary =
+    wifiSpeedAvg !== null || wifiStabilityAvg !== null || wifiWorkAvg !== null;
+  const showSummaryPanel = hasGoogle || directCount > 0;
+  // Area-level search only — never the stay's exact coordinates (privacy).
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    [stayTitle, neighborhoodName, destinationName, 'Vietnam']
+      .filter(Boolean)
+      .join(', ')
+  )}`;
+
   return (
     <div className="divide-y divide-[#E5DFD3]">
       {/* Section 11A: Guest Reviews (Open Section Layout) */}
       <section className="py-10">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-[22px] font-semibold tracking-tight text-[#17221E] sm:text-[24px]">
-              {initialAvg !== null
-                ? `${initialAvg.toFixed(1)} · ${formatCountNoun(
-                    reviews.length,
-                    'guest review',
-                    'guest reviews',
-                    'đánh giá từ khách VietNomad',
-                    locale
-                  )}`
-                : isVi
-                  ? 'Đánh giá từ khách lưu trú'
-                  : 'Guest reviews'}
-            </h2>
-          </div>
+        <h2 className="text-[22px] font-semibold tracking-tight text-[#17221E] sm:text-[24px]">
+          {initialAvg !== null
+            ? `${initialAvg.toFixed(1)} · ${formatCountNoun(
+                reviews.length,
+                'guest review',
+                'guest reviews',
+                'đánh giá từ khách VietNomad',
+                locale
+              )}`
+            : isVi
+              ? 'Đánh giá từ khách lưu trú'
+              : 'Guest reviews'}
+        </h2>
 
-          {googleReviewCount !== null && googleReviewCount > 0 && googleRating !== null && (
-            <div className="inline-flex items-center gap-1.5 text-sm text-[#53635D]">
-              <Star className="h-4 w-4 text-[#A67C2E]" fill="#A67C2E" />
-              <span>
-                {googleRating.toFixed(1)} ({googleReviewCount}{' '}
-                {isVi ? 'đánh giá trên Google' : 'Google reviews'})
-              </span>
-            </div>
-          )}
-        </div>
-
+        <div className="mt-4 flex flex-col gap-8 md:flex-row md:items-start">
+          <div className="min-w-0 flex-1">
         {reviews.length === 0 ? (
-          <p className="mt-4 text-sm text-[#53635D]">
+          <p className="text-sm text-[#53635D]">
             {isVi
               ? 'Chưa có đánh giá trực tiếp từ khách đặt qua VietNomad Stays cho chỗ ở này.'
               : 'No direct VietNomad Stays guest reviews have been posted for this place yet.'}
@@ -405,6 +425,106 @@ export function StayGuestReviewsSection({
             </button>
           </form>
         )}
+          </div>
+
+          {showSummaryPanel && (
+            <aside className="order-first rounded-2xl bg-[#FAF8F3] p-5 md:order-none md:w-72 md:shrink-0">
+              {hasGoogle && (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 text-[#A67C2E]" fill="#A67C2E" />
+                    <span className="text-xl font-semibold text-[#17221E]">
+                      {googleRating!.toFixed(1)}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-[#53635D]">
+                    {googleReviewCount}{' '}
+                    {isVi ? 'đánh giá trên Google' : 'Google reviews'}
+                  </p>
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#164E3F] hover:underline"
+                  >
+                    {isVi ? 'Xem trên Google Maps' : 'View on Google Maps'}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+
+              {directCount > 0 && directAvg !== null && (
+                <div className={hasGoogle ? 'mt-5 space-y-3' : 'space-y-3'}>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-semibold text-[#17221E]">
+                        {directAvg.toFixed(1)}
+                      </span>
+                      <span className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <Star
+                            key={n}
+                            className="h-3.5 w-3.5 text-[#17221E]"
+                            fill={n <= Math.round(directAvg) ? '#17221E' : 'transparent'}
+                          />
+                        ))}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-[#53635D]">
+                      {isVi
+                        ? `${directCount} đánh giá trực tiếp`
+                        : `${directCount} direct reviews`}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {ratingBreakdown.map((row) => (
+                      <div
+                        key={row.n}
+                        className="flex items-center gap-2 text-[11px] text-[#53635D]"
+                      >
+                        <span className="w-5 shrink-0">{row.n}★</span>
+                        <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#E5DFD3]">
+                          <span
+                            className="block h-full rounded-full bg-[#164E3F]"
+                            style={{
+                              width: `${Math.round((row.count / directCount) * 100)}%`,
+                            }}
+                          />
+                        </span>
+                        <span className="w-4 shrink-0 text-right">{row.count}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {hasWifiSummary && (
+                    <div className="space-y-1 text-[11px] text-[#53635D]">
+                      <div className="font-semibold text-[#164E3F]">
+                        {isVi ? 'Wi-Fi (khách đánh giá)' : 'Wi-Fi (guest-rated)'}
+                      </div>
+                      {wifiSpeedAvg !== null && (
+                        <div>
+                          {isVi ? 'Tốc độ' : 'Speed'}: {wifiSpeedAvg.toFixed(1)}★
+                        </div>
+                      )}
+                      {wifiStabilityAvg !== null && (
+                        <div>
+                          {isVi ? 'Ổn định' : 'Stability'}: {wifiStabilityAvg.toFixed(1)}★
+                        </div>
+                      )}
+                      {wifiWorkAvg !== null && (
+                        <div>
+                          {isVi ? 'Làm việc từ xa' : 'Remote work'}:{' '}
+                          {wifiWorkAvg.toFixed(1)}★
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </aside>
+          )}
+        </div>
       </section>
 
       {/* Section 11B: Neighborhood Location Context */}

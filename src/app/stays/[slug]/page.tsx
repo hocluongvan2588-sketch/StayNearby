@@ -387,6 +387,7 @@ export default async function StayDetailPage({
           {/* Section 10 & 11: Policies, House Rules, Guest Reviews & Neighborhood Location */}
           <StayGuestReviewsSection
             slug={stay.slug}
+            stayTitle={title}
             user={user}
             locale={prefs.locale}
             checkinFrom={stay.checkinFrom}
