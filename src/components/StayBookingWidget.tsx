@@ -531,7 +531,7 @@ export function StayBookingWidget({
                 <Minus className="h-3.5 w-3.5" />
               </button>
               <span className="text-xs font-semibold tabular-nums text-[#17221E]">
-                +{effectiveExtraNights} ({totalNights} {isVi ? 'đêm' : 'N'})
+                +{effectiveExtraNights}
               </span>
               <button
                 type="button"
