@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -197,6 +197,20 @@ export function StayBookingWidget({
     feePaidOnlineVnd: number;
     payAtCheckinVnd: number;
   } | null>(null);
+
+  // App-standard checkout progress:1 choose stay →2 pay →3 done.
+  const currentStep = confirmed ? 3 : pendingBooking ? 2 : 1;
+  const paymentPanelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pendingBooking) return;
+    const timer = window.setTimeout(() => {
+      paymentPanelRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [pendingBooking]);
 
   const selectedRoom = stay.rooms.find((r) => r.id === roomId) ?? defaultRoom;
   const selectedPkg = selectedRoom?.packages[0] ?? defaultPkg;
@@ -409,6 +423,42 @@ export function StayBookingWidget({
 
   return (
     <aside className="sticky top-24 space-y-5 rounded-2xl border border-[#E5DFD3] bg-white p-6 shadow-lg">
+      {/* App-standard checkout progress:1 choose stay →2 pay →3 done */}
+      <div className="flex items-center gap-1.5" aria-hidden="true">
+        {(isVi ? ['Kỳ ở', 'Thanh toán', 'Hoàn tất'] : ['Dates', 'Payment', 'Done']).map(
+          (label, i) => {
+            const stepNum = i + 1;
+            const done = currentStep > stepNum;
+            const active = currentStep === stepNum;
+            return (
+              <div key={label} className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                    done || active
+                      ? 'bg-[#164E3F] text-white'
+                      : 'border border-[#D4CEC2] bg-white text-[#A39C90]'
+                  }`}
+                >
+                  {done ? <CheckCircle2 className="h-3 w-3" /> : stepNum}
+                </span>
+                <span
+                  className={`truncate text-[11px] ${
+                    active
+                      ? 'font-semibold text-[#164E3F]'
+                      : done
+                        ? 'font-medium text-[#164E3F]'
+                        : 'text-[#A39C90]'
+                  }`}
+                >
+                  {label}
+                </span>
+                {i < 2 && <span className="h-px min-w-2 flex-1 bg-[#E5DFD3]" />}
+              </div>
+            );
+          }
+        )}
+      </div>
+
       {/* Price Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -531,7 +581,7 @@ export function StayBookingWidget({
                 <Minus className="h-3.5 w-3.5" />
               </button>
               <span className="text-xs font-semibold tabular-nums text-[#17221E]">
-                +{effectiveExtraNights} ({totalNights} {isVi ? 'đêm' : 'N'})
+                +{effectiveExtraNights}
               </span>
               <button
                 type="button"
@@ -640,6 +690,7 @@ export function StayBookingWidget({
       )}
 
       {pendingBooking && (
+        <div ref={paymentPanelRef}>
         <GatewayCheckoutPanel
           purpose="booking_fee"
           bookingId={pendingBooking.bookingId}
@@ -664,6 +715,7 @@ export function StayBookingWidget({
             setPendingBooking(null);
           }}
         />
+        </div>
       )}
 
       {confirmed ? (
@@ -688,6 +740,24 @@ export function StayBookingWidget({
         </div>
       ) : (
         !pendingBooking && (
+          <>
+          {/* Price-before-CTA summary (Booking/Airbnb pattern) */}
+          <div className="space-y-1 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] px-3.5 py-2.5 text-xs">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[#53635D]">
+                {isVi ? 'Thanh toán online hôm nay' : 'Due online today'}
+              </span>
+              <strong className="text-[#164E3F]">{formatMoney(quote.feeOnlineVnd)}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[#53635D]">
+                {isVi ? 'Trả chủ nhà khi nhận phòng' : 'Pay host at check-in'}
+              </span>
+              <span className="font-medium text-[#17221E]">
+                {formatMoney(quote.payAtCheckinVnd)}
+              </span>
+            </div>
+          </div>
           <button
             type="button"
             onClick={handleStartReservation}
@@ -703,6 +773,7 @@ export function StayBookingWidget({
                 ? 'Gửi yêu cầu đặt chỗ'
                 : 'Request to book'}
           </button>
+          </>
         )
       )}
 

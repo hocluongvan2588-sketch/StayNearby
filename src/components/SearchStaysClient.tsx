@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import {
   MAX_NIGHTS,
@@ -52,6 +53,22 @@ export function SearchStaysClient({
   const isVi = locale === 'vi';
   const minNights = platformConfig.defaultMinNights;
   const tierOptions = STAY_PACKAGE_TIERS.filter((n) => n >= minNights);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const activeFilterCount = [
+    filters.destination !== 'all',
+    filters.lifestyle !== 'all',
+    Boolean(filters.minWifi),
+    filters.wifiVerified,
+    filters.workReady,
+    filters.workspace,
+    filters.chair,
+    filters.monitor,
+    filters.booth,
+    filters.kitchen,
+    filters.laundry,
+    filters.pet,
+    filters.sort !== 'featured',
+  ].filter(Boolean).length;
 
   function pushFilters(next: Partial<SearchFilterState>) {
     const merged = { ...filters, ...next };
@@ -121,8 +138,32 @@ export function SearchStaysClient({
         </div>
       </div>
 
+      {/* Mobile: collapsible filters (Agoda/Booking app pattern); desktop: always-on rail */}
+      <button
+        type="button"
+        onClick={() => setShowMobileFilters((v) => !v)}
+        className="mb-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-[#E5DFD3] bg-white px-4 py-2.5 text-sm font-semibold text-[#17221E] shadow-sm lg:hidden"
+      >
+        <SlidersHorizontal className="h-4 w-4 text-[#164E3F]" />
+        {showMobileFilters
+          ? isVi
+            ? 'Ẩn bộ lọc'
+            : 'Hide filters'
+          : isVi
+            ? activeFilterCount > 0
+              ? `Bộ lọc (${activeFilterCount})`
+              : 'Bộ lọc'
+            : activeFilterCount > 0
+              ? `Filters (${activeFilterCount})`
+              : 'Filters'}
+      </button>
+
       <div className="grid gap-8 lg:grid-cols-[260px_1fr] lg:items-start">
-        <aside className="space-y-6 rounded-2xl border border-[#E5DFD3] bg-white p-5">
+        <aside
+          className={`${
+            showMobileFilters ? 'block' : 'hidden'
+          } space-y-6 rounded-2xl border border-[#E5DFD3] bg-white p-5 lg:block`}
+        >
           <div className="flex items-center justify-between border-b border-[#E5DFD3] pb-3">
             <span className="flex items-center gap-2 text-sm font-semibold text-[#17221E]">
               <SlidersHorizontal className="h-4 w-4 text-[#164E3F]" />
@@ -315,6 +356,7 @@ export function SearchStaysClient({
               savedIds={savedIds}
               isAuthenticated={isAuthenticated}
               gapClass="gap-6"
+              colsClass="md:grid-cols-2 xl:grid-cols-3"
             />
           )}
         </div>

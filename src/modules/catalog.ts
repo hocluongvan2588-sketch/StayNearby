@@ -66,6 +66,8 @@ export interface StayCardItem {
   selectedStayNights: number | null;
   selectedStayTotalVnd: number | null;
   heroImage: string;
+  // Photo strip for the card carousel (same gallery_images source as StayDetail).
+  galleryImages: string[];
   mapX: number;
   mapY: number;
   isEntirePlace: boolean;
@@ -429,6 +431,7 @@ function mapStayRowToCard(
     selectedStayNights: selectedQuote && selectedNights ? selectedNights : null,
     selectedStayTotalVnd: selectedQuote ? selectedQuote.guestTotalVnd : null,
     heroImage: String(row.hero_image),
+    galleryImages: parseJsonArray<string>(row.gallery_images),
     mapX: Number(row.map_x ?? 50),
     mapY: Number(row.map_y ?? 50),
     isEntirePlace:
