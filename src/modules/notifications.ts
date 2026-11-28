@@ -10,13 +10,11 @@ export function buildConciergeWhatsappUrl(params: {
   nights?: number;
   bookingCode?: string;
   phoneOverride?: string;
-  serviceFeePct?: number;
   locale?: 'en' | 'vi';
 }): string {
   const { conciergeWhatsapp } = getConfig();
   const digits = (params.phoneOverride || conciergeWhatsapp).replace(/[^0-9]/g, '');
   const isVi = params.locale === 'vi';
-  const feePct = Math.round(params.serviceFeePct ?? 12);
 
   const parts = isVi
     ? [
@@ -33,7 +31,7 @@ export function buildConciergeWhatsappUrl(params: {
         params.checkIn ? `Check-in: ${params.checkIn}.` : '',
         params.nights ? `Stay length: ${params.nights} nights.` : '',
         params.bookingCode ? `Booking Code: ${params.bookingCode}.` : '',
-        `Could you confirm availability before I pay the ${feePct}% booking fee?`,
+        'Could you confirm availability before I pay the booking fee?',
       ];
 
   const text = encodeURIComponent(parts.filter(Boolean).join(' '));
@@ -182,7 +180,7 @@ export async function dispatchBookingLockedNotifications(
     row.guest_email,
     guestSubject,
     `<h2>${guestSubject}</h2>
-     <p>Paid online (${feeRatePct}% service fee): <strong>${formatVndExact(feeOnlineVnd)}</strong></p>
+     <p>Paid online (service fee): <strong>${formatVndExact(feeOnlineVnd)}</strong></p>
      <p>Due at check-in (pay directly to host): <strong>${formatVndExact(payAtCheckinVnd)}</strong></p>
      <p>Dates: ${checkIn} to ${checkOut} (${nightsText})</p>
      <p>Address: ${row.exact_address}</p>
@@ -201,7 +199,7 @@ export async function dispatchBookingLockedNotifications(
     depositLocked: true,
     collectAtCheckinVnd: payAtCheckinVnd,
     pledgeNote:
-      `Guest paid the ${feeRatePct}% service fee online. Dates are reserved; collect 100% of rent directly at check-in.`,
+      'Guest paid the service fee online. Dates are reserved; collect the rent directly at check-in.',
   };
 
   const hostStatus = await maybeSendResendEmail(
@@ -209,7 +207,7 @@ export async function dispatchBookingLockedNotifications(
     hostSubject,
     `<h2>${hostSubject}</h2>
      <p>Guest: ${row.guest_name} (${checkIn} to ${checkOut}, ${nightsText})</p>
-     <p>${feeRatePct}% service fee settled online. Please prepare the room and collect <strong>${formatVndExact(payAtCheckinVnd)}</strong> directly at check-in.</p>`
+     <p>The service fee is settled online. Please prepare the room and collect <strong>${formatVndExact(payAtCheckinVnd)}</strong> directly at check-in.</p>`
   );
 
   const adminSubject = `[Admin Alert] Booking ${row.booking_code} locked, message ${row.host_name} on Zalo within 30 minutes`;

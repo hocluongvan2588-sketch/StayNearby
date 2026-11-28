@@ -11,9 +11,11 @@ Standard patterns for recurring UI interactions across VietNomad Stays.
 - **Reset filters:** `Reset filters` · `Xóa bộ lọc`
 
 ## 2. Booking Price Breakdown & Payment Split
-Always state the split unambiguously using dynamic rates (`serviceFeePct`, `feeOnline`, `payAtCheckin`, `total`):
-- **EN:** `Pay {serviceFeePct}% ({feeOnline}) online today to reserve · Pay {payAtCheckin} directly to your host at check-in`
-- **VI:** `Thanh toán {serviceFeePct}% ({feeOnline}) online hôm nay để giữ phòng · Trả {payAtCheckin} cho chủ nhà khi nhận phòng`
+Always state the split unambiguously using absolute amounts (`feeOnline`,
+`payAtCheckin`, `total`). The service-fee rate is never shown as a
+percentage anywhere in UI (decision2026-11-28):
+- **EN:** `Service fee ({feeOnline}) due online today to reserve · Pay {payAtCheckin} directly to your host at check-in`
+- **VI:** `Phí dịch vụ ({feeOnline}) trả online hôm nay để giữ phòng · Trả {payAtCheckin} cho chủ nhà khi nhận phòng`
 - **Promo applied:** `Code {code} applied (-{discountAmount})` · `Đã áp dụng mã {code} (-{discountAmount})`
 
 ## 3. Verification & Badge Transparency

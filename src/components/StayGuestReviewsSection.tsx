@@ -31,7 +31,6 @@ export function StayGuestReviewsSection({
   checkoutBefore,
   defaultMinNights,
   cancellationPolicy,
-  serviceFeePct,
   houseRules,
   rooms,
   initialReviews,
@@ -50,7 +49,6 @@ export function StayGuestReviewsSection({
   checkoutBefore: string;
   defaultMinNights: number;
   cancellationPolicy: string;
-  serviceFeePct: number;
   houseRules: HostHouseRules;
   rooms: StayRoomDetail[];
   initialReviews: StayGuestReviewItem[];
@@ -529,8 +527,8 @@ export function StayGuestReviewsSection({
               <p>{policyDescription}</p>
               <p>
                 {isVi
-                  ? `Thanh toán ${serviceFeePct}% phí dịch vụ online để giữ phòng. Phần tiền thuê trả trực tiếp cho chủ nhà khi nhận phòng.`
-                  : `Pay the ${serviceFeePct}% service fee online to lock your dates. Settle stay rent directly with your host at check-in.`}
+                  ? 'Thanh toán phí dịch vụ online để giữ phòng. Phần tiền thuê trả trực tiếp cho chủ nhà khi nhận phòng.'
+                  : 'Pay the service fee online to lock your dates. Settle stay rent directly with your host at check-in.'}
               </p>
             </div>
           </div>

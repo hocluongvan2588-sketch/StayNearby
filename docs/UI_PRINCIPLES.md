@@ -3,6 +3,51 @@
 Long-lived rules agreed in the2026-11 UI/UX refinement. New UI work must follow
 these; if a change conflicts with them, report before implementing.
 
+## Marketplace layout (homepage & shared guest sections)
+
+Agreed in the2026-11-28 homepage redesign. The target is a professional travel
+marketplace (Airbnb / Booking.com), never an AI-generated SaaS landing page:
+
+- **Images lead.** Stays, destinations, and categories are carried by real
+  photography; text supports the image, not the other way around.
+- **Whitespace and typography over containers.** Do not wrap sections or
+  content groups in cards, borders, shadows, or background bands by default.
+  No card inside a card without a business reason.
+- **Subtitles are optional, not default.** A section heading stands alone
+  unless a subtitle adds information the heading does not already carry.
+- **No decorative AI tells.** No sparkle icons, emoji, gradient glows, or
+  decorative icon rows. Marketing bullet lists ("pillars") do not belong in
+  the hero.
+- **One system across sections.** Same container (`max-w-7xl px-4 sm:px-6
+  lg:px-8`), section rhythm, heading style (via `SectionHeader`), image ratio
+  (`aspect-[4/3]`), and radius (`rounded-2xl`) on every guest section.
+- **Sentence case for Vietnamese category names** — never title-case every
+  word (`Nhịp sống đô thị`, not `Nhịp Sống Đô Thị`). Proper nouns stay as-is.
+- **No SVG-drawn geography.** Never ship a hand-drawn Vietnam/region map as
+  a destination browser. If a map is needed elsewhere, use accurate geodata.
+- **No chatbot frames on the homepage.** Natural-language search may only
+  appear embedded in the existing search experience, never as a standalone
+  AI box with sample prompts.
+- **Homepage section inventory (order):** hero + search → Chỗ ở nổi bật →
+  Ưu đãi lưu trú dài ngày (StayCard only) → Điểm đến phổ biến → Tìm chỗ ở
+  theo sở thích → Cẩm nang. Comparison tables, membership/community/host
+  promo cards, fee/commission advertising, unlaunched benefits, and FAQ
+  blocks are homepage-excluded (they live on their own routes).
+- **Category tiles:** image + short name only — no per-image marketing copy,
+  no heavy dark overlays, never the same image for two categories, and only
+  categories that map to real searchable data (existing lifestyles/filters).
+- **Deal/rating badges render only with valid data** (already true for
+  StayCard: `dealSavingsPct > 0`, rating only when reviews exist).
+
+## Fee display (decision2026-11-28)
+
+- The service-fee **rate is never displayed as a percentage anywhere in the
+  product UI** — guest, host, transactional email, proof images, checkout
+  line items. Show absolute amounts only ("Phí dịch vụ VietNomad" + amount).
+- Rate values still drive pricing math via `platform_settings`; only the
+  display is amount-only. Admin config screens may show the raw rate because
+  they ARE the rate editor.
+
 ## Brand & visual
 
 - Keep the existing identity: colors (`#164E3F` brand green, `#17221E` ink,
@@ -82,7 +127,8 @@ Jitter ≠ Ping; missing parameters stay missing (never defaulted, never
   CTA, saves the in-progress selection to sessionStorage, restores it after
   login, and never creates a booking or inventory lock at login time.
 - Service fee comes from `platform_settings` via the pricing engine, computed
-  on the rent — never hardcode percentages in UI.
+  on the rent — never hardcode percentages in UI, and never render the rate
+  as a percentage at all (amount-only display, see §Fee display).
 
 ## Local Discovery
 

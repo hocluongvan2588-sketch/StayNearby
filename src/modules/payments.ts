@@ -188,12 +188,11 @@ export async function createGatewayCheckoutSession(
 
     bookingId = b.id;
     amountVnd = toNum(b.booking_fee_online_vnd);
-    const feePct = Math.round(toNum(b.applied_service_fee_rate, 0.12) * 100);
     // Use clean alphanumeric transfer memo friendly to VN banking apps (e.g. VN839201)
     const compactCode = b.booking_code.replace(/[^A-Z0-9]/gi, '').toUpperCase();
     referenceCode = `${compactCode}${crypto.randomInt(10, 99)}`;
     itemTitle = `VietNomad Service Fee (${b.booking_code})`;
-    itemDesc = `${feePct}% online service fee for ${b.title_en} (${b.nights} ${b.nights === 1 ? 'night' : 'nights'})`;
+    itemDesc = `Online service fee for ${b.title_en} (${b.nights} ${b.nights === 1 ? 'night' : 'nights'})`;
     metadata.bookingCode = b.booking_code;
   } else {
     const feeConfig = await getPlatformFeeConfig();

@@ -453,7 +453,6 @@ export function MemberDashboardClient({
           <div className="grid gap-5">
             {data.bookings.map((b) => {
               const isActive = b.status === 'RESERVED_LOCKED' || b.status === 'confirmed';
-              const bookingFeePct = Math.round((b.appliedServiceFeeRate || 0.12) * 100);
               const relatedTickets = tickets.filter((t) => t.bookingId === b.id);
               const hostDigits = b.hostWhatsapp.replace(/\D/g, '') || '84901234567';
               const hostWhatsappUrl = `https://wa.me/${hostDigits}?text=${encodeURIComponent(
@@ -481,7 +480,7 @@ export function MemberDashboardClient({
                             {b.bookingCode}
                           </span>
                           <span className={`rounded-full px-2.5 py-0.5 ${renderStatusBadge(b.status)}`}>
-                            {formatBookingStatusLabel(b.status, locale, bookingFeePct)}
+                            {formatBookingStatusLabel(b.status, locale)}
                           </span>
                           {b.wifiDownloadMbps !== null && b.wifiDownloadMbps > 0 && (
                             <span className="text-[#53635D]">
@@ -517,7 +516,7 @@ export function MemberDashboardClient({
                       <div>
                         <div className="text-[#53635D]">{isVi ? 'Trạng thái đơn' : 'Booking'}</div>
                         <div className="font-semibold text-[#17221E]">
-                          {formatBookingStatusLabel(b.bookingStatus, locale, bookingFeePct)}
+                          {formatBookingStatusLabel(b.bookingStatus, locale)}
                         </div>
                       </div>
                       <div>
@@ -555,11 +554,11 @@ export function MemberDashboardClient({
                         <span className="text-[#53635D]">
                           {b.status === 'PENDING_PAYMENT'
                             ? isVi
-                              ? `Cần trả online (${bookingFeePct}%):`
-                              : `Due online (${bookingFeePct}%):`
+                              ? 'Phí dịch vụ cần trả online:'
+                              : 'Service fee due online:'
                             : isVi
-                              ? `Đã trả online (${bookingFeePct}%):`
-                              : `Paid online (${bookingFeePct}%):`}
+                              ? 'Đã trả online:'
+                              : 'Paid online:'}
                         </span>{' '}
                         <strong className="text-[#164E3F]">{formatMoney(b.feeOnlineVnd)}</strong>
                       </div>
@@ -595,8 +594,8 @@ export function MemberDashboardClient({
                         <div className="flex flex-wrap items-center justify-between gap-3">
                           <span className="text-[#17221E]">
                             {isVi
-                              ? `Thanh toán ${bookingFeePct}% phí dịch vụ online để xác nhận đặt phòng và xem địa chỉ cụ thể.`
-                              : `Pay the ${bookingFeePct}% service fee online to confirm your booking and view the exact address.`}
+                              ? 'Thanh toán phí dịch vụ online để xác nhận đặt phòng và xem địa chỉ cụ thể.'
+                              : 'Pay the service fee online to confirm your booking and view the exact address.'}
                           </span>
                           <div className="flex gap-2">
                             <button

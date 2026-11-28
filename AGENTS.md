@@ -18,11 +18,21 @@ Before creating, updating, or translating any UI copy, microcopy, labels, button
 3. **Do not write AI clichés or promotional fluff:** Avoid `Unlock`, `Elevate`, `Empower`, `Seamlessly`, `Effortlessly`, `Extraordinary`, `Unforgettable`, `Ultimate`, `Curated` (as filler), `Oops!`, stacked adjectives, and repetitive subtitles.
 4. **Never hardcode dynamic pricing or policy constants:** Always pull `serviceFeeRate`, `hostCommissionRate`, `vatDiscountRate`, `premiumRewardRate`, `fxRates`, and `defaultMinNights` from `platform_settings` / `usePreferences()`.
 5. **Never alter business logic, pricing formulas, legal policies, published URL slugs, or user-generated DB records** when updating UI copy.
+6. **Never display the service-fee rate as a percentage in any UI** (guest, host, transactional email, checkout line items, proof images) — show absolute amounts only; the rate exists for pricing math and the admin rate editor (decision2026-11-28, `docs/UI_PRINCIPLES.md` §Fee display).
 
-## 2. Guest Platform UI Principles (StayCard & Listing Detail)
+## 2. Guest Platform UI Principles (StayCard, Listing Detail & Marketplace Layout)
 
-Before building or changing guest-facing layout (StayCard, listing detail,
-booking widget, Local Discovery), read `docs/UI_PRINCIPLES.md`. Highlights:
+Before building or changing guest-facing layout (homepage sections, StayCard,
+listing detail, booking widget, Local Discovery), read
+`docs/UI_PRINCIPLES.md`. Highlights:
+
+0. **Marketplace, not SaaS landing page** — images lead; no default
+   subtitles, no card-wrapped sections, no nested cards, no sparkle/emoji
+   decoration, no hero bullet lists, no SVG-drawn maps, no standalone AI
+   search box on the homepage. One shared container/heading/radius system
+   (`SectionHeader`, `rounded-2xl`, `aspect-[4/3]`). Vietnamese category
+   names in sentence case. Homepage section inventory and exclusions:
+   `docs/UI_PRINCIPLES.md` §Marketplace layout.
 
 1. **Badge Wi-Fi is the one intentional badge exception** — top-left on the
    card image, speed only, real values only; never repeat the speed below the

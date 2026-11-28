@@ -72,7 +72,7 @@ export function ReservationSideDrawer({
   onUpdated: (msg: string) => void;
 }) {
   const router = useRouter();
-  const { locale, serviceFeePct, hostCommissionPct } = usePreferences();
+  const { locale, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [note, setNote] = useState(reservation?.hostInternalNote ?? '');
@@ -113,8 +113,8 @@ export function ReservationSideDrawer({
     if (!reservation) return;
     if (decision === 'decline') {
       const msg = isVi
-        ? `Từ chối yêu cầu đặt phòng ${reservation.bookingCode}? Ngày sẽ được mở lại và khách được hoàn ${serviceFeePct}% phí dịch vụ.`
-        : `Decline booking request ${reservation.bookingCode}? The dates will reopen and the guest’s ${serviceFeePct}% service fee will be refunded automatically.`;
+        ? `Từ chối yêu cầu đặt phòng ${reservation.bookingCode}? Ngày sẽ được mở lại và khách được hoàn phí dịch vụ.`
+        : `Decline booking request ${reservation.bookingCode}? The dates will reopen and the service fee will be refunded to the guest automatically.`;
       if (typeof window !== 'undefined' && !window.confirm(msg)) return;
     }
     setBusy(true);
@@ -136,8 +136,8 @@ export function ReservationSideDrawer({
             ? `Đã duyệt yêu cầu đặt phòng ${reservation.bookingCode}.`
             : `Approved booking request ${reservation.bookingCode}.`
           : isVi
-            ? `Đã từ chối yêu cầu ${reservation.bookingCode} và hoàn phí ${serviceFeePct}% cho khách.`
-            : `Declined ${reservation.bookingCode} and refunded the ${serviceFeePct}% fee.`
+            ? `Đã từ chối yêu cầu ${reservation.bookingCode} và hoàn phí dịch vụ cho khách.`
+            : `Declined ${reservation.bookingCode} and refunded the service fee.`
       );
       onClose();
     } finally {
@@ -367,8 +367,8 @@ export function ReservationSideDrawer({
             <div className="flex justify-between py-1">
               <span className="text-[#53635D]">
                 {isVi
-                  ? `Phí dịch vụ ${serviceFeePct}% (khách thanh toán online)`
-                  : `${serviceFeePct}% online service fee`}
+                  ? 'Phí dịch vụ (khách thanh toán online)'
+                  : 'Online service fee'}
               </span>
               <span className="font-medium text-[#53635D]">
                 {formatVndExact(reservation.feeOnlineVnd)}
