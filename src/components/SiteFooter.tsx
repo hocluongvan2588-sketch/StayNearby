@@ -110,8 +110,8 @@ export function SiteFooter({
           <div>© {new Date().getFullYear()} VietNomad Stays.</div>
           <div>
             {isVi
-              ? 'Ở trọn vẹn tại Việt Nam, theo nhịp sống bản địa.'
-              : 'Live fully in Vietnam, at a local pace.'}
+              ? 'Sống như người bản địa tại Việt Nam.'
+              : 'Live like a local anywhere in Vietnam.'}
           </div>
         </div>
       </div>

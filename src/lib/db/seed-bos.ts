@@ -909,7 +909,7 @@ export async function seedAdminBosFoundationData(params?: {
             },
             {
               question: 'Is there any host booking commission on VietNomad?',
-              answer: 'Hosts list with 0% commission; guests pay a transparent service fee at checkout with a full price breakdown (the current rate is shown at checkout).',
+              answer: 'Hosts pay no commission. Guests pay a service fee online at checkout, shown in the full price breakdown.',
             },
           ],
         },
