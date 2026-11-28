@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Check, Plus, Trash2 } from 'lucide-react';
 import {
   KpiMetric,
@@ -16,11 +16,15 @@ import type {
   listAdminPlaces,
   listCampaignsAndFunnel,
   listCmsContents,
+  listPlaceSuggestions,
   listPromotions,
 } from '@/modules/admin-bos';
 
 type DestinationsData = Awaited<ReturnType<typeof listAdminDestinations>>;
 type PlacesData = Awaited<ReturnType<typeof listAdminPlaces>>;
+type PlaceRow = PlacesData['places'][number];
+type SuggestionsData = Awaited<ReturnType<typeof listPlaceSuggestions>>;
+type SuggestionRow = SuggestionsData['suggestions'][number];
 type CmsList = Awaited<ReturnType<typeof listCmsContents>>;
 type CampaignsData = Awaited<ReturnType<typeof listCampaignsAndFunnel>>;
 type PromotionsList = Awaited<ReturnType<typeof listPromotions>>;
@@ -195,17 +199,24 @@ export function DestinationsView({ initialData }: { initialData: DestinationsDat
 
 export function LocalDiscoveryView({ initialData }: { initialData: PlacesData }) {
   const [places, setPlaces] = useState(initialData.places);
+  const [suggestions, setSuggestions] = useState<SuggestionRow[]>([]);
+  const [tab, setTab] = useState<'all' | 'pending' | 'published' | 'needs_info' | 'outdated'>('all');
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState('all');
   const [createOpen, setCreateOpen] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<SuggestionRow | null>(null);
+  const [reviewAction, setReviewAction] = useState<'approve' | 'needs_info' | 'reject'>('approve');
+  const [reviewNote, setReviewNote] = useState('');
+  const [editTarget, setEditTarget] = useState<PlaceRow | null>(null);
 
   const [destinationId, setDestinationId] = useState(initialData.destinations[0]?.id ?? '');
   const [category, setCategory] = useState('cafe');
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [descriptionEn, setDescriptionEn] = useState('');
-  const [openingHours, setOpeningHours] = useState('07:30 - 22:00');
-  const [priceRange, setPriceRange] = useState('$$');
+  const [openingHours, setOpeningHours] = useState('');
+  const [priceRange, setPriceRange] = useState('');
+  const [website, setWebsite] = useState('');
 
   async function refresh() {
     const res = await fetch('/api/admin/growth?scope=places');
@@ -214,6 +225,23 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
       setPlaces(d.places);
     }
   }
+
+  async function refreshSuggestions() {
+    const res = await fetch('/api/admin/growth?scope=suggestions');
+    if (res.ok) {
+      const d = (await res.json()) as SuggestionsData;
+      setSuggestions(d.suggestions);
+    }
+  }
+
+  useEffect(() => {
+    // Deferred: fetch moderation queue after mount, never during hydration.
+    const timer = window.setTimeout(() => {
+      void refreshSuggestions();
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -227,8 +255,9 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
         name,
         address,
         descriptionEn,
-        openingHours,
-        priceRange,
+        openingHours: openingHours || undefined,
+        priceRange: priceRange || undefined,
+        website: website || undefined,
         isFeatured: true,
       }),
     });
@@ -237,6 +266,9 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
       setName('');
       setAddress('');
       setDescriptionEn('');
+      setOpeningHours('');
+      setPriceRange('');
+      setWebsite('');
       await refresh();
     }
   }
@@ -249,9 +281,7 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
       body: JSON.stringify({ kind: 'place', placeId, verificationStatus: next }),
     });
     if (res.ok) {
-      setPlaces((prev) =>
-        prev.map((p) => (p.id === placeId ? { ...p, verificationStatus: next } : p))
-      );
+      setPlaces((prev) => prev.map((p) => (p.id === placeId ? { ...p, verificationStatus: next } : p)));
     }
   }
 
@@ -265,24 +295,85 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
     if (res.ok) setPlaces((prev) => prev.filter((p) => p.id !== placeId));
   }
 
-  const filtered = places.filter((p) => {
+  async function submitReview() {
+    if (!reviewTarget) return;
+    const res = await fetch('/api/admin/growth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'suggestion_review',
+        id: reviewTarget.id,
+        action: reviewAction,
+        note: reviewNote || undefined,
+      }),
+    });
+    if (res.ok) {
+      setReviewTarget(null);
+      setReviewNote('');
+      await Promise.all([refresh(), refreshSuggestions()]);
+    }
+  }
+
+  async function submitEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    const res = await fetch('/api/admin/growth', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind: 'place',
+        placeId: editTarget.id,
+        name: editTarget.name,
+        address: editTarget.address,
+        descriptionEn: editTarget.descriptionEn,
+        descriptionVi: editTarget.descriptionVi,
+        openingHours: editTarget.openingHours,
+        priceRange: editTarget.priceRange,
+        website: editTarget.website,
+        googleMapsUrl: editTarget.googleMapsUrl,
+        isOnsite: editTarget.isOnsite,
+        isFeatured: editTarget.isFeatured,
+        verificationStatus: editTarget.verificationStatus,
+      }),
+    });
+    if (res.ok) {
+      setEditTarget(null);
+      await refresh();
+    }
+  }
+
+  const q = search.trim().toLowerCase();
+  const placesForTab = places.filter((p) => {
+    if (tab === 'published' && p.verificationStatus !== 'verified') return false;
+    if (tab === 'outdated' && p.verificationStatus !== 'outdated') return false;
     if (catFilter !== 'all' && p.category !== catFilter) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return (
-        p.name.toLowerCase().includes(q) ||
-        p.address.toLowerCase().includes(q) ||
-        p.destinationName.toLowerCase().includes(q)
-      );
+    if (q && !(p.name.toLowerCase().includes(q) || p.address.toLowerCase().includes(q) || p.destinationName.toLowerCase().includes(q))) {
+      return false;
     }
     return true;
   });
+  const suggestionsForTab = suggestions.filter((s) => {
+    if (tab === 'pending') return s.status === 'pending';
+    if (tab === 'needs_info') return s.status === 'needs_info';
+    return false;
+  });
+
+  const TABS: Array<{ key: typeof tab; label: string }> = [
+    { key: 'all', label: 'All places' },
+    { key: 'pending', label: `Pending review (${suggestions.filter((s) => s.status === 'pending').length})` },
+    { key: 'published', label: 'Published' },
+    { key: 'needs_info', label: `Needs info (${suggestions.filter((s) => s.status === 'needs_info').length})` },
+    { key: 'outdated', label: `Needs update (${places.filter((p) => p.verificationStatus === 'outdated').length})` },
+  ];
+
+  const showPlacesTable = tab === 'all' || tab === 'published' || tab === 'outdated';
+  const showSuggestionsTable = tab === 'pending' || tab === 'needs_info';
 
   return (
     <div>
       <PageHeader
         title="Local Places"
-        subtitle="Places shown across destination pages, stay listings, and city guides."
+        subtitle="Shared place database for destination pages, stay listings, and city guides. Host suggestions are moderated here."
         actions={
           <button
             type="button"
@@ -294,6 +385,23 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
           </button>
         }
       />
+
+      <div className="mb-3 flex flex-wrap gap-1 border-b border-[#E5DFD3]">
+        {TABS.map((tb) => (
+          <button
+            key={tb.key}
+            type="button"
+            onClick={() => setTab(tb.key)}
+            className={`-mb-px border-b-2 px-3 py-2 text-xs font-semibold ${
+              tab === tb.key
+                ? 'border-[#164E3F] text-[#164E3F]'
+                : 'border-transparent text-[#53635D] hover:text-[#17221E]'
+            }`}
+          >
+            {tb.label}
+          </button>
+        ))}
+      </div>
 
       <SavedViewToolbar
         moduleKey="discovery"
@@ -311,73 +419,189 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
             className="h-8 rounded-md border border-[#E5DFD3] bg-[#FAF8F3] px-2 text-xs"
           >
             <option value="all">All categories</option>
-            <option value="coworking">Coworking</option>
-            <option value="cafe">Cafe</option>
             <option value="restaurant">Restaurant</option>
+            <option value="cafe">Cafe</option>
+            <option value="coworking">Coworking</option>
             <option value="gym_yoga">Gym / Yoga</option>
             <option value="essential">Essential</option>
+            <option value="shopping">Shopping</option>
+            <option value="entertainment">Entertainment</option>
+            <option value="attraction">Attraction</option>
+            <option value="experience">Experience</option>
+            <option value="transport">Transport</option>
+            <option value="event_venue">Event venue</option>
           </select>
         }
       />
 
-      <div className="overflow-hidden rounded-lg border border-[#E5DFD3] bg-white">
-        <table className="w-full text-left text-[13px]">
-          <thead className="border-b border-[#E5DFD3] bg-[#FAF8F3] text-[11px] font-medium text-[#53635D]">
-            <tr>
-              <th className="px-4 py-2.5">Place Name & Address</th>
-              <th className="px-4 py-2.5">Category</th>
-              <th className="px-4 py-2.5">Destination / Neighborhood</th>
-              <th className="px-4 py-2.5">Hours / Price</th>
-              <th className="px-4 py-2.5">Status</th>
-              <th className="px-4 py-2.5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#E5DFD3]">
-            {filtered.map((p) => (
-              <tr key={p.id} className="hover:bg-[#FAF8F3]/60">
-                <td className="px-4 py-2.5">
-                  <div className="font-medium text-[#17221E]">{p.name}</div>
-                  <div className="text-[11px] text-[#53635D]">{p.address}</div>
-                </td>
-                <td className="px-4 py-2.5 text-xs capitalize text-[#53635D]">
-                  {p.category.replace('_', ' ')}
-                </td>
-                <td className="px-4 py-2.5 text-xs text-[#17221E]">
-                  {p.destinationName}
-                  {p.neighborhoodName ? ` · ${p.neighborhoodName}` : ''}
-                </td>
-                <td className="px-4 py-2.5 text-xs tabular-nums text-[#53635D]">
-                  {p.openingHours} ({p.priceRange})
-                </td>
-                <td className="px-4 py-2.5">
-                  <StatusBadge
-                    label={p.verificationStatus}
-                    tone={statusToTone(p.verificationStatus)}
-                  />
-                </td>
-                <td className="px-4 py-2.5 text-right">
-                  <div className="inline-flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleVerify(p.id, p.verificationStatus)}
-                      className="rounded border border-[#E5DFD3] px-2 py-1 text-xs"
-                    >
-                      Toggle verify
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(p.id)}
-                      className="rounded border border-[#F4C7C3] p-1 text-[#B42318]"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </td>
+      {showSuggestionsTable ? (
+        <div className="overflow-hidden rounded-lg border border-[#E5DFD3] bg-white">
+          <table className="w-full text-left text-[13px]">
+            <thead className="border-b border-[#E5DFD3] bg-[#FAF8F3] text-[11px] font-medium text-[#53635D]">
+              <tr>
+                <th className="px-4 py-2.5">Place / Address</th>
+                <th className="px-4 py-2.5">Listing</th>
+                <th className="px-4 py-2.5">Suggested by</th>
+                <th className="px-4 py-2.5">Reason</th>
+                <th className="px-4 py-2.5">Duplicate check</th>
+                <th className="px-4 py-2.5 text-right">Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-[#E5DFD3]">
+              {suggestionsForTab.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-xs text-[#53635D]">
+                    No suggestions in this queue.
+                  </td>
+                </tr>
+              ) : null}
+              {suggestionsForTab.map((s) => (
+                <tr key={s.id} className="hover:bg-[#FAF8F3]/60">
+                  <td className="px-4 py-2.5">
+                    <div className="font-medium text-[#17221E]">{s.name}</div>
+                    <div className="text-[11px] text-[#53635D]">
+                      {s.category.replace('_', ' ')}
+                      {s.address ? ` · ${s.address}` : ''}
+                      {s.distanceLabel ? ` · ${s.distanceLabel}` : ''}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-[#17221E]">{s.stayTitle}</td>
+                  <td className="px-4 py-2.5 text-xs text-[#17221E]">{s.hostName}</td>
+                  <td className="max-w-[220px] px-4 py-2.5 text-[11px] text-[#53635D]">
+                    <span className="line-clamp-2">{s.reason || '—'}</span>
+                  </td>
+                  <td className="px-4 py-2.5 text-[11px]">
+                    {s.duplicateCount > 0 ? (
+                      <span className="text-[#8A6D1F]">
+                        {s.duplicateCount} similar name(s) — review manually
+                      </span>
+                    ) : (
+                      <span className="text-[#53635D]">None</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="inline-flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReviewTarget(s);
+                          setReviewAction('approve');
+                          setReviewNote('');
+                        }}
+                        className="rounded border border-[#164E3F] px-2 py-1 text-xs font-semibold text-[#164E3F]"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReviewTarget(s);
+                          setReviewAction('needs_info');
+                          setReviewNote('');
+                        }}
+                        className="rounded border border-[#E5DFD3] px-2 py-1 text-xs"
+                      >
+                        Needs info
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReviewTarget(s);
+                          setReviewAction('reject');
+                          setReviewNote('');
+                        }}
+                        className="rounded border border-[#F4C7C3] px-2 py-1 text-xs text-[#B42318]"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {showPlacesTable ? (
+        <div className="overflow-hidden rounded-lg border border-[#E5DFD3] bg-white">
+          <table className="w-full text-left text-[13px]">
+            <thead className="border-b border-[#E5DFD3] bg-[#FAF8F3] text-[11px] font-medium text-[#53635D]">
+              <tr>
+                <th className="px-4 py-2.5">Place Name & Address</th>
+                <th className="px-4 py-2.5">Category</th>
+                <th className="px-4 py-2.5">Destination / Neighborhood</th>
+                <th className="px-4 py-2.5">Hours / Price</th>
+                <th className="px-4 py-2.5">Linked / Source</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#E5DFD3]">
+              {placesForTab.map((p) => (
+                <tr key={p.id} className="hover:bg-[#FAF8F3]/60">
+                  <td className="px-4 py-2.5">
+                    <div className="font-medium text-[#17221E]">
+                      {p.name}
+                      {p.isOnsite ? <span className="ml-1.5 text-[10px] font-semibold uppercase text-[#164E3F]">onsite</span> : null}
+                    </div>
+                    <div className="text-[11px] text-[#53635D]">{p.address}</div>
+                    {p.website ? (
+                      <div className="truncate text-[11px] text-[#53635D]">{p.website}</div>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs capitalize text-[#53635D]">
+                    {p.category.replace('_', ' ')}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs text-[#17221E]">
+                    {p.destinationName}
+                    {p.neighborhoodName ? ` · ${p.neighborhoodName}` : ''}
+                  </td>
+                  <td className="px-4 py-2.5 text-xs tabular-nums text-[#53635D]">
+                    {p.openingHours || '—'}
+                    {p.priceRange ? ` (${p.priceRange})` : ''}
+                  </td>
+                  <td className="px-4 py-2.5 text-[11px] text-[#53635D]">
+                    {p.linkedStays} listing(s)
+                    <div className="text-[10px]">{p.dataSource}</div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <StatusBadge
+                      label={p.verificationStatus}
+                      tone={statusToTone(p.verificationStatus)}
+                    />
+                  </td>
+                  <td className="px-4 py-2.5 text-right">
+                    <div className="inline-flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setEditTarget({ ...p })}
+                        className="rounded border border-[#E5DFD3] px-2 py-1 text-xs"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleVerify(p.id, p.verificationStatus)}
+                        className="rounded border border-[#E5DFD3] px-2 py-1 text-xs"
+                      >
+                        Toggle verify
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(p.id)}
+                        className="rounded border border-[#F4C7C3] p-1 text-[#B42318]"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       <ModalDialog open={createOpen} onClose={() => setCreateOpen(false)} title="Add Local Place">
         <form onSubmit={handleCreate} className="space-y-3 text-xs">
@@ -398,11 +622,17 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
               onChange={(e) => setCategory(e.target.value)}
               className="h-8 rounded border border-[#E5DFD3] px-2"
             >
-              <option value="coworking">Coworking</option>
-              <option value="cafe">Cafe</option>
               <option value="restaurant">Restaurant</option>
+              <option value="cafe">Cafe</option>
+              <option value="coworking">Coworking</option>
               <option value="gym_yoga">Gym / Yoga</option>
+              <option value="entertainment">Entertainment</option>
+              <option value="attraction">Attraction</option>
+              <option value="transport">Transport</option>
               <option value="essential">Essential</option>
+              <option value="event_venue">Event venue</option>
+              <option value="shopping">Shopping</option>
+              <option value="experience">Experience</option>
             </select>
           </div>
           <input
@@ -427,9 +657,9 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
             onChange={(e) => setDescriptionEn(e.target.value)}
             className="w-full rounded border border-[#E5DFD3] p-2"
           />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <input
-              placeholder="Hours (e.g. 07:30 - 22:00)"
+              placeholder="Hours (leave blank if unknown)"
               value={openingHours}
               onChange={(e) => setOpeningHours(e.target.value)}
               className="h-8 rounded border border-[#E5DFD3] px-2.5"
@@ -439,10 +669,17 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
               onChange={(e) => setPriceRange(e.target.value)}
               className="h-8 rounded border border-[#E5DFD3] px-2"
             >
+              <option value="">No price data</option>
               <option value="$">$</option>
               <option value="$$">$$</option>
               <option value="$$$">$$$</option>
             </select>
+            <input
+              placeholder="Website (optional)"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              className="h-8 rounded border border-[#E5DFD3] px-2.5"
+            />
           </div>
           <div className="flex justify-end gap-2">
             <button
@@ -457,6 +694,153 @@ export function LocalDiscoveryView({ initialData }: { initialData: PlacesData })
             </button>
           </div>
         </form>
+      </ModalDialog>
+
+      <ModalDialog
+        open={!!reviewTarget}
+        onClose={() => setReviewTarget(null)}
+        title={
+          reviewAction === 'approve'
+            ? 'Approve suggestion'
+            : reviewAction === 'needs_info'
+              ? 'Request more info'
+              : 'Reject suggestion'
+        }
+      >
+        <div className="space-y-3 text-xs">
+          {reviewTarget ? (
+            <div className="rounded border border-[#E5DFD3] bg-[#FAF8F3] p-2.5">
+              <div className="font-medium text-[#17221E]">{reviewTarget.name}</div>
+              <div className="text-[11px] text-[#53635D]">
+                {reviewTarget.category.replace('_', ' ')} · {reviewTarget.stayTitle} ·{' '}
+                {reviewTarget.hostName}
+              </div>
+              {reviewTarget.reason ? (
+                <div className="mt-1 text-[11px] text-[#53635D]">{reviewTarget.reason}</div>
+              ) : null}
+              {reviewTarget.duplicateCount > 0 ? (
+                <div className="mt-1 text-[11px] font-semibold text-[#8A6D1F]">
+                  Warning: {reviewTarget.duplicateCount} place(s) with a similar name already exist
+                  in this destination.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          <textarea
+            rows={2}
+            placeholder="Note to the host (optional for approve, recommended otherwise)…"
+            value={reviewNote}
+            onChange={(e) => setReviewNote(e.target.value)}
+            className="w-full rounded border border-[#E5DFD3] p-2"
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setReviewTarget(null)}
+              className="h-8 rounded border border-[#E5DFD3] px-3"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void submitReview()}
+              className="h-8 rounded bg-[#164E3F] px-4 font-semibold text-white"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </ModalDialog>
+
+      <ModalDialog open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit place details">
+        {editTarget ? (
+          <form onSubmit={submitEdit} className="space-y-2.5 text-xs">
+            <input
+              value={editTarget.name}
+              onChange={(e) => setEditTarget({ ...editTarget, name: e.target.value })}
+              className="h-8 w-full rounded border border-[#E5DFD3] px-2.5"
+              placeholder="Name"
+            />
+            <input
+              value={editTarget.address}
+              onChange={(e) => setEditTarget({ ...editTarget, address: e.target.value })}
+              className="h-8 w-full rounded border border-[#E5DFD3] px-2.5"
+              placeholder="Address"
+            />
+            <textarea
+              rows={2}
+              value={editTarget.descriptionEn}
+              onChange={(e) => setEditTarget({ ...editTarget, descriptionEn: e.target.value })}
+              className="w-full rounded border border-[#E5DFD3] p-2"
+              placeholder="Description (EN)"
+            />
+            <textarea
+              rows={2}
+              value={editTarget.descriptionVi}
+              onChange={(e) => setEditTarget({ ...editTarget, descriptionVi: e.target.value })}
+              className="w-full rounded border border-[#E5DFD3] p-2"
+              placeholder="Mô tả (VI)"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                value={editTarget.openingHours}
+                onChange={(e) => setEditTarget({ ...editTarget, openingHours: e.target.value })}
+                className="h-8 rounded border border-[#E5DFD3] px-2.5"
+                placeholder="Hours (blank = unknown)"
+              />
+              <select
+                value={editTarget.priceRange}
+                onChange={(e) => setEditTarget({ ...editTarget, priceRange: e.target.value })}
+                className="h-8 rounded border border-[#E5DFD3] px-2"
+              >
+                <option value="">No price data</option>
+                <option value="$">$</option>
+                <option value="$$">$$</option>
+                <option value="$$$">$$$</option>
+              </select>
+              <input
+                value={editTarget.website}
+                onChange={(e) => setEditTarget({ ...editTarget, website: e.target.value })}
+                className="h-8 rounded border border-[#E5DFD3] px-2.5"
+                placeholder="Website"
+              />
+              <input
+                value={editTarget.googleMapsUrl}
+                onChange={(e) => setEditTarget({ ...editTarget, googleMapsUrl: e.target.value })}
+                className="h-8 rounded border border-[#E5DFD3] px-2.5"
+                placeholder="Google Maps link"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-[11px]">
+              <input
+                type="checkbox"
+                checked={editTarget.isOnsite}
+                onChange={(e) => setEditTarget({ ...editTarget, isOnsite: e.target.checked })}
+              />
+              On-site / nội khu (hiển thị đầu tiên cho khách)
+            </label>
+            <label className="flex items-center gap-2 text-[11px]">
+              <input
+                type="checkbox"
+                checked={editTarget.isFeatured}
+                onChange={(e) => setEditTarget({ ...editTarget, isFeatured: e.target.checked })}
+              />
+              Featured
+            </label>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditTarget(null)}
+                className="h-8 rounded border border-[#E5DFD3] px-3"
+              >
+                Cancel
+              </button>
+              <button type="submit" className="h-8 rounded bg-[#164E3F] px-4 font-semibold text-white">
+                Save changes
+              </button>
+            </div>
+          </form>
+        ) : null}
       </ModalDialog>
     </div>
   );

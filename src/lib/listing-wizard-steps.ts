@@ -87,6 +87,7 @@ export interface WizardFormState {
   neighborhoodEn: string;
   neighborhoodVi: string;
   exactAddress: string;
+  googleMapsUrl: string;
   checkinInstructionsEn: string;
   checkinInstructionsVi: string;
   checkinFrom: string;
@@ -130,6 +131,7 @@ export function initialWizardState(stay: HostStaySummary | null): WizardFormStat
       neighborhoodEn: '',
       neighborhoodVi: '',
       exactAddress: '',
+      googleMapsUrl: '',
       checkinInstructionsEn: '',
       checkinInstructionsVi: '',
       checkinFrom: '14:00',
@@ -170,6 +172,7 @@ export function initialWizardState(stay: HostStaySummary | null): WizardFormStat
     neighborhoodEn: stay.neighborhoodEn,
     neighborhoodVi: stay.neighborhoodVi,
     exactAddress: stay.exactAddress,
+    googleMapsUrl: stay.googleMapsUrl ?? '',
     checkinInstructionsEn: stay.checkinInstructionsEn,
     checkinInstructionsVi: stay.checkinInstructionsVi,
     checkinFrom: stay.checkinFrom,
@@ -339,6 +342,7 @@ export function validateWizardStep(
         neighborhoodEn: state.neighborhoodEn,
         neighborhoodVi: state.neighborhoodVi,
         exactAddress: state.exactAddress,
+        googleMapsUrl: state.googleMapsUrl.trim() || undefined,
         checkinInstructionsEn: state.checkinInstructionsEn.trim() || undefined,
         checkinInstructionsVi: state.checkinInstructionsVi.trim() || undefined,
       });
@@ -447,6 +451,7 @@ export function wizardStepPatchPayload(
         neighborhoodEn: state.neighborhoodEn,
         neighborhoodVi: state.neighborhoodVi,
         exactAddress: state.exactAddress,
+        ...(state.googleMapsUrl.trim() ? { googleMapsUrl: state.googleMapsUrl.trim() } : {}),
         ...(state.checkinInstructionsEn.trim()
           ? { checkinInstructionsEn: state.checkinInstructionsEn }
           : {}),

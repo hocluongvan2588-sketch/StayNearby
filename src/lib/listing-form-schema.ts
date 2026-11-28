@@ -46,6 +46,7 @@ export const listingPatchSchema = z.object({
   neighborhoodEn: z.string().min(2).max(120).optional(),
   neighborhoodVi: z.string().min(2).max(120).optional(),
   exactAddress: z.string().min(4).max(300).optional(),
+  googleMapsUrl: z.string().max(500).optional(),
   checkinInstructionsEn: z.string().min(4).max(2000).optional(),
   checkinInstructionsVi: z.string().min(4).max(2000).optional(),
   propertyType: propertyTypeSchema.optional(),
@@ -141,6 +142,8 @@ export const listingLocationStepSchema = z.object({
   neighborhoodEn: z.string().min(2).max(120),
   neighborhoodVi: z.string().min(2).max(120),
   exactAddress: z.string().min(4).max(300),
+  // Optional Google Maps share link — parsed server-side to stays.lat/lng.
+  googleMapsUrl: z.string().max(500).optional(),
   checkinInstructionsEn: z.string().min(4).max(2000).optional(),
   checkinInstructionsVi: z.string().min(4).max(2000).optional(),
 });

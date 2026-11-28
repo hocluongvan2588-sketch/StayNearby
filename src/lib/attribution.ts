@@ -120,9 +120,19 @@ export function captureClientAttribution(): ClientAttributionContext {
 }
 
 export async function trackClientEvent(params: {
-  eventName: 'page_view' | 'article_view' | 'destination_view' | 'search' | 'stay_view' | 'checkout_start';
+  eventName:
+    | 'page_view'
+    | 'article_view'
+    | 'destination_view'
+    | 'search'
+    | 'stay_view'
+    | 'checkout_start'
+    | 'place_detail_view'
+    | 'place_map_click'
+    | 'place_website_click';
   stayId?: string;
   contentId?: string;
+  placeId?: string;
   destinationSlug?: string;
   landingPath?: string;
   dedupeKey?: string;
@@ -139,6 +149,7 @@ export async function trackClientEvent(params: {
     eventName: params.eventName,
     stayId: params.stayId ?? null,
     contentId: params.contentId ?? null,
+    placeId: params.placeId ?? null,
     destinationSlug: params.destinationSlug ?? '',
     utmSource: ctx.utmSource,
     utmMedium: ctx.utmMedium,
@@ -149,7 +160,10 @@ export async function trackClientEvent(params: {
     landingPath: params.landingPath ?? pathname,
     dedupeKey:
       params.dedupeKey ??
-      `${params.eventName}:${ctx.sessionKey}:${params.contentId ?? params.stayId ?? params.destinationSlug ?? pathname}`,
+      (params.placeId
+        ? // Place events count ACTIONS, not sessions — unique per click/open.
+          `${params.eventName}:${ctx.sessionKey}:${params.placeId}:${Date.now()}`
+        : `${params.eventName}:${ctx.sessionKey}:${params.contentId ?? params.stayId ?? params.destinationSlug ?? pathname}`),
   };
 
   try {

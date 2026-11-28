@@ -358,8 +358,6 @@ export default async function StayDetailPage({
             destinationName={destinationName}
             neighborhoodName={neighborhoodName}
             destinationTagline={destinationTagline}
-            lat={stay.lat}
-            lng={stay.lng}
           />
         </div>
       </div>

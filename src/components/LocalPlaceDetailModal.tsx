@@ -13,9 +13,11 @@ import {
 } from 'lucide-react';
 import {
   formatDistanceLabel,
+  formatDistanceMeters,
   formatPlaceCategoryLabel,
   type Locale,
 } from '@/lib/i18n';
+import { trackClientEvent } from '@/lib/attribution';
 import type { LocalDiscoveryPlace } from '@/modules/catalog';
 import { buildPlaceMapsUrl } from './LocalPlaceCard';
 
@@ -43,7 +45,20 @@ export function LocalPlaceDetailModal({
   const neighborhood = isVi
     ? place.neighborhoodNameVi || place.neighborhoodNameEn
     : place.neighborhoodNameEn || place.neighborhoodNameVi;
-  const distance = formatDistanceLabel(place.distanceLabel, locale);
+  const distance =
+    formatDistanceLabel(place.distanceLabel, locale) ||
+    formatDistanceMeters(place.distanceMeters, locale);
+  const website = (place.website ?? '').trim();
+
+  // Basic interaction telemetry (spec §11): one event per modal open.
+  useEffect(() => {
+    void trackClientEvent({
+      eventName: 'place_detail_view',
+      placeId: place.id,
+      landingPath: typeof window !== 'undefined' ? window.location.pathname : undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [place.id]);
 
   // Focus the close button and lock background scroll (position preserved).
   useEffect(() => {
@@ -100,6 +115,13 @@ export function LocalPlaceDetailModal({
       value: distance,
     });
   }
+  if (place.hostNote) {
+    infoRows.push({
+      icon: <Sparkles className="h-4 w-4 shrink-0 text-[#164E3F]" />,
+      label: isVi ? 'Lý do chủ nhà giới thiệu' : "Host's reason for recommending",
+      value: place.hostNote,
+    });
+  }
 
   return (
     <div
@@ -141,6 +163,15 @@ export function LocalPlaceDetailModal({
           <div className="flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-wider">
             <span className="text-[#164E3F]">
               {formatPlaceCategoryLabel(place.category, locale)}
+              {place.linkSource === 'host_suggested' ? (
+                <span className="ml-2 font-normal normal-case text-[#53635D]">
+                  {isVi ? '· Chủ nhà giới thiệu' : '· Host recommended'}
+                </span>
+              ) : place.linkSource === 'curated' ? (
+                <span className="ml-2 font-normal normal-case text-[#53635D]">
+                  {isVi ? '· VietNomad biên tập' : '· Curated by VietNomad'}
+                </span>
+              ) : null}
             </span>
             {place.rating !== null && (
               <span className="inline-flex items-center gap-1 text-[#17221E]">
@@ -206,16 +237,41 @@ export function LocalPlaceDetailModal({
           )}
         </div>
 
-        <div className="shrink-0 border-t border-[#E5DFD3] px-5 py-4 sm:px-6">
+        <div className="shrink-0 space-y-2 border-t border-[#E5DFD3] px-5 py-4 sm:px-6">
           <a
             href={mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => {
+              void trackClientEvent({
+                eventName: 'place_map_click',
+                placeId: place.id,
+                dedupeKey: `place_map_click:${place.id}:${Date.now()}`,
+              });
+            }}
             className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl bg-[#164E3F] text-sm font-semibold text-white hover:bg-[#0F392E]"
           >
             <Navigation className="h-4 w-4" />
             {isVi ? 'Chỉ đường trên Google Maps' : 'Get directions on Google Maps'}
           </a>
+          {website ? (
+            <a
+              href={website}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                void trackClientEvent({
+                  eventName: 'place_website_click',
+                  placeId: place.id,
+                  dedupeKey: `place_website_click:${place.id}:${Date.now()}`,
+                });
+              }}
+              className="flex min-h-[40px] w-full items-center justify-center gap-2 rounded-xl border border-[#E5DFD3] text-sm font-semibold text-[#17221E] hover:bg-[#FAF8F3]"
+            >
+              <ExternalLink className="h-4 w-4" />
+              {isVi ? 'Truy cập website' : 'Visit website'}
+            </a>
+          ) : null}
         </div>
       </div>
     </div>

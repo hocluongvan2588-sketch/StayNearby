@@ -14,7 +14,9 @@ import {
   listAdminPlaces,
   listCampaignsAndFunnel,
   listCmsContents,
+  listPlaceSuggestions,
   listPromotions,
+  reviewPlaceSuggestion,
   togglePromotion,
   updateAdminPlace,
   updateDestinationMeta,
@@ -39,6 +41,15 @@ export async function GET(req: NextRequest) {
     if (scope === 'promotions') {
       await requireAdminPermission('promotions', 'view');
       return okJson({ promotions: await listPromotions() });
+    }
+    if (scope === 'suggestions') {
+      await requireAdminPermission('discovery', 'view');
+      return okJson(
+        await listPlaceSuggestions({
+          status: req.nextUrl.searchParams.get('status') ?? undefined,
+          q: req.nextUrl.searchParams.get('q') ?? undefined,
+        })
+      );
     }
 
     await requireAdminPermission('discovery', 'view');
@@ -79,6 +90,8 @@ const postSchema = z.discriminatedUnion('kind', [
       'transport',
       'essential',
       'event_venue',
+      'shopping',
+      'experience',
     ]),
     name: z.string().min(2).max(160),
     address: z.string().min(2).max(300),
@@ -87,6 +100,15 @@ const postSchema = z.discriminatedUnion('kind', [
     priceRange: z.string().max(12).optional(),
     openingHours: z.string().max(80).optional(),
     isFeatured: z.boolean().optional(),
+    website: z.string().max(300).optional(),
+    googleMapsUrl: z.string().max(500).optional(),
+    isOnsite: z.boolean().optional(),
+  }),
+  z.object({
+    kind: z.literal('suggestion_review'),
+    id: z.string().uuid(),
+    action: z.enum(['approve', 'needs_info', 'reject']),
+    note: z.string().max(500).optional(),
   }),
   z.object({
     kind: z.literal('content'),
@@ -159,6 +181,10 @@ export async function POST(req: NextRequest) {
       const actor = await requireAdminPermission('discovery', 'create');
       return okJson(await createAdminPlace(actor, d), 201);
     }
+    if (d.kind === 'suggestion_review') {
+      const actor = await requireAdminPermission('discovery', 'edit');
+      return okJson(await reviewPlaceSuggestion(actor, d.id, d));
+    }
     if (d.kind === 'content') {
       const actor = await requireAdminPermission('content', 'create');
       return okJson(await createOrUpdateCmsContent(actor, d), 201);
@@ -192,6 +218,13 @@ const patchSchema = z.discriminatedUnion('kind', [
     isFeatured: z.boolean().optional(),
     openingHours: z.string().max(80).optional(),
     priceRange: z.string().max(12).optional(),
+    name: z.string().min(2).max(160).optional(),
+    address: z.string().max(300).optional(),
+    descriptionEn: z.string().max(1000).optional(),
+    descriptionVi: z.string().max(1000).optional(),
+    website: z.string().max(300).optional(),
+    googleMapsUrl: z.string().max(500).optional(),
+    isOnsite: z.boolean().optional(),
   }),
   z.object({
     kind: z.literal('promotion'),

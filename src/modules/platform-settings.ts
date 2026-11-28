@@ -31,6 +31,59 @@ export const DEFAULT_PLATFORM_CONFIG: PlatformFeeConfig = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// Local Discovery ranking config (spec §7): central, adjustable, never
+// hardcoded inside components. Stored in platform_settings.key =
+// 'local_discovery' as { radiiMeters: { category: meters } }; missing keys
+// fall back to DEFAULT_LOCAL_DISCOVERY_RADII.
+// ---------------------------------------------------------------------------
+
+export interface LocalDiscoveryConfig {
+  radiiMeters: Record<string, number>;
+}
+
+export const DEFAULT_LOCAL_DISCOVERY_RADII: Record<string, number> = {
+  essential: 500,
+  cafe: 1000,
+  restaurant: 2000,
+  coworking: 3000,
+  gym_yoga: 3000,
+  transport: 2000,
+  shopping: 5000,
+  entertainment: 5000,
+  event_venue: 5000,
+  attraction: 30000,
+  experience: 30000,
+};
+
+export async function getLocalDiscoveryConfig(): Promise<LocalDiscoveryConfig> {
+  try {
+    const res = await dbQuery<{ value_json: unknown }>(
+      `SELECT value_json FROM platform_settings WHERE key = $1`,
+      ['local_discovery']
+    );
+    const raw = res.rows[0]?.value_json;
+    const container =
+      raw && typeof raw === 'object' && 'value' in (raw as Record<string, unknown>)
+        ? (raw as { value: unknown }).value
+        : raw;
+    if (container && typeof container === 'object') {
+      const radii = (container as { radiiMeters?: unknown }).radiiMeters;
+      if (radii && typeof radii === 'object') {
+        const merged: Record<string, number> = { ...DEFAULT_LOCAL_DISCOVERY_RADII };
+        for (const [k, v] of Object.entries(radii as Record<string, unknown>)) {
+          const n = Number(v);
+          if (Number.isFinite(n) && n > 0) merged[k] = n;
+        }
+        return { radiiMeters: merged };
+      }
+    }
+  } catch {
+    // fall through to defaults — ranking must never fail on config lookup
+  }
+  return { radiiMeters: { ...DEFAULT_LOCAL_DISCOVERY_RADII } };
+}
+
 export async function getPlatformFeeConfig(tx?: DbClient): Promise<PlatformFeeConfig> {
   try {
     const exec = tx

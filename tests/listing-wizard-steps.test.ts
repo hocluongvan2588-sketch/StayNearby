@@ -42,6 +42,7 @@ function validState(): WizardFormState {
     neighborhoodEn: 'Son Tra',
     neighborhoodVi: 'Sơn Trà',
     exactAddress: '12 Vo Nguyen Giap Street, Son Tra, Da Nang',
+    googleMapsUrl: '',
     checkinInstructionsEn: 'Self check-in with the smart lock code.',
     checkinInstructionsVi: 'Nhận phòng tự động bằng mã khóa thông minh.',
     checkinFrom: '14:00',

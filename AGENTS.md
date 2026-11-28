@@ -40,6 +40,12 @@ booking widget, Local Discovery), read `docs/UI_PRINCIPLES.md`. Highlights:
 6. **Local Discovery is interactive** — whole-card click opens the place
    detail overlay (modal/bottom sheet) with keyboard support and preserved
    scroll/booking state.
+7. **Local Discovery data path** — hosts propose places through the Listing
+   Editor ("Giới thiệu khu vực"); everything goes through
+   `place_suggestions` moderation before it is public. Ranking, distance
+   privacy and honest-default rules: `docs/UI_PRINCIPLES.md` §Local Discovery
+   + `docs/local-discovery-plan.md`. One shared `places` table only — no
+   parallel place stores, no host edits to verified place data.
 
 ## 3. Engineering & Architecture Guardrails
 

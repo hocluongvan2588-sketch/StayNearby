@@ -17,6 +17,7 @@ import { AppError } from '@/lib/errors';
 import { syncRoomIcalFeed } from '@/lib/ical';
 import { syncHostLeadFromApplicationTx } from '@/modules/host-lead-sync';
 import { deleteStayUploadedMedia, getMediaStorageStatus } from '@/lib/storage';
+import { isGoogleMapsUrl, parseGoogleMapsCoords } from '@/lib/google-maps';
 
 export interface HostCoworkingSpot {
   name: string;
@@ -244,6 +245,7 @@ export async function getHostConsoleData(user: SessionUser) {
         neighborhoodEn: String(s.neighborhood_en),
         neighborhoodVi: String(s.neighborhood_vi),
         exactAddress: String(s.exact_address),
+        googleMapsUrl: String(s.google_maps_url ?? ''),
         checkinInstructionsEn: String(s.checkin_instructions_en),
         checkinInstructionsVi: String(s.checkin_instructions_vi),
         destinationId: String(s.destination_id),
@@ -825,6 +827,8 @@ export interface UpdateHostStayFullInput {
   neighborhoodEn?: string;
   neighborhoodVi?: string;
   exactAddress?: string;
+  /** Optional Google Maps share link; parsed to stays.lat/lng server-side. */
+  googleMapsUrl?: string;
   checkinInstructionsEn?: string;
   checkinInstructionsVi?: string;
   propertyType?: 'apartment' | 'coliving' | 'boutique_hotel' | 'villa' | 'eco_lodge';
@@ -966,6 +970,31 @@ export async function updateHostStayConfiguration(
       nextMapX = toNum(dest.map_x, nextMapX);
       nextMapY = toNum(dest.map_y, nextMapY);
     }
+
+    // Optional host-pinned Google Maps link (Local Discovery): coordinates are
+    // parsed from the share URL — no paid geocoding API. Empty clears the pin;
+    // an unparseable-but-valid Maps link keeps existing coordinates.
+    let nextGoogleMapsUrl = String(current.google_maps_url ?? '');
+    let nextLat = toNumOrNull(current.lat);
+    let nextLng = toNumOrNull(current.lng);
+    if (input.googleMapsUrl !== undefined) {
+      const rawMapsUrl = input.googleMapsUrl.trim();
+      if (!rawMapsUrl) {
+        nextGoogleMapsUrl = '';
+        nextLat = null;
+        nextLng = null;
+      } else if (!isGoogleMapsUrl(rawMapsUrl)) {
+        throw new AppError('VALIDATION_ERROR', 'Paste a Google Maps share link.');
+      } else {
+        nextGoogleMapsUrl = rawMapsUrl;
+        const coords = parseGoogleMapsCoords(rawMapsUrl);
+        if (coords) {
+          nextLat = coords.lat;
+          nextLng = coords.lng;
+        }
+      }
+    }
+
     // Wi-Fi (Phase A): explicit values only. NULL = chưa cập nhật; no upload
     // formula, no default speeds; verified data that changes drops the badge
     // and moves to reverify_pending (see src/lib/wifi-status.ts).
@@ -1063,7 +1092,10 @@ export async function updateHostStayConfiguration(
              WHEN $52 THEN NOW()
              ELSE wifi_tested_at
            END,
-           speedtest_proof_url = CASE WHEN $55 THEN $54 ELSE speedtest_proof_url END
+           speedtest_proof_url = CASE WHEN $55 THEN $54 ELSE speedtest_proof_url END,
+           google_maps_url = $56,
+           lat = $57,
+           lng = $58
        WHERE id = $30`,
       [
         input.titleEn?.trim() || String(current.title_en),
@@ -1123,6 +1155,9 @@ export async function updateHostStayConfiguration(
         nextTestedAt,
         nextProof,
         proofProvided,
+        nextGoogleMapsUrl,
+        nextLat,
+        nextLng,
       ]
     );
 
