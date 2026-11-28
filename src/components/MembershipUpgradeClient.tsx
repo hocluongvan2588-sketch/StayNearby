@@ -11,6 +11,9 @@ import { usePreferences } from './PreferencesProvider';
 export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) {
   const { locale, premiumRewardPct } = usePreferences();
   const isVi = locale === 'vi';
+  // Annual spend that earns the €99 fee back at the current reward rate
+  // (e.g. 4% => €2,475). Derived from config so the claim never goes stale.
+  const breakEvenEur = Math.round(99 / Math.max(1, premiumRewardPct) * 100);
 
   const [vatTaxId, setVatTaxId] = useState(user?.vatTaxId ?? '');
   const [done, setDone] = useState(user?.membershipTier === 'premium');
@@ -30,8 +33,8 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
           </h1>
           <p className="text-sm leading-relaxed text-[#DCECE5]">
             {isVi
-              ? 'Chi phí dưới 2 EUR mỗi tuần. Chỉ một lần thuê nhà 1 tháng đã đủ bù lại toàn bộ phí hội viên cả năm.'
-              : 'Costs under €2 a week. A single month-long booking earns back the entire annual fee.'}
+              ? `Chi phí dưới 2 EUR mỗi tuần. Chi tiêu khoảng ${breakEvenEur.toLocaleString('vi-VN')} EUR mỗi năm, tương đương 3 đến 4 kỳ lưu trú dài, là đủ hoàn lại toàn bộ phí hội viên.`
+              : `Costs under €2 a week. Around €${breakEvenEur.toLocaleString('en-US')} of bookings a year, across three or four long stays, earns back the entire annual fee.`}
           </p>
         </div>
 
