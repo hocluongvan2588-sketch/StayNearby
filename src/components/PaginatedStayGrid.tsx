@@ -11,6 +11,8 @@ interface PaginatedStayGridProps {
   savedIds?: string[];
   isAuthenticated?: boolean;
   gapClass?: string;
+  /** Column classes — callers with a sidebar pass a denser grid. */
+  colsClass?: string;
   perPage?: number;
 }
 
@@ -24,6 +26,7 @@ function PaginatedStayGridInner({
   savedIds = [],
   isAuthenticated = false,
   gapClass = 'gap-6',
+  colsClass = 'md:grid-cols-2 lg:grid-cols-3',
   perPage = 9,
 }: PaginatedStayGridProps) {
   const { locale } = usePreferences();
@@ -46,7 +49,7 @@ function PaginatedStayGridInner({
 
   return (
     <div ref={topRef} className="scroll-mt-24">
-      <div className={`grid ${gapClass} md:grid-cols-2 lg:grid-cols-3`}>
+      <div className={`grid ${gapClass} ${colsClass}`}>
         {visibleStays.map((stay) => (
           <StayCard
             key={stay.id}

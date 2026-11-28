@@ -1,9 +1,18 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { Bookmark, ShieldCheck, Star, Wifi } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
+  Bookmark,
+  Briefcase,
+  ChevronLeft,
+  ChevronRight,
+  ShieldCheck,
+  Star,
+  Wifi,
+} from 'lucide-react';
+import {
+  formatCancellationPolicyLabel,
   formatCountNoun,
   formatKitchenTypeLabel,
   formatPropertyTypeLabel,
@@ -24,6 +33,23 @@ export function StayCard({
   const { locale, formatMoney } = usePreferences();
   const [saved, setSaved] = useState(initialSaved);
   const [saving, setSaving] = useState(false);
+
+  // Photo carousel (app-standard card): hero first, then gallery, deduped.
+  // Cards are keyed by stay.id upstream, so state resets on stay change; the
+  // clamp guards the rare same-instance prop swap instead of an effect.
+  const [photoIdx, setPhotoIdx] = useState(0);
+  const photos = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const src of [stay.heroImage, ...(stay.galleryImages ?? [])]) {
+      if (src && !seen.has(src)) {
+        seen.add(src);
+        out.push(src);
+      }
+    }
+    return out.length > 0 ? out : [stay.heroImage];
+  }, [stay.heroImage, stay.galleryImages]);
+  const activePhotoIdx = photoIdx < photos.length ? photoIdx : 0;
 
   const isVi = locale === 'vi';
   const title = isVi ? stay.titleVi : stay.titleEn;
@@ -55,6 +81,13 @@ export function StayCard({
     : hasGoogleRating
       ? stay.googleRating!.toFixed(1)
       : null;
+
+  // Airbnb-style review count next to the star (source stays labelled).
+  const ratingCount = hasInternalRating
+    ? stay.guestReviewsCount
+    : hasGoogleRating
+      ? (stay.googleReviewCount ?? 0)
+      : 0;
 
   // Wi-Fi badge: only a real declared/measured speed, never0 or assumed.
   const wifiSpeed =
@@ -89,12 +122,49 @@ export function StayCard({
         <Link href={`/stays/${stay.slug}`} className="block h-full w-full">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={stay.heroImage}
+            src={photos[activePhotoIdx] ?? stay.heroImage}
             alt={title}
             className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
           />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
         </Link>
+
+        {/* Carousel controls (Airbnb-style): arrows on hover, dots always */}
+        {photos.length > 1 && (
+          <>
+            <button
+              type="button"
+              aria-label={isVi ? 'Ảnh trước' : 'Previous photo'}
+              onClick={() => setPhotoIdx((i) => (i - 1 + photos.length) % photos.length)}
+              className="absolute left-2 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#17221E] shadow-sm opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label={isVi ? 'Ảnh tiếp theo' : 'Next photo'}
+              onClick={() => setPhotoIdx((i) => (i + 1) % photos.length)}
+              className="absolute right-11 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[#17221E] shadow-sm opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <div className="absolute bottom-2.5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5">
+              {photos.map((src, i) => (
+                <button
+                  key={`${src}-${i}`}
+                  type="button"
+                  aria-label={isVi ? `Ảnh ${i + 1}/${photos.length}` : `Photo ${i + 1}/${photos.length}`}
+                  onClick={() => setPhotoIdx(i)}
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === activePhotoIdx
+                      ? 'w-4 bg-white shadow-sm'
+                      : 'w-1.5 bg-white/60 hover:bg-white/80'
+                  }`}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Top-left: Wi-Fi speed badge (intentional exception to the
             no-badge rule — a VietNomad signature attribute) */}
@@ -147,6 +217,9 @@ export function StayCard({
                 fill={hasGoogleRating ? '#A67C2E' : '#17221E'}
               />
               {ratingValue}
+              {ratingCount > 0 && (
+                <span className="font-normal text-[#53635D]">({ratingCount})</span>
+              )}
               {hasGoogleRating && (
                 <span className="text-[10px] font-normal text-[#53635D]">
                   {isVi ? 'Google' : 'Google'}
@@ -164,11 +237,30 @@ export function StayCard({
           {summaryBits.join(' · ')}
         </p>
 
+        {/* Trust chips (Booking-style): only real, earned attributes */}
+        {(stay.isWorkReady || stay.cancellationPolicy === 'flexible') && (
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            {stay.isWorkReady && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#E7F1EC] px-2 py-0.5 text-[10px] font-semibold text-[#164E3F]">
+                <Briefcase className="h-3 w-3" />
+                Work-Ready
+              </span>
+            )}
+            {stay.cancellationPolicy === 'flexible' && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-[#E5DFD3] bg-[#FAF8F3] px-2 py-0.5 text-[10px] font-semibold text-[#53635D]">
+                <ShieldCheck className="h-3 w-3 text-[#164E3F]" />
+                {formatCancellationPolicyLabel(stay.cancellationPolicy, locale)}
+              </span>
+            )}
+          </div>
+        )}
+
         <div className="mt-auto space-y-0.5 pt-1.5">
           {stay.selectedStayNights !== null &&
           stay.selectedStayNights !== undefined &&
           stay.selectedStayTotalVnd !== null &&
           stay.selectedStayTotalVnd !== undefined ? (
+            <>
             <div className="flex items-baseline gap-1.5">
               <span className="text-[15px] font-semibold text-[#17221E]">
                 {formatMoney(stay.selectedStayTotalVnd)}
@@ -177,6 +269,13 @@ export function StayCard({
                 {isVi ? `/ ${stay.selectedStayNights} đêm` : `/ ${stay.selectedStayNights} nights`}
               </span>
             </div>
+            {stay.selectedStayNights > 0 && (
+              <p className="text-[12px] text-[#53635D]">
+                ≈ {formatMoney(Math.round(stay.selectedStayTotalVnd / stay.selectedStayNights))}
+                {isVi ? ' / đêm' : ' / night'}
+              </p>
+            )}
+            </>
           ) : (
             <>
               <div className="flex items-baseline gap-1.5">
