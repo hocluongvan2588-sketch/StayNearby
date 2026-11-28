@@ -144,7 +144,9 @@ export default async function StayDetailPage({
                     ({formatCountNoun(stay.reviewsCount, 'review', 'reviews', 'đánh giá', prefs.locale)})
                   </span>
                 </span>
-              ) : stay.googleReviewCount > 0 ? (
+              ) : stay.googleReviewCount !== null &&
+                  stay.googleReviewCount > 0 &&
+                  stay.googleRating !== null ? (
                 <span className="inline-flex items-center gap-1 font-medium text-[#17221E]">
                   <Star className="h-4 w-4 text-[#A67C2E]" fill="#A67C2E" />
                   <span>{stay.googleRating.toFixed(1)}</span>

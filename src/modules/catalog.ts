@@ -55,8 +55,9 @@ export interface StayCardItem {
   kitchenType: string;
   laundryType: string;
   petFriendly: boolean;
-  googleRating: number;
-  googleReviewCount: number;
+  // Google rating is optional and NEVER defaulted — null = "no Google data".
+  googleRating: number | null;
+  googleReviewCount: number | null;
   // Internal VietNomad guest reviews (preferred over Google on cards).
   guestReviewsAvg: number | null;
   guestReviewsCount: number;
@@ -411,8 +412,14 @@ function mapStayRowToCard(
     kitchenType: String(row.kitchen_type),
     laundryType: String(row.laundry_type),
     petFriendly: Boolean(row.pet_friendly),
-    googleRating: Number(row.google_rating ?? 4.8),
-    googleReviewCount: toNum(row.google_review_count),
+    googleRating:
+      row.google_rating === null || row.google_rating === undefined
+        ? null
+        : Number(row.google_rating),
+    googleReviewCount:
+      row.google_review_count === null || row.google_review_count === undefined
+        ? null
+        : toNum(row.google_review_count),
     guestReviewsAvg:
       row.guest_reviews_avg === null || row.guest_reviews_avg === undefined
         ? null
@@ -650,7 +657,7 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
     if (sortBy === 'price_asc') return a.monthDisplayVnd - b.monthDisplayVnd;
     if (sortBy === 'savings_desc')
       return b.dealSavingsPct + b.stayLongerSavingsPct - (a.dealSavingsPct + a.stayLongerSavingsPct);
-    if (sortBy === 'rating_desc') return b.googleRating - a.googleRating;
+    if (sortBy === 'rating_desc') return (b.googleRating ?? -1) - (a.googleRating ?? -1);
     if (sortBy === 'wifi_desc') return wifiRank(b) - wifiRank(a);
     if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
     if (a.featuredRank !== b.featuredRank) return a.featuredRank - b.featuredRank;
