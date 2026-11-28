@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   CalendarClock,
   Camera,
+  Car,
   CheckCircle2,
   ClipboardList,
   DollarSign,
@@ -25,6 +26,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { HostLocalPlacesPanel } from '@/components/host/HostLocalPlacesPanel';
+import { HostStayExtrasSection } from '@/components/host/HostStayExtrasSection';
 import {
   formatCancellationPolicyLabel,
   formatPropertyTypeLabel,
@@ -50,6 +52,7 @@ const SECTION_DEFS = [
   { key: 'photos', en: '2. Photos & Videos', vi: '2. Hình ảnh & Video', icon: Camera },
   { key: 'amenities', en: '3. Amenities', vi: '3. Tiện nghi chỗ ở', icon: Sparkles },
   { key: 'workspace', en: '4. Internet & Workspace', vi: '4. Internet & Không gian làm việc', icon: Laptop },
+  { key: 'extras', en: '4b. Stay Extras', vi: '4b. Dịch vụ bổ sung', icon: Car },
   { key: 'location', en: '5. Location', vi: '5. Vị trí & Địa chỉ', icon: MapPin },
   { key: 'local', en: '6. Local Recommendations', vi: '6. Giới thiệu khu vực', icon: Store },
   { key: 'pricing', en: '7. Pricing', vi: '7. Bảng giá & Gói dài ngày', icon: DollarSign },
@@ -890,6 +893,21 @@ export function HostListingEditorClient({
                   />
                 </div>
               </div>
+            </div>
+          )}
+
+          {activeSection === 'extras' && (
+            <div className="space-y-4">
+              <ListingSectionTitle
+                description={
+                  isVi
+                    ? 'Khách thanh toán trực tiếp cho bên cung cấp. VietNomad không thu tiền dịch vụ này.'
+                    : 'Guests pay the provider directly. VietNomad does not collect money for these services.'
+                }
+              >
+                {isVi ? '4b. Dịch vụ bổ sung' : '4b. Stay Extras'}
+              </ListingSectionTitle>
+              <HostStayExtrasSection stayId={initialStay.id} isVi={isVi} />
             </div>
           )}
 

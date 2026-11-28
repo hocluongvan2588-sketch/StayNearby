@@ -84,6 +84,41 @@ export function StayBookingWidget({
     Boolean((user?.rewardCreditVnd ?? 0) > 0)
   );
   const [guestNote, setGuestNote] = useState('');
+
+  // Stay Extras (spec §6): optional service selections. Kept in component
+  // state (not payment state) so choices survive payment-method switches and
+  // back navigation. Default off. Selections never change the online total —
+  // guests pay providers directly after the host confirms.
+  const [availableServices, setAvailableServices] = useState<
+    Array<{
+      id: string;
+      nameVi: string;
+      nameEn: string;
+      priceVnd: number | null;
+      priceUnit: string;
+      isIncluded: boolean;
+      descriptionVi: string;
+      descriptionEn: string;
+    }>
+  >([]);
+  const [serviceSelections, setServiceSelections] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/stays/${stay.id}/services`);
+        const json = await res.json();
+        if (!cancelled && res.ok) {
+          setAvailableServices(json?.services ?? []);
+        }
+      } catch {
+        // Optional list — the booking flow must not depend on it.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [stay.id]);
   const [showExtras, setShowExtras] = useState(false);
 
   // Persist the guest's in-progress selection across the login round-trip so
@@ -102,6 +137,7 @@ export function StayBookingWidget({
           baseTier?: number;
           extraNights?: number;
           guestsCount?: number;
+          serviceSelections?: string[];
         };
         if (draft.roomId && stay.rooms.some((r) => r.id === draft.roomId)) {
           setRoomId(draft.roomId);
@@ -117,6 +153,11 @@ export function StayBookingWidget({
         }
         if (typeof draft.guestsCount === 'number' && draft.guestsCount >= 1) {
           setGuestsCount(draft.guestsCount);
+        }
+        if (Array.isArray(draft.serviceSelections)) {
+          setServiceSelections(
+            draft.serviceSelections.filter((s): s is string => typeof s === 'string')
+          );
         }
       } catch {
         // Ignore malformed drafts
@@ -285,7 +326,7 @@ export function StayBookingWidget({
       try {
         window.sessionStorage.setItem(
           draftKey,
-          JSON.stringify({ roomId, checkIn, baseTier, extraNights, guestsCount })
+          JSON.stringify({ roomId, checkIn, baseTier, extraNights, guestsCount, serviceSelections })
         );
       } catch {
         // Storage unavailable — best effort
@@ -319,6 +360,7 @@ export function StayBookingWidget({
           useRewardCredit,
           promotionCode: promoAdjustment?.code,
           guestNote,
+          extrasSelection: serviceSelections.map((serviceId) => ({ serviceId })),
           checkoutMode: 'intent',
           attributionSessionKey: attr.sessionKey,
           utmSource: attr.utmSource,
@@ -520,6 +562,74 @@ export function StayBookingWidget({
           </select>
         </label>
       </div>
+
+      {/* Stay Extras (spec §6): optional services, default off, never changes
+          the online total — the host confirms them after booking. */}
+      {availableServices.length > 0 && !confirmed && !pendingBooking && (
+        <div className="space-y-2.5 border-t border-[#E5DFD3] px-3.5 pt-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-[#53635D]">
+            {isVi ? 'Dịch vụ bổ sung (tùy chọn)' : 'Additional services (optional)'}
+          </p>
+          <div className="space-y-2">
+            {availableServices.map((s) => {
+              const checked = serviceSelections.includes(s.id);
+              const priceText = s.isIncluded
+                ? isVi
+                  ? 'Đã bao gồm'
+                  : 'Included'
+                : s.priceVnd === null
+                  ? isVi
+                    ? 'Theo yêu cầu'
+                    : 'By quote'
+                  : s.priceVnd === 0
+                    ? isVi
+                      ? 'Miễn phí'
+                      : 'Free'
+                    : `${s.priceVnd.toLocaleString(isVi ? 'vi-VN' : 'en-US')}₫/${
+                        isVi
+                          ? { day: 'ngày', week: 'tuần', month: 'tháng', trip: 'chuyến', visit: 'lần', quote: 'yêu cầu' }[s.priceUnit] ?? s.priceUnit
+                          : { day: 'day', week: 'week', month: 'month', trip: 'trip', visit: 'visit', quote: 'quote' }[s.priceUnit] ?? s.priceUnit
+                      }`;
+              const desc = isVi ? s.descriptionVi : s.descriptionEn;
+              return (
+                <label
+                  key={s.id}
+                  className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-[#E5DFD3] bg-[#FAF8F3] p-3 transition hover:border-[#FF5A1F]/40"
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[#FF5A1F]"
+                    checked={checked}
+                    onChange={() =>
+                      setServiceSelections((prev) =>
+                        checked ? prev.filter((id) => id !== s.id) : [...prev, s.id]
+                      )
+                    }
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-baseline justify-between gap-x-2">
+                      <span className="text-xs font-semibold text-[#17221E]">
+                        {isVi ? s.nameVi : s.nameEn}
+                      </span>
+                      <span className="text-xs font-medium text-[#53635D]">{priceText}</span>
+                    </span>
+                    {desc && (
+                      <span className="mt-0.5 block text-[11px] leading-snug text-[#53635D]">
+                        {desc}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="text-[11px] leading-relaxed text-[#53635D]">
+            {isVi
+              ? 'Chủ nhà sẽ xác nhận dịch vụ sau khi bạn đặt chỗ. Thanh toán trực tiếp cho bên cung cấp.'
+              : 'The host confirms services after you book. Pay the provider directly.'}
+          </p>
+        </div>
+      )}
 
       {/* Primary Action / Payment Flow */}
       {error && (

@@ -38,7 +38,7 @@ export function buildConciergeWhatsappUrl(params: {
   return `https://wa.me/${digits}?text=${text}`;
 }
 
-async function maybeSendResendEmail(to: string, subject: string, html: string): Promise<string> {
+export async function maybeSendResendEmail(to: string, subject: string, html: string): Promise<string> {
   const { resendApiKey, resendFromEmail } = getConfig();
   if (!resendApiKey || !to.includes('@')) return 'logged_in_db';
 

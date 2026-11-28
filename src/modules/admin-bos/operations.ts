@@ -10,6 +10,7 @@ import {
 } from '@/modules/admin-rbac';
 import { releaseBookingPromotionTx } from '@/modules/bookings';
 import { advanceHostLeadMilestoneTx } from '@/modules/host-lead-sync';
+import { ensureServiceRequestsForBookingTx, handleBookingCancelledForExtrasTx } from '@/modules/stay-extras';
 import { assertAdminStatusTransition } from '@/modules/listing-lifecycle';
 import { captureStayRevision } from '@/modules/listing-revisions';
 import { triggerAutomationTask } from './shared';
@@ -632,6 +633,15 @@ export async function updateBookingByAdmin(
         bookingId,
       ]
     );
+
+    // Stay Extras: materialize requests when admin confirms a booking;
+    // handle active requests when admin cancels one.
+    if (nextLegacy === 'RESERVED_LOCKED' && cur.status !== 'RESERVED_LOCKED') {
+      await ensureServiceRequestsForBookingTx(tx, bookingId);
+    }
+    if (nextBookingStatus === 'cancelled' && cur.booking_status !== 'cancelled') {
+      await handleBookingCancelledForExtrasTx(tx, bookingId);
+    }
 
     if (input.payoutStatus) {
       await tx.query(

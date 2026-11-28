@@ -1074,6 +1074,158 @@ export async function seedAdminBosFoundationData(params?: {
      ON CONFLICT DO NOTHING`
   );
 
+  // ---------------------------------------------------------------------
+  // Stay Extras help-center articles (spec §13): one guest-facing and one
+  // host-facing article, published in both locales with their own /guides
+  // slugs. Linked as "Tìm hiểu thêm" from Stay Detail and the host editor.
+  // ---------------------------------------------------------------------
+  const para = (text: string) => ({
+    type: 'paragraph',
+    content: text ? [{ type: 'text', text }] : [],
+  });
+  const extrasGuestDocVi = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 2, id: 'dich-vu-bo-sung-la-gi' }, content: [{ type: 'text', text: 'Dịch vụ bổ sung là gì?' }] },
+      para('Dịch vụ bổ sung là các tiện ích chủ nhà cung cấp hoặc sắp xếp cho kỳ lưu trú: thuê xe máy, xe đạp, đón hoặc đưa ra sân bay, thuê màn hình làm việc, dọn phòng, giặt là và vé coworking. Đây là dịch vụ theo yêu cầu — không phải phần của giá phòng.'),
+      { type: 'heading', attrs: { level: 2, id: 'chon-tai-checkout' }, content: [{ type: 'text', text: 'Chọn dịch vụ khi đặt chỗ' }] },
+      para('Trong bước thanh toán, bạn thấy danh sách dịch vụ của chỗ ở với giá và đơn vị rõ ràng. Chỉ tick vào ô dịch vụ bạn muốn — chọn hay không không ảnh hưởng đến tổng tiền thanh toán online và không đổi giá phòng.'),
+      { type: 'heading', attrs: { level: 2, id: 'thanh-toan-truc-tiep' }, content: [{ type: 'text', text: 'Thanh toán trực tiếp cho bên cung cấp' }] },
+      para('Sau khi bạn đặt chỗ, chủ nhà xác nhận từng dịch vụ. Tiền dịch vụ được trả trực tiếp cho chủ nhà hoặc đối tác theo thỏa thuận — VietNomad không thu tiền dịch vụ và không tính hoa hồng trên phần này. Phí dịch vụ 12% chỉ tính trên tiền phòng.'),
+      { type: 'heading', attrs: { level: 2, id: 'thong-tin-chuyen-di' }, content: [{ type: 'text', text: 'Cung cấp thông tin chuyến đi' }] },
+      para('Một dịch vụ cần thêm thông tin: đón sân bay cần số chuyến và giờ hạ cánh; thuê xe cần ngày nhận và trả; dọn phòng cần ngày và giờ. Bạn nộp các thông tin này ngay trong mục "Chuẩn bị cho kỳ lưu trú" ở My Trips. VietNomad không yêu cầu giấy tờ tùy thân, hộ chiếu hay bằng lái xe qua dịch vụ bổ sung.'),
+      { type: 'heading', attrs: { level: 2, id: 'bao-gia-va-xac-nhan' }, content: [{ type: 'text', text: 'Báo giá và phản hồi' }] },
+      para('Chủ nhà có thể gửi báo giá nếu giá chưa cố định. Bạn nhận thông báo và phải bấm Đồng ý trước khi dịch vụ được xác nhận — báo giá mới luôn thay thế báo giá cũ, bạn không bị tự động đồng ý. Bạn cũng có thể từ chối hoặc yêu cầu hủy dịch vụ đang mở, và liên hệ CSKH ngay trong My Trips nếu cần phản ánh.'),
+    ],
+  };
+  const extrasGuestDocEn = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 2, id: 'what-are-extra-services' }, content: [{ type: 'text', text: 'What are extra services?' }] },
+      para('Extra services are conveniences your host provides or arranges during your stay: motorbike and bicycle rental, airport pick-up or drop-off, a work monitor rental, room cleaning, laundry, and coworking passes. They are on request and are not part of the room price.'),
+      { type: 'heading', attrs: { level: 2, id: 'select-at-checkout' }, content: [{ type: 'text', text: 'Select services at checkout' }] },
+      para('During checkout you see the stay’s services with clear prices and units. Tick only what you want — your choices never change the online total or the room price.'),
+      { type: 'heading', attrs: { level: 2, id: 'pay-provider-directly' }, content: [{ type: 'text', text: 'Pay the provider directly' }] },
+      para('After you book, the host confirms each selected service. You pay the host or their partner directly — VietNomad collects no service money and charges no commission on extras. The 12% service fee applies only to the accommodation charge.'),
+      { type: 'heading', attrs: { level: 2, id: 'share-trip-details' }, content: [{ type: 'text', text: 'Share trip details' }] },
+      para('Some services need details: airport pick-up needs your flight number and landing time; rentals need pickup and return dates; cleaning needs a date and time. Submit them in “Prepare for your stay” under My Trips. VietNomad never asks for ID papers, passports, or driving licences for extra services.'),
+      { type: 'heading', attrs: { level: 2, id: 'quotes-and-responses' }, content: [{ type: 'text', text: 'Quotes and your response' }] },
+      para('When a price is not fixed, the host sends a quote. You get a notification and must accept before the service is confirmed — a new quote always replaces the previous one, and you are never auto-accepted. You can decline, request a cancellation, or contact support from My Trips to raise feedback.'),
+    ],
+  };
+  const extrasHostDocVi = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 2, id: 'khai-bao-dich-vu' }, content: [{ type: 'text', text: 'Khai báo dịch vụ bổ sung' }] },
+      para('Mở Host Listing Editor → mục “4b. Dịch vụ bổ sung”. Với từng danh mục (xe máy, đón sân bay, màn hình, dọn phòng, giặt là, coworking…): bật “Đang cung cấp”, nhập giá và đơn vị (ngày/tuần/tháng/chuyến/lần/theo yêu cầu), mô tả, điều kiện sử dụng, tiền đặt cọc, thời gian đặt trước, loại nhà cung cấp (bạn hoặc đối tác bên thứ ba) và điều kiện đổi/hủy. Có thể để giá trống = theo yêu cầu, hoặc chọn “Miễn phí/đã bao gồm”.'),
+      { type: 'heading', attrs: { level: 2, id: 'thanh-toan' }, content: [{ type: 'text', text: 'Thanh toán giữa bạn và khách' }] },
+      para('Khách thanh toán trực tiếp cho bạn hoặc đối tác. VietNomad không thu tiền dịch vụ, không giữ escrow và không tính hoa hồng trên dịch vụ bổ sung. Phí nền tảng chỉ áp dụng cho tiền phòng.'),
+      { type: 'heading', attrs: { level: 2, id: 'xu-ly-yeu-cau' }, content: [{ type: 'text', text: 'Xử lý yêu cầu trong Reservation drawer' }] },
+      para('Yêu cầu sinh tự động khi booking được xác nhận và hiển thị ngay trong drawer đặt phòng: xem thông tin khách, ngày giờ, số lượng, giá dự kiến, ghi chú. Bạn có thể: Xác nhận, Gửi báo giá, Yêu cầu thêm thông tin, Từ chối, đánh dấu Đang chuẩn bị, rồi Hoàn thành. Đổi giá luôn đưa yêu cầu về “Chờ khách phản hồi” — khách phải đồng ý, bạn không thể tự coi khách chấp nhận.'),
+      { type: 'heading', attrs: { level: 2, id: 'tat-dich-vu' }, content: [{ type: 'text', text: 'Tắt dịch vụ & khi booking bị hủy' }] },
+      para('Tắt dịch vụ sẽ không nhận yêu cầu mới; yêu cầu đang mở vẫn hiển thị để xử lý. Khi khách hủy booking, yêu cầu chưa xác nhận bị hủy theo; yêu cầu đã xác nhận được thông báo cho cả hai bên để tự thỏa thuận — VietNomad không tự hoàn tiền dịch vụ qua nền tảng. Bạn cũng nên đọc hướng dẫn cho khách để trả lời nhanh hơn.'),
+    ],
+  };
+  const extrasHostDocEn = {
+    type: 'doc',
+    content: [
+      { type: 'heading', attrs: { level: 2, id: 'declare-services' }, content: [{ type: 'text', text: 'Declare your services' }] },
+      para('Open the Host Listing Editor → “4b. Stay Extras”. For each category (motorbike, airport pick-up, monitor, cleaning, laundry, coworking…): turn on “Currently offering”, set price and unit (day/week/month/trip/visit/by quote), description, conditions, deposit, lead time, provider type (you or a third-party partner), and change/cancellation terms. Leave the price empty for “by quote”, or tick “Free / included”.'),
+      { type: 'heading', attrs: { level: 2, id: 'payments' }, content: [{ type: 'text', text: 'Money stays between you and the guest' }] },
+      para('Guests pay you or your partner directly. VietNomad never collects service money, holds no escrow, and charges no commission on extras. Platform fees apply only to the accommodation charge.'),
+      { type: 'heading', attrs: { level: 2, id: 'handling-requests' }, content: [{ type: 'text', text: 'Handle requests in the Reservation drawer' }] },
+      para('Requests are created automatically once a booking is confirmed and appear in the reservation drawer with guest details, dates, quantity, estimated price, and notes. You can Confirm, Send a quote, Request more information, Decline, mark Preparing, then Complete. Changing a price always returns the request to “awaiting guest” — the guest must accept; you can never mark acceptance for them.'),
+      { type: 'heading', attrs: { level: 2, id: 'disable-and-cancellations' }, content: [{ type: 'text', text: 'Disabling services & cancelled bookings' }] },
+      para('Disabling a service stops new requests; active requests stay visible for handling. When a guest cancels the booking, unconfirmed requests are cancelled with it, while confirmed ones notify both sides for manual handling — VietNomad never refunds services through the platform automatically.'),
+    ],
+  };
+  const extrasArticles = [
+    {
+      id: 'be000000-0000-4000-8000-000000000001',
+      groupId: 'be000000-0000-4000-8000-000000000000',
+      locale: 'vi',
+      slug: 'dat-dich-vu-bo-sung-cho-ky-luu-tru',
+      title: 'Đặt dịch vụ bổ sung cho kỳ lưu trú',
+      excerpt: 'Cách chọn dịch vụ bổ sung khi đặt chỗ, thanh toán trực tiếp cho bên cung cấp và phản hồi báo giá.',
+      body: 'Hướng dẫn chọn dịch vụ bổ sung (xe máy, đón sân bay, màn hình, dọn phòng, giặt là, coworking) khi đặt chỗ và thanh toán trực tiếp cho chủ nhà.',
+      doc: extrasGuestDocVi,
+      seo: 'Đặt dịch vụ bổ sung cho kỳ lưu trú | VietNomad Stays',
+      desc: 'Chọn dịch vụ bổ sung khi đặt chỗ: chủ nhà xác nhận sau khi đặt, thanh toán trực tiếp cho bên cung cấp.',
+      keyword: 'dịch vụ bổ sung kỳ lưu trú',
+    },
+    {
+      id: 'be000000-0000-4000-8000-000000000002',
+      groupId: 'be000000-0000-4000-8000-000000000000',
+      locale: 'en',
+      slug: 'book-extra-services-for-your-stay',
+      title: 'Book extra services for your stay',
+      excerpt: 'How to select extra services at checkout, pay the provider directly, and respond to quotes.',
+      body: 'How to choose extra services (motorbike, airport pick-up, monitor, cleaning, laundry, coworking) at checkout and pay the host directly.',
+      doc: extrasGuestDocEn,
+      seo: 'Book Extra Services for Your Stay | VietNomad Stays',
+      desc: 'Select extra services at checkout: the host confirms after booking and you pay the provider directly.',
+      keyword: 'extra services stay',
+    },
+    {
+      id: 'be000000-0000-4000-8000-000000000003',
+      groupId: 'be000000-0000-4000-8000-000000000001',
+      locale: 'vi',
+      slug: 'cung-cap-dich-vu-bo-sung-cho-khach',
+      title: 'Cung cấp dịch vụ bổ sung cho khách',
+      excerpt: 'Khai báo dịch vụ trong Host Listing Editor và xử lý yêu cầu ngay trong Reservation drawer.',
+      body: 'Hướng dẫn chủ nhà khai báo dịch vụ bổ sung, xác nhận hoặc báo giá cho khách, và tuân thủ quy tắc thanh toán trực tiếp.',
+      doc: extrasHostDocVi,
+      seo: 'Cung cấp dịch vụ bổ sung cho khách | VietNomad Stays',
+      desc: 'Khai báo dịch vụ bổ sung cho listing và xử lý yêu cầu của khách trong Reservation drawer.',
+      keyword: 'dịch vụ bổ sung chủ nhà',
+    },
+    {
+      id: 'be000000-0000-4000-8000-000000000004',
+      groupId: 'be000000-0000-4000-8000-000000000001',
+      locale: 'en',
+      slug: 'provide-additional-services-to-guests',
+      title: 'Provide additional services to guests',
+      excerpt: 'Declare services in the Host Listing Editor and handle requests right in the Reservation drawer.',
+      body: 'How hosts declare extra services, confirm or quote for guests, and keep money flowing directly between both sides.',
+      doc: extrasHostDocEn,
+      seo: 'Provide Additional Services to Guests | VietNomad Stays',
+      desc: 'Declare extra services for your listing and handle guest requests in the Reservation drawer.',
+      keyword: 'extra services host',
+    },
+  ];
+  for (const a of extrasArticles) {
+    await dbQuery(
+      `INSERT INTO cms_contents (
+        id, content_type, category, locale, translation_group_id, slug,
+        title_en, title_vi, excerpt_en, excerpt_vi, body_en, body_vi,
+        published_doc_en, published_doc_vi,
+        seo_title, seo_description, focus_keyword,
+        seo_score, word_count, reading_time_minutes, status, author_id, published_at, schema_type
+      ) VALUES (
+        $1, 'article', 'living_guide', $2, $3, $4,
+        $5, $5, $6, $6, $7, $7,
+        CASE WHEN $2 = 'en' THEN $8::jsonb ELSE NULL END,
+        CASE WHEN $2 = 'vi' THEN $8::jsonb ELSE NULL END,
+        $9, $10, $11,
+        80, 450, 3, 'published', $12, NOW(), 'Article'
+      ) ON CONFLICT (id) DO NOTHING`,
+      [
+        a.id,
+        a.locale,
+        a.groupId,
+        a.slug,
+        a.title,
+        a.excerpt,
+        a.body,
+        JSON.stringify(a.doc),
+        a.seo,
+        a.desc,
+        a.keyword,
+        adminId,
+      ]
+    );
+  }
+
   await dbQuery(
     `INSERT INTO marketing_campaigns (
       id, name, channel, utm_source, utm_medium, utm_campaign, budget_vnd, start_date, status

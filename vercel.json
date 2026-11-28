@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/ical-sync",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/extras-reminders",
+      "schedule": "15 * * * *"
     }
   ]
 }

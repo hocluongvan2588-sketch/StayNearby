@@ -13,11 +13,14 @@ import {
 } from '@/lib/i18n';
 import { getServerPreferences } from '@/lib/preferences';
 import { getStayDetailBySlug, getUpcomingEventsForDestination } from '@/modules/catalog';
+import { getPublishedCmsBySlug } from '@/modules/cms';
+import { getStayServicesForPublic } from '@/modules/stay-extras';
 import { EventCard } from '@/components/events/EventCard';
 import { StayAmenitiesSection } from '@/components/StayAmenitiesSection';
 import { StayBookingWidget } from '@/components/StayBookingWidget';
 import { StayDescriptionToggle } from '@/components/StayDescriptionToggle';
 import { StayGuestReviewsSection } from '@/components/StayGuestReviewsSection';
+import { StayExtraServicesSection } from '@/components/StayExtraServicesSection';
 import { StayHeaderActions } from '@/components/StayHeaderActions';
 import { StayHostSection } from '@/components/StayHostSection';
 import StayMobileBookingBar from '@/components/StayMobileBookingBar';
@@ -78,6 +81,25 @@ export default async function StayDetailPage({
   const destinationTagline = isVi
     ? stay.destination.taglineVi
     : stay.destination.taglineEn;
+
+  // Stay Extras (spec §5): host-declared services, shown only when enabled.
+  const extrasGuideSlug = isVi
+    ? 'dat-dich-vu-bo-sung-cho-ky-luu-tru'
+    : 'book-extra-services-for-your-stay';
+  const [extraServicesRaw, extrasGuide] = await Promise.all([
+    getStayServicesForPublic(stay.id),
+    getPublishedCmsBySlug(extrasGuideSlug),
+  ]);
+  const extraServices = extraServicesRaw.map((s) => ({
+    id: s.id,
+    nameVi: s.nameVi,
+    nameEn: s.nameEn,
+    priceVnd: s.priceVnd,
+    priceUnit: s.priceUnit,
+    isIncluded: s.isIncluded,
+    descriptionVi: s.descriptionVi,
+    descriptionEn: s.descriptionEn,
+  }));
 
   // Property overview stats (only render facts that actually exist)
   const overviewStats: string[] = [];
@@ -322,6 +344,13 @@ export default async function StayDetailPage({
               wifiGuestReviewCount={stay.wifiGuestReviewCount}
               wifiGuestRecentBookingCount={stay.wifiGuestRecentBookingCount}
               wifiVerifiedByGuests={stay.wifiVerifiedByGuests}
+              locale={prefs.locale}
+            />
+
+            {/* Stay Extras: host-declared additional services (spec §5) */}
+            <StayExtraServicesSection
+              services={extraServices}
+              guideSlug={extrasGuide ? extrasGuide.slug : null}
               locale={prefs.locale}
             />
           </div>
