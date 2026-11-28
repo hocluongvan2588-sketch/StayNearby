@@ -281,7 +281,7 @@ export function HostListingsClient({
                       <h3 className="text-sm font-semibold text-[#17221E]">
                         {isVi ? stay.titleVi : stay.titleEn}
                       </h3>
-                      {stay.googleRating > 0 && (
+                      {stay.googleRating !== null && stay.googleRating > 0 && (
                         <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-[#17221E]">
                           <Star className="h-3.5 w-3.5 text-[#A67C2E]" />
                           {stay.googleRating.toFixed(1)}

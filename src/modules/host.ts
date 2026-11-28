@@ -301,8 +301,14 @@ export async function getHostConsoleData(user: SessionUser) {
         checkinFrom: String(s.checkin_from ?? '14:00'),
         checkoutBefore: String(s.checkout_before ?? '12:00'),
         defaultMinNights: clampHostMinNights(toNum(s.default_min_nights, POLICY_MIN_NIGHTS)),
-        googleRating: toNum(s.google_rating, 4.8),
-        googleReviewCount: toNum(s.google_review_count, 0),
+        googleRating:
+          s.google_rating === null || s.google_rating === undefined
+            ? null
+            : toNum(s.google_rating),
+        googleReviewCount:
+          s.google_review_count === null || s.google_review_count === undefined
+            ? null
+            : toNum(s.google_review_count),
         heroImage: String(s.hero_image),
         galleryImages: parseJsonArray<string>(s.gallery_images),
         amenities: parseJsonArray<string>(s.amenities),

@@ -40,6 +40,8 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
     "@tailwindcss/postcss": "^4.1.14",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.18.0",
     "@types/pg": "^8.15.6",
@@ -47,6 +49,7 @@
     "@types/react-dom": "^19.1.1",
     "eslint": "^9.37.0",
     "eslint-config-next": "^16.1.1",
+    "jsdom": "^31.0.1",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",

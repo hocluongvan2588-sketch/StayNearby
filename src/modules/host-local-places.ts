@@ -384,8 +384,10 @@ export async function updateStayLocalSuggestion(
       nextLng = coords ? coords.lng : null;
     }
 
-    // Rejected suggestions return to pending on resubmit.
-    const nextStatus = row.status === 'rejected' ? 'pending' : row.status;
+    // Host edit = resubmit: rejected or needs_info → back to pending so the
+    // moderation queue reflects that the host has responded.
+    const nextStatus =
+      row.status === 'rejected' || row.status === 'needs_info' ? 'pending' : row.status;
 
     await tx.query(
       `UPDATE place_suggestions

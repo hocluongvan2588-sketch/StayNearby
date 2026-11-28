@@ -47,20 +47,35 @@ export function StayNeighborhoodExplore({
   const [activePlace, setActivePlace] = useState<LocalDiscoveryPlace | null>(null);
 
   const combinedPlaces = useMemo<LocalDiscoveryPlace[]>(() => {
+    // Punctuation/diacritic-insensitive key so legacy entries dedupe against
+    // converted places ("Enouvo Space An Thuong" vs "Enouvo Space — An Thuong").
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+
     const base = [...localPlaces];
-    const existingNames = new Set(base.map((p) => p.name.toLowerCase().trim()));
+    const existingKeys = new Set(base.map((p) => norm(p.name)));
 
     nearbyCoworking.forEach((cw, idx) => {
-      const normalized = cw.name.toLowerCase().trim();
-      if (!normalized || existingNames.has(normalized)) return;
-      // Avoid near-duplicates like "Enouvo Space" vs "Enouvo Space — An Thuong"
-      const duplicatePrefix = base.some(
-        (p) =>
-          p.name.toLowerCase().includes(normalized) ||
-          normalized.includes(p.name.toLowerCase())
-      );
+      const normalized = norm(cw.name);
+      if (!normalized || existingKeys.has(normalized)) return;
+      // Prefix guard for near-duplicates like "Enouvo Space" vs the full name.
+      const duplicatePrefix = base.some((p) => {
+        const key = norm(p.name);
+        return key.includes(normalized) || normalized.includes(key);
+      });
       if (duplicatePrefix) return;
 
+      // Legacy fallback card — honest empties only: no invented price levels,
+      // and never claimed as verified (data is host-declared, unconverted).
+      const distanceLabel =
+        typeof cw.distanceKm === 'number' && cw.distanceKm > 0
+          ? `${String(cw.distanceKm).replace('.', ',')} km`
+          : '';
       base.push({
         id: `cw-spot-${idx}`,
         slug: `coworking-${idx}`,
@@ -69,15 +84,15 @@ export function StayNeighborhoodExplore({
         address: neighborhoodName || destinationName,
         lat: null,
         lng: null,
-        priceRange: cw.dayPassVnd === 0 ? (isVi ? 'Miễn phí' : 'Free') : '$$',
+        priceRange: cw.dayPassVnd === 0 ? (isVi ? 'Miễn phí' : 'Free') : '',
         openingHours: '',
         descriptionEn: cw.noteEn,
         descriptionVi: cw.noteVi,
         imageUrl: '',
         neighborhoodNameEn: neighborhoodName || null,
         neighborhoodNameVi: neighborhoodName || null,
-        verificationStatus: 'verified',
-        distanceLabel: `${cw.distanceKm} km`,
+        verificationStatus: 'unverified',
+        distanceLabel,
         rating: null,
         reviewCount: null,
       });

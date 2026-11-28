@@ -45,11 +45,15 @@ export function StayCard({
   // Rating: internal VietNomad reviews first; Google only when present,
   // always labelled with its source. Never a default score.
   const hasInternalRating = stay.guestReviewsCount > 0 && stay.guestReviewsAvg !== null;
-  const hasGoogleRating = !hasInternalRating && stay.googleReviewCount > 0;
+  const hasGoogleRating =
+    !hasInternalRating &&
+    stay.googleReviewCount !== null &&
+    stay.googleReviewCount > 0 &&
+    stay.googleRating !== null;
   const ratingValue = hasInternalRating
     ? stay.guestReviewsAvg!.toFixed(1)
     : hasGoogleRating
-      ? stay.googleRating.toFixed(1)
+      ? stay.googleRating!.toFixed(1)
       : null;
 
   // Wi-Fi badge: only a real declared/measured speed, never0 or assumed.

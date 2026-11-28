@@ -55,8 +55,8 @@ export function StayGuestReviewsSection({
   rooms: StayRoomDetail[];
   initialReviews: StayGuestReviewItem[];
   initialAvg: number | null;
-  googleRating: number;
-  googleReviewCount: number;
+  googleRating: number | null;
+  googleReviewCount: number | null;
   destinationSlug: string;
   destinationName: string;
   neighborhoodName: string;
@@ -188,7 +188,7 @@ export function StayGuestReviewsSection({
             </h2>
           </div>
 
-          {googleReviewCount > 0 && (
+          {googleReviewCount !== null && googleReviewCount > 0 && googleRating !== null && (
             <div className="inline-flex items-center gap-1.5 text-sm text-[#53635D]">
               <Star className="h-4 w-4 text-[#A67C2E]" fill="#A67C2E" />
               <span>
