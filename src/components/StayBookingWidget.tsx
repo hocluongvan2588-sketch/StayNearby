@@ -541,8 +541,8 @@ export function StayBookingWidget({
           }
           subtitle={
             isVi
-              ? `Khóa lịch ngay khi thanh toán. Phần ${formatMoney(pendingBooking.payAtCheckinVnd)} trả chủ nhà khi nhận phòng.`
-              : `Locks your dates immediately. Pay ${formatMoney(pendingBooking.payAtCheckinVnd)} directly to host at check-in.`
+              ? `Phí dịch vụ trả hôm nay dùng để khóa lịch ngay. Phần ${formatMoney(pendingBooking.payAtCheckinVnd)} trả chủ nhà khi nhận phòng.`
+              : `Today's payment is the service fee that locks your dates immediately. Pay ${formatMoney(pendingBooking.payAtCheckinVnd)} directly to host at check-in.`
           }
           onPaid={() => {
             setConfirmed({
@@ -566,8 +566,8 @@ export function StayBookingWidget({
           </div>
           <p className="text-[#53635D]">
             {isVi
-              ? `Đã thanh toán ${formatMoney(confirmed.feePaidOnlineVnd)} online. Trả ${formatMoney(confirmed.payAtCheckinVnd)} cho chủ nhà khi nhận phòng.`
-              : `Paid ${formatMoney(confirmed.feePaidOnlineVnd)} online. Pay ${formatMoney(confirmed.payAtCheckinVnd)} to your host at check-in.`}
+              ? `Đã thanh toán ${formatMoney(confirmed.feePaidOnlineVnd)} online (phí dịch vụ giữ chỗ). Trả ${formatMoney(confirmed.payAtCheckinVnd)} cho chủ nhà khi nhận phòng.`
+              : `Paid ${formatMoney(confirmed.feePaidOnlineVnd)} online (the reservation service fee). Pay ${formatMoney(confirmed.payAtCheckinVnd)} to your host at check-in.`}
           </p>
           <Link
             href="/dashboard"
@@ -654,6 +654,12 @@ export function StayBookingWidget({
             <span className="font-medium">{formatMoney(quote.payAtCheckinVnd)}</span>
           </div>
         </div>
+
+        <p className="text-xs text-[#53635D]">
+          {isVi
+            ? 'Phí dịch vụ là chi phí đặt chỗ của VietNomad — không phải tiền đặt cọc và không được khấu trừ vào tiền thuê.'
+            : "The service fee is VietNomad's booking fee — not a deposit, and never deducted from your rent."}
+        </p>
 
         {quote.rewardCreditEarnedVnd > 0 && (
           <p className="text-xs font-medium text-[#A67C2E]">

@@ -812,8 +812,8 @@ export async function runSeed(): Promise<void> {
         hostWhatsapp: '+84909778899',
         pkgNameEn: 'Founders Long-Stay Coliving Package',
         pkgNameVi: 'Gói Coliving Dài Ngày Thảo Điền',
-        pkgDescEn: 'Pay 12% online to lock dates, settle 100% of rent directly with the host at check-in. Includes coffee bar and community brunch.',
-        pkgDescVi: 'Thanh toán 12% giữ chỗ online, thanh toán tiền phòng cho chủ nhà khi nhận phòng. Tặng kèm cà phê sáng và brunch cộng đồng.',
+        pkgDescEn: 'Reserve online and settle the remaining rent with your host at check-in. Includes coffee bar and community brunch.',
+        pkgDescVi: 'Giữ chỗ online, phần tiền thuê còn lại trả cho chủ nhà khi nhận phòng. Tặng kèm cà phê sáng và brunch cộng đồng.',
         w7: 7100000,
         w14: 13200000,
         w21: 18600000,
@@ -973,8 +973,8 @@ export async function runSeed(): Promise<void> {
         hostWhatsapp: '+84919665544',
         pkgNameEn: '30-Day Island Sanctuary Package',
         pkgNameVi: 'Gói 30 Ngày Miễn Visa Đảo Ngọc',
-        pkgDescEn: 'Pay 12% online to reserve dates; settle 100% of host stay rate directly on arrival.',
-        pkgDescVi: 'Thanh toán 12% giữ chỗ online, trả 100% tiền phòng cho chủ nhà khi nhận phòng.',
+        pkgDescEn: 'Reserve online; the stay balance is settled directly with your host on arrival.',
+        pkgDescVi: 'Giữ chỗ online; phần còn lại trả cho chủ nhà khi nhận phòng.',
         w7: 7800000,
         w14: 14200000,
         w21: 19600000,
@@ -1530,7 +1530,7 @@ export async function runSeed(): Promise<void> {
         id, booking_id, actor_user_id, actor_role, event_type, summary, metadata_json
       ) VALUES (
         $1, $2, $3, 'guest', 'booking_confirmed',
-        '12% booking fee paid online (1,224,000₫); 14 nights locked.',
+        'Booking fee paid online (1,224,000₫); 14 nights locked.',
         '{"bookingCode":"VN-940218"}'::jsonb
       ) ON CONFLICT (id) DO NOTHING`,
       [
@@ -1589,7 +1589,7 @@ export async function runSeed(): Promise<void> {
       {
         id: '75000000-0000-4000-8000-000000000003',
         title: 'Check-in rent reminder',
-        body: 'Just a quick note that your 12% online booking fee is already settled. You can pay the remaining host stay balance via cash or VietQR transfer upon check-in.',
+        body: 'Just a quick note that your online booking fee is already settled. You can pay the remaining host stay balance via cash or VietQR transfer upon check-in.',
         sortOrder: 3,
       },
     ];

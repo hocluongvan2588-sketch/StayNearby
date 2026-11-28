@@ -9,7 +9,7 @@ import { GatewayCheckoutPanel } from './GatewayCheckoutPanel';
 import { usePreferences } from './PreferencesProvider';
 
 export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) {
-  const { locale, serviceFeePct, premiumRewardPct } = usePreferences();
+  const { locale, premiumRewardPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [vatTaxId, setVatTaxId] = useState(user?.vatTaxId ?? '');
@@ -114,7 +114,7 @@ export function MembershipUpgradeClient({ user }: { user: SessionUser | null }) 
           </thead>
           <tbody className="divide-y divide-[#E5DFD3]">
             {[
-              [isVi ? `Đặt phòng trực tuyến (${serviceFeePct}% phí dịch vụ)` : `Book stays online (${serviceFeePct}% service fee)`, true, true],
+              [isVi ? 'Đặt phòng trực tuyến' : 'Book stays online', true, true],
               [isVi ? `Hoàn ${premiumRewardPct}% tiền thưởng cho mỗi đặt phòng` : `Earn ${premiumRewardPct}% reward credit on VietNomad stays`, false, true],
               [isVi ? 'Xuất hóa đơn miễn VAT khi có mã số thuế' : 'VAT-free business invoicing with Tax ID', false, true],
               [isVi ? 'Nhận thông báo sớm chỗ ở giảm giá theo tháng' : 'Early access to monthly price drops', false, true],

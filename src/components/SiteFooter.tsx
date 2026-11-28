@@ -9,7 +9,7 @@ export function SiteFooter({
 }: {
   destinations: DestinationSummary[];
 }) {
-  const { locale, serviceFeePct, hostCommissionPct, premiumRewardPct, platformConfig } =
+  const { locale, hostCommissionPct, premiumRewardPct, platformConfig } =
     usePreferences();
   const isVi = locale === 'vi';
   const minNights = platformConfig.defaultMinNights;
@@ -110,8 +110,8 @@ export function SiteFooter({
           <div>© {new Date().getFullYear()} VietNomad Stays.</div>
           <div>
             {isVi
-              ? `Thanh toán ${serviceFeePct}% phí dịch vụ online để giữ phòng. Trả tiền thuê trực tiếp cho chủ nhà khi nhận phòng.`
-              : `Pay the ${serviceFeePct}% service fee online to reserve. Pay rent directly to your host at check-in.`}
+              ? 'Ở trọn vẹn tại Việt Nam, theo nhịp sống bản địa.'
+              : 'Live fully in Vietnam, at a local pace.'}
           </div>
         </div>
       </div>

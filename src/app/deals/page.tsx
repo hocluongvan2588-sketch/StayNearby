@@ -19,7 +19,6 @@ export default async function DealsPage() {
     getPublicActivePromotions(),
   ]);
   const isVi = prefs.locale === 'vi';
-  const serviceFeePct = Math.round(feeConfig.serviceFeeRate * 100);
 
   let savedIds = new Set<string>();
   if (user) {
@@ -45,8 +44,8 @@ export default async function DealsPage() {
         </h1>
         <p className="text-sm text-[#53635D]">
           {isVi
-            ? `Hiển thị sẵn giá 30 đêm, phí dịch vụ ${serviceFeePct}% trả online và phần tiền thuê trả chủ nhà khi nhận phòng.`
-            : `All stays below are available for 30-night stays, with upfront ${serviceFeePct}% online fee and check-in rent breakdown.`}
+            ? 'Giá 30 đêm hiển thị sẵn trọn gói, minh bạch ngay khi bạn chọn.'
+            : '30-night totals shown upfront — transparent from the first click.'}
         </p>
       </div>
 
