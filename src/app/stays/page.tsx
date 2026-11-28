@@ -17,6 +17,7 @@ export default async function StaysPage({
   const pick = (k: string) => (Array.isArray(sp[k]) ? sp[k][0] : sp[k]) ?? '';
 
   const destination = pick('destination') || 'all';
+  const area = pick('area') || '';
   const lifestyle = pick('lifestyle') || 'all';
   const checkIn = pick('checkIn') || addDaysIso(getTodayIsoVietnam(), 7);
   const platformConfig = await getPlatformFeeConfig();
@@ -42,6 +43,7 @@ export default async function StaysPage({
     getLifestyles(),
     searchStays({
       destination,
+      areaSlug: area || undefined,
       lifestyle,
       checkIn,
       nights,

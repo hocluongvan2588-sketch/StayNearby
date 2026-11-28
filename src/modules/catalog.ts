@@ -222,6 +222,7 @@ export interface DestinationNeighborhood {
   summaryVi: string;
   guideEn: string;
   guideVi: string;
+  imageUrl: string | null;
 }
 
 export interface DestinationLocalPartner {
@@ -515,6 +516,8 @@ export async function getLifestyles(): Promise<LifestyleItem[]> {
 
 export interface SearchStaysFilter {
   destination?: string;
+  /** Neighborhood (area) slug from `neighborhoods` — matches stays by name segments. */
+  areaSlug?: string;
   lifestyle?: string;
   checkIn?: string;
   nights?: number;
@@ -611,6 +614,31 @@ export async function searchStays(filters: SearchStaysFilter = {}): Promise<Stay
 
   if (filters.destination && filters.destination !== 'all') {
     items = items.filter((s) => s.destinationSlug === filters.destination);
+  }
+  if (filters.areaSlug) {
+    const areaRes = await dbQuery<{ name_vi: string; name_en: string }>(
+      'SELECT name_vi, name_en FROM neighborhoods WHERE slug = $1',
+      [filters.areaSlug]
+    );
+    const area = areaRes.rows[0];
+    if (area) {
+      // Area cards link here with the area slug; stays carry free-text
+      // neighborhood names, so match on any "&"-separated name segment.
+      const segments = [area.name_vi, area.name_en]
+        .filter(Boolean)
+        .flatMap((n) => n.split('&'))
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean);
+      items = items.filter((s) =>
+        segments.some(
+          (seg) =>
+            s.neighborhoodVi.toLowerCase().includes(seg) ||
+            s.neighborhoodEn.toLowerCase().includes(seg)
+        )
+      );
+    } else {
+      items = [];
+    }
   }
   if (filters.lifestyle && filters.lifestyle !== 'all') {
     items = items.filter((s) => s.lifestyleSlugs.includes(filters.lifestyle!));
@@ -1199,8 +1227,9 @@ export async function getDestinationNeighborhoods(
       summary_vi: string;
       guide_en: string;
       guide_vi: string;
+      image_url: string | null;
     }>(
-      `SELECT n.id, n.slug, n.name_en, n.name_vi, n.summary_en, n.summary_vi, n.guide_en, n.guide_vi
+      `SELECT n.id, n.slug, n.name_en, n.name_vi, n.summary_en, n.summary_vi, n.guide_en, n.guide_vi, n.image_url
        FROM neighborhoods n
        JOIN destinations d ON d.id = n.destination_id
        WHERE d.slug = $1
@@ -1216,6 +1245,7 @@ export async function getDestinationNeighborhoods(
       summaryVi: String(n.summary_vi ?? ''),
       guideEn: String(n.guide_en ?? ''),
       guideVi: String(n.guide_vi ?? ''),
+      imageUrl: n.image_url ? String(n.image_url) : null,
     }));
   } catch {
     return [];
