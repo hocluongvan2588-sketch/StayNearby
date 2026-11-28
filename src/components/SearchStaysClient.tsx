@@ -356,7 +356,7 @@ export function SearchStaysClient({
               savedIds={savedIds}
               isAuthenticated={isAuthenticated}
               gapClass="gap-6"
-              colsClass="md:grid-cols-2 xl:grid-cols-3"
+              colsClass="grid-cols-2 xl:grid-cols-3"
             />
           )}
         </div>
