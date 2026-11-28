@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { normalizePlaceExploreGroup, type Locale } from '@/lib/i18n';
 import type { LocalDiscoveryPlace } from '@/modules/catalog';
 import { LocalPlaceCard } from './LocalPlaceCard';
+import { LocalPlaceDetailModal } from './LocalPlaceDetailModal';
 
 const CATEGORY_TABS: Array<{ key: string; labelEn: string; labelVi: string }> = [
   { key: 'all', labelEn: 'All places', labelVi: 'Tất cả' },
@@ -30,6 +31,7 @@ export function DestinationPlacesExplorer({
 }) {
   const isVi = locale === 'vi';
   const [selectedGroup, setSelectedGroup] = useState('all');
+  const [activePlace, setActivePlace] = useState<LocalDiscoveryPlace | null>(null);
 
   const availableTabs = useMemo(() => {
     const groupsPresent = new Set(
@@ -51,23 +53,11 @@ export function DestinationPlacesExplorer({
 
   return (
     <section className="pt-12">
-      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-[#17221E]">
-            {isVi
-              ? `Khám phá địa phương tại ${destinationName}`
-              : `Explore local places in ${destinationName}`}
-          </h2>
-          <p className="mt-1 text-sm text-[#53635D]">
-            {isVi
-              ? 'Quán ăn ngon, quán cà phê, điểm tham quan, không gian sáng tạo và tiện ích hàng ngày.'
-              : 'Dining, cafés, cultural sights, wellness spots, coworking, and daily essentials.'}
-          </p>
-        </div>
-        <span className="text-xs font-medium text-[#53635D]">
-          {filtered.length} {isVi ? 'địa điểm' : 'places'}
-        </span>
-      </div>
+      <h2 className="text-2xl font-semibold tracking-tight text-[#17221E]">
+        {isVi
+          ? `Khám phá địa phương tại ${destinationName}`
+          : `Explore local places in ${destinationName}`}
+      </h2>
 
       {availableTabs.length > 2 && (
         <div className="mt-5 flex items-center gap-2 overflow-x-auto pb-2">
@@ -91,11 +81,24 @@ export function DestinationPlacesExplorer({
         </div>
       )}
 
-      <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((pl) => (
-          <LocalPlaceCard key={pl.id} place={pl} locale={locale} />
+          <LocalPlaceCard
+            key={pl.id}
+            place={pl}
+            locale={locale}
+            onOpen={() => setActivePlace(pl)}
+          />
         ))}
       </div>
+
+      {activePlace && (
+        <LocalPlaceDetailModal
+          place={activePlace}
+          locale={locale}
+          onClose={() => setActivePlace(null)}
+        />
+      )}
     </section>
   );
 }

@@ -196,6 +196,31 @@ describe('VietNomad Stays PRD End-to-End PostgreSQL Workflows', () => {
     expect(workReadyOnly.length).toBeLessThan(allStays.length);
   });
 
+  it('filters destination stays by area slug using neighborhood name segments', async () => {
+    const allDaLat = await searchStays({ destination: 'da-lat', nights: 30 });
+    expect(allDaLat.length).toBeGreaterThan(1);
+
+    // "Hồ Xuân Hương & Đồi Thông" matches stays whose free-text neighborhood
+    // contains either segment; the Tuyen Lam stay must not match.
+    const inArea = await searchStays({
+      destination: 'da-lat',
+      areaSlug: 'xuan-huong-pine-hills',
+      nights: 30,
+    });
+    expect(inArea.length).toBeGreaterThan(0);
+    expect(inArea.length).toBeLessThan(allDaLat.length);
+    expect(
+      inArea.every((s) => /hồ xuân hương|đồi thông/i.test(s.neighborhoodVi))
+    ).toBe(true);
+
+    const unknownArea = await searchStays({
+      destination: 'da-lat',
+      areaSlug: 'no-such-area',
+      nights: 30,
+    });
+    expect(unknownArea.length).toBe(0);
+  });
+
   it('submits a free (€0) stay application without mandatory hardware gates and lets Admin toggle badges', async () => {
     const hostUser = await fetchSessionUserByEmail('host@vietnomad.demo');
     const adminUser = await fetchSessionUserByEmail('admin@vietnomad.demo');

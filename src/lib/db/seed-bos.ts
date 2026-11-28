@@ -107,6 +107,7 @@ export async function seedAdminBosFoundationData(params?: {
       nameVi: 'Hồ Xuân Hương & Đồi Thông',
       sumEn: 'Cool highland center with heritage roasteries and misty walking trails.',
       sumVi: 'Trung tâm cao nguyên mát mẻ với các quán cà phê rang xay và đồi thông.',
+      image: '/images/destinations/da-lat-pine-hills.jpg',
       x: 58,
       y: 67,
     },
@@ -125,10 +126,10 @@ export async function seedAdminBosFoundationData(params?: {
   for (const n of neighborhoods) {
     await dbQuery(
       `INSERT INTO neighborhoods (
-        id, destination_id, slug, name_en, name_vi, summary_en, summary_vi, map_x, map_y
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        id, destination_id, slug, name_en, name_vi, summary_en, summary_vi, map_x, map_y, image_url
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       ON CONFLICT (id) DO NOTHING`,
-      [n.id, n.destId, n.slug, n.nameEn, n.nameVi, n.sumEn, n.sumVi, n.x, n.y]
+      [n.id, n.destId, n.slug, n.nameEn, n.nameVi, n.sumEn, n.sumVi, n.x, n.y, n.image ?? null]
     );
   }
 
@@ -1177,6 +1178,7 @@ export async function ensureCuratedDiscoverySeeded() {
       nameVi: 'Hồ Xuân Hương & Đồi Thông',
       sumEn: 'Cool highland center with heritage roasteries and misty walking trails.',
       sumVi: 'Trung tâm cao nguyên mát mẻ với các quán cà phê rang xay và đồi thông.',
+      image: '/images/destinations/da-lat-pine-hills.jpg',
       x: 58,
       y: 67,
     },
@@ -1195,10 +1197,10 @@ export async function ensureCuratedDiscoverySeeded() {
   for (const n of neighborhoods) {
     await dbQuery(
       `INSERT INTO neighborhoods (
-        id, destination_id, slug, name_en, name_vi, summary_en, summary_vi, map_x, map_y
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        id, destination_id, slug, name_en, name_vi, summary_en, summary_vi, map_x, map_y, image_url
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       ON CONFLICT (id) DO NOTHING`,
-      [n.id, n.destId, n.slug, n.nameEn, n.nameVi, n.sumEn, n.sumVi, n.x, n.y]
+      [n.id, n.destId, n.slug, n.nameEn, n.nameVi, n.sumEn, n.sumVi, n.x, n.y, n.image ?? null]
     );
   }
 

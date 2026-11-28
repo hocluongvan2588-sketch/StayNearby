@@ -1,13 +1,10 @@
 'use client';
 
 import {
-  Clock,
   Coffee,
   Compass,
   Dumbbell,
-  ExternalLink,
   Laptop,
-  MapPin,
   Music,
   ShoppingBag,
   Sparkles,
@@ -15,12 +12,7 @@ import {
   Store,
   Utensils,
 } from 'lucide-react';
-import {
-  formatDistanceLabel,
-  formatDistanceMeters,
-  formatPlaceCategoryLabel,
-  type Locale,
-} from '@/lib/i18n';
+import { formatPlaceCategoryLabel, type Locale } from '@/lib/i18n';
 import type { LocalDiscoveryPlace } from '@/modules/catalog';
 
 function CategoryFallbackIcon({ category }: { category: string }) {
@@ -61,6 +53,11 @@ export function buildPlaceMapsUrl(place: LocalDiscoveryPlace): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+/**
+ * Local discovery place card — image-first and borderless, aligned with
+ * StayCard/EventCard. The whole card opens the detail modal when `onOpen`
+ * is provided; ratings and price show only when the data exists.
+ */
 export function LocalPlaceCard({
   place,
   locale,
@@ -75,17 +72,10 @@ export function LocalPlaceCard({
   const desc = isVi
     ? place.descriptionVi || place.descriptionEn
     : place.descriptionEn || place.descriptionVi;
-  const neighborhood = isVi
-    ? place.neighborhoodNameVi || place.neighborhoodNameEn
-    : place.neighborhoodNameEn || place.neighborhoodNameVi;
-  const mapsUrl = buildPlaceMapsUrl(place);
-  const distance =
-    formatDistanceLabel(place.distanceLabel, locale) ||
-    formatDistanceMeters(place.distanceMeters, locale);
 
   return (
     <article
-      className={`group flex flex-col overflow-hidden rounded-2xl border border-[#E5DFD3] bg-white transition duration-300 hover:border-[#164E3F]/40 ${
+      className={`group flex flex-col rounded-2xl ${
         onOpen
           ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#164E3F]'
           : ''
@@ -103,9 +93,15 @@ export function LocalPlaceCard({
       }
       role={onOpen ? 'button' : undefined}
       tabIndex={onOpen ? 0 : undefined}
-      aria-label={onOpen ? (locale === 'vi' ? `Xem chi tiết ${place.name}` : `View details for ${place.name}`) : undefined}
+      aria-label={
+        onOpen
+          ? isVi
+            ? `Xem chi tiết ${place.name}`
+            : `View details for ${place.name}`
+          : undefined
+      }
     >
-      <div className="relative aspect-[16/10] overflow-hidden bg-[#F2EDE3]">
+      <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-[#F2EDE3]">
         {place.imageUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
@@ -118,71 +114,39 @@ export function LocalPlaceCard({
             <CategoryFallbackIcon category={place.category} />
           </div>
         )}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
-        {distance && (
-          <span className="absolute bottom-2.5 left-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-[#17221E] shadow-sm">
-            <MapPin className="h-3 w-3 text-[#C25E28]" />
-            {distance}
-          </span>
-        )}
       </div>
 
-      <div className="flex flex-1 flex-col justify-between p-4">
-        <div>
-          <div className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wider text-[#53635D]">
-            <span className="truncate text-[#164E3F]">
-              {formatPlaceCategoryLabel(place.category, locale)}
-            </span>
-            <div className="flex shrink-0 items-center gap-2">
-              {place.rating !== null && (
-                <span className="inline-flex items-center gap-0.5 text-[#17221E]">
-                  <Star className="h-3 w-3 text-[#17221E]" fill="#17221E" />
-                  {place.rating.toFixed(1)}
-                </span>
-              )}
-              {place.priceRange && <span>{place.priceRange}</span>}
-            </div>
-          </div>
-
-          <h4 className="mt-1.5 line-clamp-1 text-[16px] font-semibold leading-snug text-[#17221E]">
-            {place.name}
-          </h4>
-
-          {desc && (
-            <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-[#53635D]">
-              {desc}
-            </p>
-          )}
-
-          {place.partnerPerk && (
-            <p className="mt-2 text-[12px] font-medium text-[#164E3F]">
-              {isVi ? 'Ưu đãi:' : 'Perk:'} {place.partnerPerk}
-            </p>
-          )}
-        </div>
-
-        <div className="mt-3 flex items-center justify-between gap-2 border-t border-[#E5DFD3] pt-3 text-[12px] text-[#53635D]">
-          <div className="min-w-0 truncate">
-            {place.openingHours ? (
-              <span className="inline-flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{place.openingHours}</span>
+      <div className="flex flex-1 flex-col pt-3">
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-xs font-semibold text-[#164E3F]">
+            {formatPlaceCategoryLabel(place.category, locale)}
+          </span>
+          <div className="flex shrink-0 items-center gap-2 text-xs font-medium text-[#53635D]">
+            {place.rating !== null && (
+              <span className="inline-flex items-center gap-0.5 text-[#17221E]">
+                <Star className="h-3 w-3 text-[#17221E]" fill="#17221E" />
+                {place.rating.toFixed(1)}
               </span>
-            ) : (
-              <span className="truncate">{neighborhood || place.address}</span>
             )}
+            {place.priceRange && <span>{place.priceRange}</span>}
           </div>
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex shrink-0 items-center gap-1 font-semibold text-[#164E3F] hover:underline"
-          >
-            {isVi ? 'Xem bản đồ' : 'View map'}
-            <ExternalLink className="h-3 w-3" />
-          </a>
         </div>
+
+        <h4 className="mt-1 text-[16px] font-semibold leading-snug text-[#17221E] group-hover:text-[#164E3F]">
+          {place.name}
+        </h4>
+
+        {desc && (
+          <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-[#53635D]">
+            {desc}
+          </p>
+        )}
+
+        {place.partnerPerk && (
+          <p className="mt-2 text-[12px] font-medium text-[#164E3F]">
+            {isVi ? 'Ưu đãi:' : 'Perk:'} {place.partnerPerk}
+          </p>
+        )}
       </div>
     </article>
   );

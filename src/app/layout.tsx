@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { getConfig } from '@/lib/config';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getServerPreferences } from '@/lib/preferences';
 import { getDestinations, getLifestyles } from '@/modules/catalog';
@@ -9,6 +10,7 @@ import { PreferencesProvider } from '@/components/PreferencesProvider';
 import { AppShellSwitch } from '@/components/shells/AppShellSwitch';
 
 export const metadata: Metadata = {
+  metadataBase: new URL(getConfig().appBaseUrl),
   title: 'VietNomad Stays | Weekly & Monthly Stays in Vietnam',
   description:
     'Book weekly and monthly apartments, villas, and boutique stays across Vietnam. Transparent pricing, local neighborhoods, and workspaces when you need them.',
