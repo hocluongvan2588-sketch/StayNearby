@@ -9,6 +9,7 @@ import {
   Bell,
   Building2,
   CalendarCheck2,
+  CalendarDays,
   Check,
   CheckSquare,
   ChevronDown,
@@ -278,6 +279,13 @@ export function AdminShell({
           labelEn: 'Content & SEO',
           labelVi: 'Nội dung & SEO',
           icon: FileText,
+        },
+        {
+          moduleKey: 'content',
+          href: '/admin/growth/community',
+          labelEn: 'Community & Events',
+          labelVi: 'Cộng đồng & Sự kiện',
+          icon: CalendarDays,
         },
         {
           moduleKey: 'campaigns',

@@ -1632,7 +1632,10 @@ export async function runSeed(): Promise<void> {
       ['80000000-0000-4000-8000-000000000001', SEED_IDS.users.hostBookingFlow]
     );
 
-    // Nomad Brunch Club Vietnam events
+    // Sample community events (demo content: realistic future schedule; no
+    // fabricated attendance — spots_taken stays0 until real RSVPs exist;
+    // capacity NULL = no published limit; images are venue/community photos,
+    // never stay photos).
     const events = [
       {
         id: '90000000-0000-4000-8000-000000000001',
@@ -1640,12 +1643,20 @@ export async function runSeed(): Promise<void> {
         cityEn: 'Da Nang',
         cityVi: 'Đà Nẵng',
         titleEn: 'An Thuong Remote Builders Brunch',
-        titleVi: 'Brunch Cộng Đồng Nomad An Thượng',
+        titleVi: 'Brunch cộng đồng nomad An Thượng',
         eventDate: addDaysIso(today, 6) + ', 10:30 AM',
+        startAt: new Date(`${addDaysIso(today, 6)}T10:30:00+07:00`),
+        endAt: new Date(`${addDaysIso(today, 6)}T12:30:00+07:00`),
         venueEn: 'Bikini Bottom Express & Garden Terrace, An Thuong',
         venueVi: 'Garden Terrace, Phố Tây An Thượng, Đà Nẵng',
-        spotsTotal: 32,
-        spotsTaken: 21,
+        destinationId: SEED_IDS.destinations.daNang,
+        category: 'food',
+        language: 'en',
+        source: 'internal',
+        registrationMode: 'internal',
+        organizer: 'VietNomad Community',
+        descEn: 'A slow Sunday brunch for remote workers staying in Da Nang: share a table, swap project stories, and meet people building from An Thuong.',
+        descVi: 'Brunch cuối tuần chậm rãi cho người làm việc từ xa tại Đà Nẵng: cùng bàn, chia sẻ câu chuyện dự án và gặp gỡ những người đang làm việc từ An Thượng.',
         img: '/images/community/nomad-brunch-saigon.jpg',
       },
       {
@@ -1654,12 +1665,20 @@ export async function runSeed(): Promise<void> {
         cityEn: 'Ho Chi Minh City',
         cityVi: 'TP. Hồ Chí Minh',
         titleEn: 'Thao Dien Founders & AI Builders Meetup',
-        titleVi: 'Gặp Gỡ Founders & AI Builders Thảo Điền',
+        titleVi: 'Gặp gỡ founders & lập trình viên AI Thảo Điền',
         eventDate: addDaysIso(today, 9) + ', 09:30 AM',
+        startAt: new Date(`${addDaysIso(today, 9)}T09:30:00+07:00`),
+        endAt: new Date(`${addDaysIso(today, 9)}T11:30:00+07:00`),
         venueEn: 'Au Lac Tropical Roastery, Xuan Thuy, Thao Dien',
         venueVi: 'Tiệm Cà Phê Nhiệt Đới Xuân Thủy, Thảo Điền',
-        spotsTotal: 40,
-        spotsTaken: 29,
+        destinationId: SEED_IDS.destinations.saigon,
+        category: 'technology',
+        language: 'mixed',
+        source: 'partner',
+        registrationMode: 'internal',
+        organizer: 'Thao Dien Founders Collective',
+        descEn: 'Morning coffee for founders and engineers shipping AI products from Ho Chi Minh City. Short intros, no pitch decks.',
+        descVi: 'Cà phê sáng cho founder và kỹ sư đang xây sản phẩm AI tại TP. Hồ Chí Minh. Giới thiệu ngắn, không pitch deck.',
         img: '/images/workspaces/vietnam-coworking-lounge.jpg',
       },
       {
@@ -1668,13 +1687,21 @@ export async function runSeed(): Promise<void> {
         cityEn: 'Hanoi',
         cityVi: 'Hà Nội',
         titleEn: 'West Lake Lotus Coffee & Visa Q&A',
-        titleVi: 'Cà Phê Hồ Tây & Hỏi Đáp Visa Dài Hạn',
+        titleVi: 'Cà phê hồ Tây & hỏi đáp visa dài hạn',
         eventDate: addDaysIso(today, 13) + ', 04:00 PM',
+        startAt: new Date(`${addDaysIso(today, 13)}T16:00:00+07:00`),
+        endAt: new Date(`${addDaysIso(today, 13)}T17:30:00+07:00`),
         venueEn: 'Quang An Lakeside Pavilion, Tay Ho',
         venueVi: 'Không Gian Ven Hồ Quảng An, Tây Hồ',
-        spotsTotal: 24,
-        spotsTaken: 16,
-        img: '/images/stays/hanoi-tayho-jade.jpg',
+        destinationId: SEED_IDS.destinations.hanoi,
+        category: 'social',
+        language: 'vi',
+        source: 'internal',
+        registrationMode: 'internal',
+        organizer: 'VietNomad Community',
+        descEn: 'Cà phê chiều ven hồ cho người nước ngoài và người Việt đang sống tại Hà Nội, có phần hỏi đáp về visa và tạm trú.',
+        descVi: 'Cà phê chiều ven hồ cho người nước ngoài và người Việt đang sống tại Hà Nội, có phần hỏi đáp về visa và tạm trú.',
+        img: '/images/places/cafe-roastery.jpg',
       },
     ];
 
@@ -1682,8 +1709,15 @@ export async function runSeed(): Promise<void> {
       await dbQuery(
         `INSERT INTO nomad_events (
           id, slug, city_en, city_vi, title_en, title_vi, event_date,
-          venue_en, venue_vi, spots_total, spots_taken, image_url
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          venue_en, venue_vi, spots_total, spots_taken, image_url,
+          start_at, end_at, destination_id, category, language, source,
+          registration_mode, organizer_name, price_type,
+          description_en, description_vi, status, published_at
+        ) VALUES (
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,NULL,0,$10,
+          $11,$12,$13,$14,$15,$16,$17,$18,'free',
+          $19,$20,'published', NOW()
+        )
         ON CONFLICT (id) DO NOTHING`,
         [
           ev.id,
@@ -1695,9 +1729,17 @@ export async function runSeed(): Promise<void> {
           ev.eventDate,
           ev.venueEn,
           ev.venueVi,
-          ev.spotsTotal,
-          ev.spotsTaken,
           ev.img,
+          ev.startAt,
+          ev.endAt,
+          ev.destinationId,
+          ev.category,
+          ev.language,
+          ev.source,
+          ev.registrationMode,
+          ev.organizer,
+          ev.descEn,
+          ev.descVi,
         ]
       );
     }

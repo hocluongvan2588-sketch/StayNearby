@@ -76,7 +76,7 @@ export function SiteFooter({
               </li>
               <li>
                 <Link href="/community" className="transition hover:text-white">
-                  {isVi ? 'Visa & Sự kiện gặp mặt' : 'Visa guide & meetups'}
+                  {isVi ? 'Cộng đồng & Sự kiện' : 'Community & events'}
                 </Link>
               </li>
             </ul>

@@ -14,8 +14,10 @@ import {
   getDestinationLocalPlaces,
   getDestinationNeighborhoods,
   getDestinations,
+  getUpcomingEventsForDestination,
   searchStays,
 } from '@/modules/catalog';
+import { EventCard } from '@/components/events/EventCard';
 import { getPublishedCmsContents } from '@/modules/cms';
 import { DestinationPlacesExplorer } from '@/components/DestinationPlacesExplorer';
 import { PaginatedStayGrid } from '@/components/PaginatedStayGrid';
@@ -58,6 +60,7 @@ export default async function DestinationDetailPage({
   if (!dest) notFound();
   const isVi = prefs.locale === 'vi';
   const destName = isVi ? dest.nameVi : dest.nameEn;
+  const upcomingEvents = await getUpcomingEventsForDestination(dest.id, 4);
 
   let savedIds: string[] = [];
   if (user) {
@@ -157,6 +160,28 @@ export default async function DestinationDetailPage({
           isAuthenticated={Boolean(user)}
         />
       </section>
+
+      {upcomingEvents.length > 0 && (
+        <section className="border-t border-[#E5DFD3] py-12">
+          <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+            <h2 className="text-2xl font-semibold tracking-tight text-[#17221E]">
+              {isVi ? `Sự kiện sắp tới tại ${destName}` : `Upcoming events in ${destName}`}
+            </h2>
+            <Link
+              href={`/community?destination=${dest.id}`}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#164E3F] hover:underline"
+            >
+              {isVi ? 'Xem tất cả sự kiện' : 'See all events'}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+            {upcomingEvents.map((ev) => (
+              <EventCard key={ev.id} event={ev} locale={prefs.locale} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="divide-y divide-[#E5DFD3] border-t border-[#E5DFD3]">
         {/* Neighborhoods (Open Layout) */}

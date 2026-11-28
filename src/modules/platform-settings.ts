@@ -84,6 +84,90 @@ export async function getLocalDiscoveryConfig(): Promise<LocalDiscoveryConfig> {
   return { radiiMeters: { ...DEFAULT_LOCAL_DISCOVERY_RADII } };
 }
 
+// ---------------------------------------------------------------------------
+// Event taxonomy (Community spec §3): categories + organizing languages live
+// in platform_settings.key = 'event_taxonomy'; UI reads this accessor only —
+// lists are never hardcoded inside components. Defaults mirror migration0015.
+// ---------------------------------------------------------------------------
+
+export interface EventTaxonomyEntry {
+  slug: string;
+  nameEn: string;
+  nameVi: string;
+}
+
+export interface EventTaxonomy {
+  categories: EventTaxonomyEntry[];
+  languages: EventTaxonomyEntry[];
+}
+
+export const DEFAULT_EVENT_TAXONOMY: EventTaxonomy = {
+  categories: [
+    { slug: 'social', nameEn: 'Social & Networking', nameVi: 'Giao lưu và kết nối' },
+    { slug: 'business', nameEn: 'Business', nameVi: 'Kinh doanh' },
+    { slug: 'technology', nameEn: 'Technology', nameVi: 'Công nghệ' },
+    { slug: 'food', nameEn: 'Food & Drink', nameVi: 'Ẩm thực' },
+    { slug: 'sports', nameEn: 'Sports', nameVi: 'Thể thao' },
+    { slug: 'wellness', nameEn: 'Wellness', nameVi: 'Sức khỏe' },
+    { slug: 'culture', nameEn: 'Culture', nameVi: 'Văn hóa' },
+    { slug: 'language', nameEn: 'Language Exchange', nameVi: 'Giao lưu ngôn ngữ' },
+    { slug: 'outdoors', nameEn: 'Outdoors', nameVi: 'Hoạt động ngoài trời' },
+    { slug: 'workshop', nameEn: 'Workshop', nameVi: 'Workshop' },
+  ],
+  languages: [
+    { slug: 'en', nameEn: 'English', nameVi: 'Tiếng Anh' },
+    { slug: 'vi', nameEn: 'Vietnamese', nameVi: 'Tiếng Việt' },
+    { slug: 'mixed', nameEn: 'Mixed', nameVi: 'Đa ngôn ngữ' },
+  ],
+};
+
+function parseTaxonomy(raw: unknown): EventTaxonomy | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const container =
+    'value' in (raw as Record<string, unknown>)
+      ? (raw as { value: unknown }).value
+      : raw;
+  if (!container || typeof container !== 'object') return null;
+  const c = container as { categories?: unknown; languages?: unknown };
+  const parseList = (v: unknown): EventTaxonomyEntry[] | null => {
+    if (!Array.isArray(v)) return null;
+    const out: EventTaxonomyEntry[] = [];
+    for (const item of v) {
+      if (!item || typeof item !== 'object') return null;
+      const i = item as Record<string, unknown>;
+      if (typeof i.slug !== 'string' || typeof i.nameEn !== 'string' || typeof i.nameVi !== 'string') {
+        return null;
+      }
+      out.push({ slug: i.slug, nameEn: i.nameEn, nameVi: i.nameVi });
+    }
+    return out.length > 0 ? out : null;
+  };
+  const categories = parseList(c.categories);
+  const languages = parseList(c.languages);
+  if (!categories && !languages) return null;
+  return {
+    categories: categories ?? DEFAULT_EVENT_TAXONOMY.categories,
+    languages: languages ?? DEFAULT_EVENT_TAXONOMY.languages,
+  };
+}
+
+export async function getEventTaxonomy(): Promise<EventTaxonomy> {
+  try {
+    const res = await dbQuery<{ value_json: unknown }>(
+      `SELECT value_json FROM platform_settings WHERE key = $1`,
+      ['event_taxonomy']
+    );
+    const parsed = parseTaxonomy(res.rows[0]?.value_json);
+    if (parsed) return parsed;
+  } catch {
+    // fall through to defaults — filters must never fail on config lookup
+  }
+  return {
+    categories: [...DEFAULT_EVENT_TAXONOMY.categories],
+    languages: [...DEFAULT_EVENT_TAXONOMY.languages],
+  };
+}
+
 export async function getPlatformFeeConfig(tx?: DbClient): Promise<PlatformFeeConfig> {
   try {
     const exec = tx

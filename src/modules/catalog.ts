@@ -1252,54 +1252,226 @@ export async function getDestinationLocalPartners(
   }
 }
 
-export async function getCommunityAndMarketplaceData() {
-  const [eventsRes, marketRes, statsRes] = await Promise.all([
-    dbQuery('SELECT * FROM nomad_events ORDER BY event_date ASC'),
-    dbQuery('SELECT * FROM marketplace_items ORDER BY category ASC'),
-    dbQuery<{ members: string; stays: string; rooms: string; destinations: string }>(
-      `SELECT
-         (SELECT COUNT(*) FROM users) AS members,
-         (SELECT COUNT(*) FROM stays WHERE status = 'live') AS stays,
-         (SELECT COALESCE(SUM(units_total), 0) FROM stay_rooms) AS rooms,
-         (SELECT COUNT(*) FROM destinations) AS destinations`
-    ),
-  ]);
+// ---------------------------------------------------------------------------
+// Community events (public read side). Public rows never expose organizer
+// contact or submitter metadata — the mapper picks an explicit safe column
+// set. "Upcoming" always means status='published' with a known start time.
+// ---------------------------------------------------------------------------
 
+export interface CommunityEvent {
+  id: string;
+  slug: string;
+  cityEn: string;
+  cityVi: string;
+  titleEn: string;
+  titleVi: string;
+  venueEn: string;
+  venueVi: string;
+  imageUrl: string | null;
+  eventDate: string;
+  startAt: string | null;
+  endAt: string | null;
+  status: string;
+  category: string | null;
+  language: string | null;
+  priceType: string;
+  priceAmount: number | null;
+  priceCurrency: string;
+  organizerName: string | null;
+  source: string;
+  sourceUrl: string | null;
+  sourceNote: string | null;
+  registrationMode: string;
+  spotsTotal: number | null;
+  spotsTaken: number;
+  destinationId: string | null;
+  destinationSlug: string | null;
+  destinationNameEn: string | null;
+  destinationNameVi: string | null;
+  descriptionEn: string | null;
+  descriptionVi: string | null;
+  programEn: string | null;
+  programVi: string | null;
+  conditionsEn: string | null;
+  conditionsVi: string | null;
+  mapsUrl: string | null;
+  rsvpCount: number;
+  publishedAt: string | null;
+  updatedAt: string | null;
+}
+
+function mapEventRow(e: Record<string, unknown>): CommunityEvent {
+  const str = (v: unknown): string => (v == null ? '' : String(v));
+  const strOrNull = (v: unknown): string | null => (v == null ? null : String(v));
   return {
-    events: eventsRes.rows.map((e) => ({
-      id: String(e.id),
-      slug: String(e.slug),
-      cityEn: String(e.city_en),
-      cityVi: String(e.city_vi),
-      titleEn: String(e.title_en),
-      titleVi: String(e.title_vi),
-      eventDate: String(e.event_date),
-      venueEn: String(e.venue_en),
-      venueVi: String(e.venue_vi),
-      spotsTotal: toNum(e.spots_total),
-      spotsTaken: toNum(e.spots_taken),
-      imageUrl: String(e.image_url),
-    })),
-    marketplaceItems: marketRes.rows.map((m) => ({
-      id: String(m.id),
-      category: String(m.category),
-      titleEn: String(m.title_en),
-      titleVi: String(m.title_vi),
-      partnerName: String(m.partner_name),
-      summaryEn: String(m.summary_en),
-      summaryVi: String(m.summary_vi),
-      priceLabel: String(m.price_label),
-      memberPerkEn: String(m.member_perk_en),
-      memberPerkVi: String(m.member_perk_vi),
-      ctaUrl: String(m.cta_url),
-    })),
-    stats: {
-      members: toNum(statsRes.rows[0]?.members, 5) + 1480,
-      liveStays: toNum(statsRes.rows[0]?.stays, 7),
-      totalUnits: toNum(statsRes.rows[0]?.rooms, 18),
-      destinations: toNum(statsRes.rows[0]?.destinations, 6),
-    },
+    id: str(e.id),
+    slug: str(e.slug),
+    cityEn: str(e.city_en),
+    cityVi: str(e.city_vi),
+    titleEn: str(e.title_en),
+    titleVi: str(e.title_vi),
+    venueEn: str(e.venue_en),
+    venueVi: str(e.venue_vi),
+    imageUrl: strOrNull(e.image_url),
+    eventDate: str(e.event_date),
+    startAt: strOrNull(e.start_at),
+    endAt: strOrNull(e.end_at),
+    status: str(e.status || 'published'),
+    category: strOrNull(e.category),
+    language: strOrNull(e.language),
+    priceType: str(e.price_type || 'free'),
+    priceAmount: e.price_amount == null ? null : toNum(e.price_amount),
+    priceCurrency: str(e.price_currency || 'USD'),
+    organizerName: strOrNull(e.organizer_name),
+    source: str(e.source || 'internal'),
+    sourceUrl: strOrNull(e.source_url),
+    sourceNote: strOrNull(e.source_note),
+    registrationMode: str(e.registration_mode || 'internal'),
+    spotsTotal: e.spots_total == null ? null : toNum(e.spots_total),
+    spotsTaken: toNum(e.spots_taken, 0),
+    destinationId: strOrNull(e.destination_id),
+    destinationSlug: strOrNull(e.destination_slug),
+    destinationNameEn: strOrNull(e.destination_name_en),
+    destinationNameVi: strOrNull(e.destination_name_vi),
+    descriptionEn: strOrNull(e.description_en),
+    descriptionVi: strOrNull(e.description_vi),
+    programEn: strOrNull(e.program_en),
+    programVi: strOrNull(e.program_vi),
+    conditionsEn: strOrNull(e.conditions_en),
+    conditionsVi: strOrNull(e.conditions_vi),
+    mapsUrl: strOrNull(e.maps_url),
+    rsvpCount: toNum(e.rsvp_count, 0),
+    publishedAt: strOrNull(e.published_at),
+    updatedAt: strOrNull(e.updated_at),
   };
+}
+
+const EVENT_SELECT = `
+  SELECT e.*,
+    d.slug AS destination_slug,
+    d.name_en AS destination_name_en,
+    d.name_vi AS destination_name_vi,
+    (SELECT COUNT(*) FROM event_rsvps r WHERE r.event_id = e.id) AS rsvp_count
+  FROM nomad_events e
+  LEFT JOIN destinations d ON d.id = e.destination_id
+`;
+
+export interface CommunityEventFilters {
+  destinationId?: string;
+  /** 'today' | 'weekend' | 'upcoming' (VN calendar for today/weekend). */
+  when?: string;
+  price?: string;
+  language?: string;
+  category?: string;
+}
+
+/** VN-midnight Date for `iso` (YYYY-MM-DD) plus whole days. */
+function vnMidnight(iso: string, addDays = 0): Date {
+  const base = new Date(`${iso}T00:00:00+07:00`);
+  return new Date(base.getTime() + addDays * 86_400_000);
+}
+
+function whenBounds(when?: string): { from?: Date; to?: Date } {
+  if (when === 'today') {
+    const today = vnMidnight(getTodayIsoVietnam());
+    return { from: today, to: vnMidnight(getTodayIsoVietnam(), 1) };
+  }
+  if (when === 'weekend') {
+    const today = vnMidnight(getTodayIsoVietnam());
+    const day = today.getDay(); // 0 Sun … 6 Sat, in VN wall time
+    const satOffset = day === 6 ? 0 : day === 0 ? -1 : 6 - day;
+    const sat = vnMidnight(getTodayIsoVietnam(), satOffset);
+    return { from: sat, to: new Date(sat.getTime() + 2 * 86_400_000) };
+  }
+  return { from: new Date() };
+}
+
+/** Published upcoming events for the Community listing, with safe filters. */
+export async function listPublishedEvents(
+  filters: CommunityEventFilters = {},
+  limit = 60
+): Promise<CommunityEvent[]> {
+  const clauses: string[] = [`e.status = 'published'`, 'e.start_at IS NOT NULL'];
+  const params: unknown[] = [];
+  const add = (sql: string, value: unknown) => {
+    params.push(value);
+    clauses.push(sql.replace('?', `$${params.length}`));
+  };
+
+  if (filters.destinationId) add('e.destination_id = ?', filters.destinationId);
+  if (filters.category) add('e.category = ?', filters.category);
+  if (filters.language) add('e.language = ?', filters.language);
+  if (filters.price === 'free') clauses.push(`e.price_type = 'free'`);
+  if (filters.price === 'paid') clauses.push(`e.price_type = 'paid'`);
+
+  const { from, to } = whenBounds(filters.when);
+  if (from) add('e.start_at >= ?', from);
+  if (to) add('e.start_at < ?', to);
+
+  params.push(limit);
+  const res = await dbQuery<Record<string, unknown>>(
+    `${EVENT_SELECT} WHERE ${clauses.join(' AND ')}
+     ORDER BY e.start_at ASC LIMIT $${params.length}`,
+    params
+  );
+  return res.rows.map(mapEventRow);
+}
+
+/** Single event for the detail page; only publicly visible statuses. */
+export async function getCommunityEventBySlug(
+  slug: string
+): Promise<CommunityEvent | null> {
+  const res = await dbQuery<Record<string, unknown>>(
+    `${EVENT_SELECT}
+     WHERE e.slug = $1
+       AND e.status IN ('published', 'ended', 'cancelled', 'postponed')
+     LIMIT 1`,
+    [slug]
+  );
+  const row = res.rows[0];
+  return row ? mapEventRow(row) : null;
+}
+
+/** Related events: same destination first, then same category (upcoming). */
+export async function getRelatedCommunityEvents(
+  event: CommunityEvent,
+  limit = 3
+): Promise<CommunityEvent[]> {
+  const res = await dbQuery<Record<string, unknown>>(
+    `${EVENT_SELECT}
+     WHERE e.status = 'published'
+       AND e.start_at IS NOT NULL
+       AND e.start_at >= NOW()
+       AND e.id <> $1
+       AND (
+         ($2::uuid IS NOT NULL AND e.destination_id = $2::uuid)
+         OR (e.category IS NOT NULL AND e.category = $3)
+       )
+     ORDER BY (e.destination_id = $2::uuid) DESC, e.start_at ASC
+     LIMIT $4`,
+    [event.id, event.destinationId, event.category, limit]
+  );
+  return res.rows.map(mapEventRow);
+}
+
+/** Upcoming published events for a destination (destination page section). */
+export async function getUpcomingEventsForDestination(
+  destinationId: string,
+  limit = 4,
+  excludeEventId?: string
+): Promise<CommunityEvent[]> {
+  const res = await dbQuery<Record<string, unknown>>(
+    `${EVENT_SELECT}
+     WHERE e.status = 'published'
+       AND e.start_at IS NOT NULL
+       AND e.start_at >= NOW()
+       AND e.destination_id = $1
+       AND ($2::uuid IS NULL OR e.id <> $2::uuid)
+     ORDER BY e.start_at ASC
+     LIMIT $3`,
+    [destinationId, excludeEventId ?? null, limit]
+  );
+  return res.rows.map(mapEventRow);
 }
 
 export function formatPropertyTypeLabel(type: string, locale: Locale): string {

@@ -48,6 +48,33 @@ marketplace (Airbnb / Booking.com), never an AI-generated SaaS landing page:
   display is amount-only. Admin config screens may show the raw rate because
   they ARE the rate editor.
 
+## Community & events (2026-11-28)
+
+- `/community` is an event discovery page, not a promo page: title
+  ("Cộng đồng"), filter bar (city / when / price / language / category —
+  all read from `platform_settings.event_taxonomy` + destinations, never
+  hardcoded), upcoming events, category chips, city tiles, submit link.
+  No Visa block, no marketplace/services block, no filler sections.
+- **Event Card** is image-first and StayCard-aligned: `aspect-[4/3]
+  rounded-2xl` photo, date/time line formatted with `formatEventDateTimeLabel`,
+  title, venue · city, price, attendance **only for internal registrations
+  with a real RSVP count**. No border box, no nested cards, no badges/pills,
+  no big CTA — the whole card links to `/community/[slug]` (keyboard
+  accessible). Never illustrate an event with a stay photo.
+- **Event detail** is an open layout (hero image, facts as a definition
+  list, prose content) — information groups are not boxed into cards.
+  Registration split is strict: internal events reuse the RSVP API (login,
+  duplicate, capacity, cancel); external events show a plain link to the
+  organizer's official page, never a VietNomad login wall or a VietNomad
+  attendance count. Ended/cancelled events disappear from lists; the detail
+  page stays with a status label.
+- **Honesty:** no fabricated attendance, capacity, organizer, or visa rules.
+  Attendance = `COUNT(event_rsvps)`; NULL capacity = no published limit;
+  per-nationality visa rules are not published — link official sources
+  (`/guides/visa`) instead. Public submission form lands in `pending` and
+  publishes only through Admin BOS review (`event_moderation_log` keeps the
+  trail).
+
 ## Brand & visual
 
 - Keep the existing identity: colors (`#164E3F` brand green, `#17221E` ink,

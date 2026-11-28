@@ -56,6 +56,12 @@ listing detail, booking widget, Local Discovery), read
    privacy and honest-default rules: `docs/UI_PRINCIPLES.md` §Local Discovery
    + `docs/local-discovery-plan.md`. One shared `places` table only — no
    parallel place stores, no host edits to verified place data.
+8. **Community events** — image-first Event Card linking to
+   `/community/[slug]`, filters/categories from `platform_settings.
+   event_taxonomy` (never hardcoded), internal RSVP vs external link
+   registration kept strictly separate, attendance/capacity/visa facts only
+   when real data exists. Admin review trail lives in `event_moderation_log`.
+   Rules: `docs/UI_PRINCIPLES.md` §Community & events.
 
 ## 3. Engineering & Architecture Guardrails
 

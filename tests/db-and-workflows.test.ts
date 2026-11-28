@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { SessionUser } from '@/lib/auth/session';
 import { closeDb, dbQuery, ensureDbReady } from '@/lib/db';
 import { parseIcalBlockedDates } from '@/lib/ical';
-import { getCommunityAndMarketplaceData, getStayDetailBySlug, searchStays } from '@/modules/catalog';
+import { getStayDetailBySlug, searchStays } from '@/modules/catalog';
 import {
   cancelBookingByMember,
   confirmBookingFeePayment,
@@ -59,9 +59,13 @@ afterAll(async () => {
 
 describe('VietNomad Stays PRD End-to-End PostgreSQL Workflows', () => {
   it('loads seeded Vietnam destinations, stays with verification media, and live stats', async () => {
-    const stats = await getCommunityAndMarketplaceData();
-    expect(stats.stats.liveStays).toBeGreaterThanOrEqual(7);
-    expect(stats.stats.destinations).toBe(6);
+    const statsRes = await dbQuery<{ stays: string; destinations: string }>(
+      `SELECT
+         (SELECT COUNT(*) FROM stays WHERE status = 'live') AS stays,
+         (SELECT COUNT(*) FROM destinations) AS destinations`
+    );
+    expect(Number(statsRes.rows[0]!.stays)).toBeGreaterThanOrEqual(7);
+    expect(Number(statsRes.rows[0]!.destinations)).toBe(6);
 
     const daNangStays = await searchStays({ destination: 'da-nang', nights: 30, minWifiMbps: 150 });
     expect(daNangStays.length).toBeGreaterThanOrEqual(2);
