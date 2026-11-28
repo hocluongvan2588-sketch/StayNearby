@@ -9,9 +9,8 @@ import {
 } from '@/modules/catalog';
 import { getPublishedCmsContents } from '@/modules/cms';
 import { HomeSearchBar } from '@/components/HomeSearchBar';
-import { PaginatedStayGrid } from '@/components/PaginatedStayGrid';
 import { SectionHeader } from '@/components/SectionHeader';
-import { StayCard } from '@/components/StayCard';
+import { StayRow } from '@/components/StayRow';
 
 export const dynamic = 'force-dynamic';
 
@@ -146,7 +145,7 @@ export default async function HomePage() {
           linkHref="/stays"
           linkLabel={isVi ? 'Xem tất cả chỗ ở' : 'Browse all stays'}
         />
-        <PaginatedStayGrid
+        <StayRow
           stays={stays}
           savedIds={Array.from(savedIds)}
           isAuthenticated={Boolean(user)}
@@ -161,16 +160,11 @@ export default async function HomePage() {
             linkHref="/deals"
             linkLabel={isVi ? 'Xem tất cả ưu đãi' : 'See all deals'}
           />
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {dealsStays.map((s) => (
-              <StayCard
-                key={s.id}
-                stay={s}
-                initialSaved={savedIds.has(s.id)}
-                isAuthenticated={Boolean(user)}
-              />
-            ))}
-          </div>
+          <StayRow
+            stays={dealsStays}
+            savedIds={Array.from(savedIds)}
+            isAuthenticated={Boolean(user)}
+          />
         </section>
       )}
 
