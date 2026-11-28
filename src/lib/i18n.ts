@@ -96,17 +96,9 @@ export function formatPropertyTypeLabel(type: string, locale: Locale): string {
   return map[type]?.[locale] ?? type;
 }
 
-export function formatBookingStatusLabel(
-  status: string,
-  locale: Locale,
-  feeRatePct?: number
-): string {
-  const pct = typeof feeRatePct === 'number' ? Math.round(feeRatePct) : null;
+export function formatBookingStatusLabel(status: string, locale: Locale): string {
   const map: Record<string, { en: string; vi: string }> = {
-    PENDING_PAYMENT: {
-      en: pct !== null ? `Awaiting ${pct}% fee` : 'Awaiting online fee',
-      vi: pct !== null ? `Chờ thanh toán ${pct}%` : 'Chờ thanh toán phí',
-    },
+    PENDING_PAYMENT: { en: 'Awaiting online fee', vi: 'Chờ thanh toán phí' },
     PENDING_HOST_APPROVAL: { en: 'Pending host approval', vi: 'Chờ chủ nhà duyệt' },
     RESERVED_LOCKED: { en: 'Confirmed', vi: 'Đã xác nhận' },
     confirmed: { en: 'Confirmed', vi: 'Đã xác nhận' },

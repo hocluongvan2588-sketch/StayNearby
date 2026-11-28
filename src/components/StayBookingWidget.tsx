@@ -65,7 +65,7 @@ export function StayBookingWidget({
   user: SessionUser | null;
   conciergeWhatsapp?: string;
 }) {
-  const { locale, platformConfig, serviceFeePct, premiumRewardPct, formatMoney } =
+  const { locale, platformConfig, premiumRewardPct, formatMoney } =
     usePreferences();
   const isVi = locale === 'vi';
 
@@ -609,9 +609,7 @@ export function StayBookingWidget({
 
         <div className="flex items-center justify-between text-[#53635D]">
           <span>
-            {isVi
-              ? `Phí dịch vụ VietNomad (${serviceFeePct}%)`
-              : `VietNomad service fee (${serviceFeePct}%)`}
+            {isVi ? 'Phí dịch vụ VietNomad' : 'VietNomad service fee'}
           </span>
           <span className="text-[#17221E]">{formatMoney(quote.serviceFeeVnd)}</span>
         </div>

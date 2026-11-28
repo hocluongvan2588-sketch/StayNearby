@@ -633,7 +633,7 @@ export async function createStayBooking(user: SessionUser, input: CreateBookingI
           ? instantApproved
             ? `Instant booking created and locked (${input.nights} nights).`
             : `Booking request submitted awaiting host approval (${input.nights} nights).`
-          : `Reservation initialized awaiting ${Math.round(platformConfig.serviceFeeRate * 100)}% online fee (${input.nights} nights).`,
+          : `Reservation initialized awaiting online fee (${input.nights} nights).`,
     });
 
     if (checkoutMode === 'instant') {

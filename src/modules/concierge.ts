@@ -102,7 +102,6 @@ export async function runAiStayConcierge(params: {
         : top[0].titleEn
       : 'Vietnam long-stay apartments & villas',
     nights,
-    serviceFeePct: Math.round(feeConfig.serviceFeeRate * 100),
     locale: params.locale,
   });
 

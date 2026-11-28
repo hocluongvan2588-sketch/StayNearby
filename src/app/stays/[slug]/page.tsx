@@ -13,7 +13,6 @@ import {
 } from '@/lib/i18n';
 import { getServerPreferences } from '@/lib/preferences';
 import { getStayDetailBySlug } from '@/modules/catalog';
-import { getPlatformFeeConfig } from '@/modules/platform-settings';
 import { StayAmenitiesSection } from '@/components/StayAmenitiesSection';
 import { StayBookingWidget } from '@/components/StayBookingWidget';
 import { StayDescriptionToggle } from '@/components/StayDescriptionToggle';
@@ -33,11 +32,10 @@ export default async function StayDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [stay, prefs, user, feeConfig] = await Promise.all([
+  const [stay, prefs, user] = await Promise.all([
     getStayDetailBySlug(slug),
     getServerPreferences(),
     getCurrentUser(),
-    getPlatformFeeConfig(),
   ]);
 
   if (!stay) notFound();
@@ -52,7 +50,6 @@ export default async function StayDetailPage({
   }
 
   const isVi = prefs.locale === 'vi';
-  const serviceFeePct = Math.round(feeConfig.serviceFeeRate * 100);
   const title = isVi ? stay.titleVi : stay.titleEn;
   const destinationName = isVi ? stay.destinationNameVi : stay.destinationNameEn;
   const neighborhoodName = isVi ? stay.neighborhoodVi : stay.neighborhoodEn;
@@ -349,7 +346,6 @@ export default async function StayDetailPage({
             checkoutBefore={stay.checkoutBefore}
             defaultMinNights={stay.defaultMinNights}
             cancellationPolicy={stay.cancellationPolicy}
-            serviceFeePct={serviceFeePct}
             houseRules={stay.houseRules}
             rooms={stay.rooms}
             initialReviews={stay.reviews}

@@ -30,7 +30,7 @@ Use these standard terms across all UI copy, transactional messages, and i18n di
 
 | Concept | Preferred UI Term (EN) | Preferred UI Term (VI) | Usage Rules |
 | --- | --- | --- | --- |
-| **Service Fee** | Service fee | Phí dịch vụ | The online booking fee paid to VietNomad (dynamically from `service_fee_rate`, e.g., 12%) to lock dates. Always clarify it is separate from rent paid at check-in. |
+| **Service Fee** | Service fee | Phí dịch vụ | The online booking fee paid to VietNomad (rate from `service_fee_rate`, used only for pricing math) to lock dates. Never render the rate as a percentage in UI — show absolute amounts only. Always clarify it is separate from rent paid at check-in. |
 | **Total Price** | Total price | Tổng chi phí | Combined total for the stay (stay rent + service fee - discounts/credits). |
 | **Payment** | Payment | Thanh toán | Gateway payment action or transaction record (VietQR / Stripe). |
 | **Refund** | Refund | Hoàn tiền | Money returned to the guest under cancellation policy or verified admin review. |
@@ -41,7 +41,7 @@ Use these standard terms across all UI copy, transactional messages, and i18n di
 
 ## 4. Terms Deprecated in Guest/Host UI
 
-- **BookingFlow:** Internal model name. Replace with clear explanations: *"Pay 12% today to reserve, and pay your host at check-in."*
+- **BookingFlow:** Internal model name. Replace with clear explanations: *"Pay the service fee online today to reserve, and pay your host at check-in."*
 - **StayDirect:** Retired legacy model. Never reference it anywhere.
 - **Digital Nomad / Workation:** Avoid over-targeting. VietNomad serves all weekly and monthly travelers.
 - **Work-Ready:** Use strictly for the optional database badge (`isWorkReady` / `Work-Ready badge` filter) — never as a requirement or primary brand slogan.

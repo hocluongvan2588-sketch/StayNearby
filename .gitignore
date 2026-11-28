@@ -9,3 +9,6 @@ coverage/
 *.tsbuildinfo
 next-env.d.ts
 /tmp/
+
+# dev-time screenshot output
+artifacts/
