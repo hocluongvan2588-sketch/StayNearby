@@ -80,11 +80,14 @@ refund-cancel. Decline-at-approval cancels before requests exist (no-op).
 Every meaningful transition calls `notifyServiceEvent` → subject/payload →
 `maybeSendResendEmail` + `booking_notifications` insert (`recipient_role`
 guest/host) — this feeds the existing Host Console bell and member
-notifications. Reminders: hourly cron (`vercel.json` → `/api/cron/extras-reminders`,
-`CRON_SECRET` bearer like `ical-sync`) sends one "upcoming" reminder when the
-desired date enters the 7-day window and one "final" reminder inside 24h,
-guarded by `reminder_upcoming_sent` / `reminder_final_sent` so nothing repeats;
-`cancelled/declined/completed` rows are excluded by the SQL itself.
+notifications. Reminders: **daily** cron at 02:15 (`vercel.json` →
+`/api/cron/extras-reminders`, `CRON_SECRET` bearer like `ical-sync` — Vercel
+Hobby plans allow daily crons only, so keep every schedule `m h * * *`).
+Each run sends one "upcoming" reminder for requests whose desired date has
+entered the 7-day window and one "final" reminder inside 24h, guarded by
+`reminder_upcoming_sent` / `reminder_final_sent` so nothing repeats or is
+missed between runs; `cancelled/declined/completed` rows are excluded by the
+SQL itself.
 
 ## UI map
 
