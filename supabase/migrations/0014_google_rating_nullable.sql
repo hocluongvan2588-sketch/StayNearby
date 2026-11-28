@@ -1,4 +1,4 @@
--- 0014 (PENDING — move into supabase/migrations/ only after approval) — Google rating: remove fabricated defaults (Local Discovery Phase 1, task 2)
+-- 0014 — Google rating: remove fabricated defaults (Local Discovery Phase 1, task 2): remove fabricated defaults (Local Discovery Phase 1, task 2)
 --
 -- PROBLEM: `stays.google_rating` / `google_review_count` were created with
 -- NOT NULL DEFAULT 4.8 / 36 (0001_initial.sql:96-97). Any INSERT that omits
@@ -21,7 +21,6 @@ ALTER TABLE stays ALTER COLUMN google_review_count DROP NOT NULL;
 -- (e.g. 4.8/97, 4.9/51) are preserved — their origin is the demo seed.
 UPDATE stays
    SET google_rating = NULL,
-       google_review_count = NULL,
-       updated_at = NOW()
+       google_review_count = NULL
  WHERE google_rating = 4.8
    AND google_review_count = 36;
