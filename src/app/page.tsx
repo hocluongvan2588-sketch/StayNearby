@@ -95,7 +95,7 @@ export default async function HomePage() {
     ? [
         {
           q: `Cách thức thanh toán 2 bước (${serviceFeePct}% online) hoạt động như thế nào?`,
-          a: `Khi đặt phòng trên VietNomad Stays, bạn thanh toán ${serviceFeePct}% phí dịch vụ online để xác nhận giữ phòng và nhận địa chỉ chính xác. Toàn bộ tiền thuê nhà còn lại bạn trả trực tiếp cho chủ nhà khi nhận phòng (${hostCommissionPct}% hoa hồng chủ nhà).`,
+          a: `Khi đặt phòng trên VietNomad Stays, bạn thanh toán ${serviceFeePct}% phí dịch vụ online để xác nhận giữ phòng và nhận địa chỉ chính xác — đây là phí dịch vụ của nền tảng, không phải tiền đặt cọc và không được khấu trừ vào tiền thuê. Toàn bộ tiền thuê nhà còn lại bạn trả trực tiếp cho chủ nhà khi nhận phòng (${hostCommissionPct}% hoa hồng chủ nhà).`,
         },
         {
           q: 'Chỗ ở trên VietNomad phù hợp với những đối tượng khách nào?',
@@ -113,7 +113,7 @@ export default async function HomePage() {
     : [
         {
           q: `How does the ${serviceFeePct}% online booking fee work?`,
-          a: `You pay the ${serviceFeePct}% service fee online to confirm your reservation and unlock the exact property address. You pay the stay rent directly to your host at check-in (${hostCommissionPct}% host commission).`,
+          a: `You pay the ${serviceFeePct}% service fee online to confirm your reservation and unlock the exact property address — this is VietNomad's service fee, not a deposit, and it is not deducted from the rent. You pay the stay rent directly to your host at check-in (${hostCommissionPct}% host commission).`,
         },
         {
           q: 'Who are VietNomad Stays designed for?',
@@ -162,8 +162,8 @@ export default async function HomePage() {
                   ? heroBanner.bodyVi
                   : heroBanner.bodyEn
                 : isVi
-                  ? `Căn hộ, biệt thự và chỗ ở chọn lọc theo tuần hoặc tháng. Trả ${serviceFeePct}% phí giữ chỗ online, thanh toán tiền thuê trực tiếp cho chủ nhà khi nhận phòng.`
-                  : `Curated apartments, villas, and local stays by the week or month. Pay the ${serviceFeePct}% reservation fee online, and settle rent directly with your host at check-in.`}
+                  ? 'Tìm không gian sống lý tưởng tại Việt Nam, từ những kỳ lưu trú theo tuần đến những tháng ngày khám phá và làm việc tại một điểm đến mới.'
+                  : 'Find your ideal place to live in Vietnam — from week-long stays to months of exploring and working from a new destination.'}
             </p>
           </div>
 
@@ -196,8 +196,8 @@ export default async function HomePage() {
               <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-[#E6B87A]" />
               <span>
                 {isVi
-                  ? `Chỉ trả ${serviceFeePct}% phí online để giữ chỗ, trả tiền thuê khi nhận phòng`
-                  : `Pay ${serviceFeePct}% online to reserve, pay rent at check-in`}
+                  ? 'Minh bạch chi phí từ đầu — thấy rõ tổng tiền trước khi xác nhận'
+                  : 'Transparent pricing — see the full cost before you confirm'}
               </span>
             </div>
             <div className="flex items-start gap-3 text-sm text-[#E7F1EC]">
@@ -239,8 +239,8 @@ export default async function HomePage() {
             </h2>
             <p className="mt-1.5 text-sm text-[#53635D]">
               {isVi
-                ? `Hiển thị sẵn giá trọn gói, phí giữ chỗ ${serviceFeePct}% và phần trả chủ nhà khi nhận phòng.`
-                : `Upfront 1-week and 1-month totals with transparent ${serviceFeePct}% reservation fee vs. check-in rent.`}
+                ? 'Hiển thị sẵn giá trọn gói theo tuần và tháng, rõ ràng ngay từ đầu.'
+                : 'Upfront weekly and monthly totals — clear from the very first look.'}
             </p>
           </div>
           <Link
@@ -479,8 +479,8 @@ export default async function HomePage() {
                 [
                   isVi ? 'Thanh toán' : 'Payment split',
                   isVi
-                    ? `Chỉ trả ${serviceFeePct}% phí giữ chỗ online, tiền thuê trả trực tiếp cho chủ nhà khi nhận phòng.`
-                    : `Pay the ${serviceFeePct}% fee online to reserve, then pay rent directly at check-in.`,
+                    ? 'Giữ chỗ online, phần tiền thuê thanh toán trực tiếp cho chủ nhà khi nhận phòng.'
+                    : `Reserve online, then settle rent directly with your host at check-in.`,
                   isVi
                     ? 'Thường yêu cầu thanh toán 100% trước nhiều tuần.'
                     : 'Pay 100% upfront weeks before arrival.',
@@ -602,8 +602,8 @@ export default async function HomePage() {
             </h3>
             <p className="text-sm leading-relaxed text-[#DCECE5]">
               {isVi
-                ? `Khách trả ${serviceFeePct}% phí online để xác nhận giữ phòng, phần tiền thuê thu trực tiếp khi nhận phòng. Hỗ trợ đồng bộ lịch iCal.`
-                : `Guests pay the ${serviceFeePct}% service fee online to reserve, then pay rent directly at check-in. Sync calendars easily with iCal.`}
+                ? 'Khách thanh toán online để giữ phòng, bạn nhận toàn bộ tiền thuê khi nhận phòng. Hỗ trợ đồng bộ lịch iCal.'
+                : 'Guests reserve online; you collect the full rent at check-in. Sync calendars easily with iCal.'}
             </p>
           </div>
           <Link

@@ -15,7 +15,7 @@ export function ListYourStayClient({
   user: SessionUser | null;
   destinations: DestinationSummary[];
 }) {
-  const { locale, serviceFeePct, hostCommissionPct } = usePreferences();
+  const { locale, hostCommissionPct } = usePreferences();
   const isVi = locale === 'vi';
 
   const [businessName, setBusinessName] = useState('');
@@ -109,8 +109,8 @@ export function ListYourStayClient({
             </div>
             <p className="mt-1 text-xs text-[#CDE0D9]">
               {isVi
-                ? `Khách trả ${serviceFeePct}% phí dịch vụ online để xác nhận đặt phòng, và thanh toán toàn bộ tiền thuê trực tiếp cho bạn khi nhận phòng. Hỗ trợ đồng bộ lịch iCal với Airbnb và Booking.com.`
-                : `Guests pay the ${serviceFeePct}% service fee online to confirm, then pay rent directly to you at check-in. Supports 2-way iCal sync with Airbnb and Booking.com.`}
+                ? 'Khách thanh toán online để xác nhận đặt phòng, và thanh toán toàn bộ tiền thuê trực tiếp cho bạn khi nhận phòng. Hỗ trợ đồng bộ lịch iCal với Airbnb và Booking.com.'
+                : 'Guests confirm their booking online and pay the full rent directly to you at check-in. Supports 2-way iCal sync with Airbnb and Booking.com.'}
             </p>
           </div>
           <div className="rounded-2xl bg-white/10 p-4">
