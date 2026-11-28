@@ -180,7 +180,7 @@ export default async function DestinationDetailPage({ params }: Params) {
         <img
           src={dest.heroImage}
           alt={destName}
-          className="aspect-[4/3] w-full object-cover sm:aspect-[16/9] lg:aspect-[2/1]"
+          className="aspect-[4/3] w-full object-cover sm:aspect-[16/9] lg:aspect-[2/1] lg:max-h-[440px]"
         />
       </div>
 
