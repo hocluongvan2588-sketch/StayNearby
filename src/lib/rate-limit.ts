@@ -30,6 +30,7 @@ const RULES: RateLimitRule[] = [
   { prefix: '/api/payments/checkout', windowSec: 60, max: 20 },
   { prefix: '/api/promotions/validate', windowSec: 60, max: 30 },
   { prefix: '/api/support', windowSec: 60, max: 20 },
+  { prefix: '/api/events/submissions', windowSec: 3600, max: 5 },
   { prefix: '/api/uploads', windowSec: 60, max: 30 },
   { prefix: '/api/bookings', windowSec: 60, max: 30 },
 ];

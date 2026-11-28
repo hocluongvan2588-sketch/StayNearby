@@ -12,7 +12,8 @@ import {
   formatStayLocationLabel,
 } from '@/lib/i18n';
 import { getServerPreferences } from '@/lib/preferences';
-import { getStayDetailBySlug } from '@/modules/catalog';
+import { getStayDetailBySlug, getUpcomingEventsForDestination } from '@/modules/catalog';
+import { EventCard } from '@/components/events/EventCard';
 import { StayAmenitiesSection } from '@/components/StayAmenitiesSection';
 import { StayBookingWidget } from '@/components/StayBookingWidget';
 import { StayDescriptionToggle } from '@/components/StayDescriptionToggle';
@@ -47,6 +48,24 @@ export default async function StayDetailPage({
       [user.id, stay.id]
     );
     initialSaved = Boolean(savedRes.rows[0]);
+  }
+
+  // Upcoming events at this stay's destination (Community spec §8 — area
+  // events only; no distance or availability claims).
+  let destinationEvents: Awaited<ReturnType<typeof getUpcomingEventsForDestination>> = [];
+  let destinationIdForFilter: string | null = null;
+  {
+    const destRes = await dbQuery<{ id: string }>(
+      'SELECT id FROM destinations WHERE slug = $1',
+      [stay.destinationSlug]
+    );
+    if (destRes.rows[0]) {
+      destinationIdForFilter = String(destRes.rows[0].id);
+      destinationEvents = await getUpcomingEventsForDestination(
+        destinationIdForFilter,
+        3
+      );
+    }
   }
 
   const isVi = prefs.locale === 'vi';
@@ -336,6 +355,34 @@ export default async function StayDetailPage({
             nearbyCoworking={stay.nearbyCoworking}
             locale={prefs.locale}
           />
+
+          {/* Community: upcoming events in this destination */}
+          {destinationEvents.length > 0 && (
+            <section className="py-10">
+              <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+                <h2 className="text-[22px] font-semibold tracking-tight text-[#17221E] sm:text-[24px]">
+                  {isVi
+                    ? `Sự kiện sắp tới tại ${destinationName}`
+                    : `Upcoming events in ${destinationName}`}
+                </h2>
+                <Link
+                  href={
+                    destinationIdForFilter
+                      ? `/community?destination=${destinationIdForFilter}`
+                      : '/community'
+                  }
+                  className="text-sm font-semibold text-[#164E3F] hover:underline"
+                >
+                  {isVi ? 'Xem tất cả sự kiện' : 'See all events'}
+                </Link>
+              </div>
+              <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+                {destinationEvents.map((ev) => (
+                  <EventCard key={ev.id} event={ev} locale={prefs.locale} />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Section 10 & 11: Policies, House Rules, Guest Reviews & Neighborhood Location */}
           <StayGuestReviewsSection

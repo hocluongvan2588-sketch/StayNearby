@@ -91,6 +91,12 @@ export default async function GuidesIndexPage({
         </div>
       )}
 
+      <p className="border-t border-[#E5DFD3] pt-5 text-sm text-[#53635D]">
+        <Link href="/guides/visa" className="font-semibold text-[#164E3F] hover:underline">
+          {isVi ? 'Visa Việt Nam — nguồn thông tin chính thức' : 'Vietnam visa — official sources'}
+        </Link>
+      </p>
+
       {guides.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-[#E5DFD3] bg-white p-10 text-center text-sm text-[#53635D]">
           {isVi ? 'Chưa có bài viết nào trong chuyên mục này.' : 'No guides published in this filter yet.'}

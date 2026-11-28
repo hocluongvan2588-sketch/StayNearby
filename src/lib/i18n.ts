@@ -433,7 +433,8 @@ export function formatHostDisplayName(name: string | null | undefined): string {
   return trimmed;
 }
 
-/** Compact date for source/date lines: "25/11/2026". */
+/** Compact date for source/date lines: "25/11/2026". VN wall time everywhere
+ *  (the product operates on Vietnam time regardless of server locale). */
 export function formatShortDateLabel(
   value: string | Date | null | undefined,
   locale: Locale
@@ -445,5 +446,50 @@ export function formatShortDateLabel(
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(d);
+}
+
+/**
+ * Event date with weekday and time for Community listings/details:
+ * "Thứ sáu, 04/12/2026 · 10:30" / "Fri, 04 Dec 2026 · 10:30".
+ * Returns '' for missing or unparseable values (never fabricates a date).
+ */
+export function formatEventDateTimeLabel(
+  value: string | Date | null | undefined,
+  locale: Locale
+): string {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) return '';
+  const datePart = new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-GB', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(d);
+  const timePart = new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(d);
+  return `${datePart} · ${timePart}`;
+}
+
+/** Time-only portion of an event datetime, same locale rules. */
+export function formatEventTimeLabel(
+  value: string | Date | null | undefined,
+  locale: Locale
+): string {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(String(value));
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Asia/Ho_Chi_Minh',
   }).format(d);
 }

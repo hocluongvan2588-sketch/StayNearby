@@ -445,7 +445,7 @@ export function SiteHeader({
               {isVi ? 'Cẩm nang địa phương' : 'Guides'}
             </Link>
             <Link href="/community" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 hover:bg-[#FAF8F3]">
-              {isVi ? 'Visa & Cộng đồng' : 'Visa & Community'}
+              {isVi ? 'Cộng đồng & Sự kiện' : 'Community & events'}
             </Link>
             <Link href="/membership" onClick={() => setMobileOpen(false)} className="rounded-lg px-3 py-2 text-[#A67C2E] hover:bg-[#FAF8F3]">
               {isVi ? `Thẻ hội viên (Hoàn ${premiumRewardPct}%)` : `Membership (${premiumRewardPct}% credit)`}
