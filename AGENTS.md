@@ -68,3 +68,25 @@ listing detail, booking widget, Local Discovery), read
 - Keep database schema, payment/booking flows, RBAC guards (`requireAdminPermission`), and published routes/slugs stable unless explicitly asked to modify them.
 - Keep `src/lib/i18n.ts` and shared dictionaries synchronized for reusable UI copy across `en` and `vi`.
 - Always verify changes with `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` (plus UI inspection across viewports when UI copy or layout changes).
+- Business logic lives in `src/modules/*` and `src/lib/*`; pages and components stay thin (see §4 Product Direction).
+- New or changed API routes must be client-agnostic and reusable by future mobile clients (see §4 Product Direction).
+
+## 4. Product Direction — Web first, Mobile later
+
+_Updated2026-11-28. This is the standing direction for all agents working on this repo._
+
+**Scope right now.** Finish the website and all existing business workflows. We are **not** building a mobile app (iOS/Android), a PWA, or a separate backend for an app at this stage. Do **not** refactor the whole codebase "to prepare for mobile".
+
+**Responsive.** Every guest-facing UI must work well on desktop, tablet, and mobile (containers, grids, spacing, and typography follow `docs/UI_PRINCIPLES.md`).
+
+**Separate business logic from the UI.** Business logic (booking, pricing, payments, moderation, RBAC, content rules) belongs in `src/modules/*` and `src/lib/*`. Pages and components only render data and call those modules — never embed critical business logic in React components or page files.
+
+**One API, one backend.** `src/app/api/**` routes are the stable contract. They must stay reusable: the future iOS/Android apps will call the **same** endpoints. Never write an endpoint or validation path that only the web UI can use.
+
+**Shared platform.** Database, authentication (session + `requireRole`), and authorization (`requireAdminPermission` / RBAC) are shared by every client. Do not fork auth or permission checks for a specific UI.
+
+**No critical workflow behind the web UI.** Any important flow (availability, bookings, pricing, moderation, host/admin actions) must be executable through the API on its own — not dependent on SSR, DOM, or browser-only state.
+
+**Reuse first.** Extend existing modules and services (catalog, bookings, payments, notifications, admin-bos, community) instead of building parallel systems.
+
+**Later (not scheduled).** iOS/Android apps, PWA, and any app-specific backend will consume the same API, database, authentication, and permission system defined above. When that phase starts, this section is the hand-off contract.
